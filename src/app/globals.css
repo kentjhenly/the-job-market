@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-bg: #0a0a0a;
+  --color-surface: #111111;
+  --color-border: #1a1a1a;
+  --color-green: #00ff41;
+  --color-danger: #ff3b30;
+  --color-muted: #a0a0a0;
+  --color-gold: #ffd700;
+
+  /* Fonts */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* Animations */
+  --animate-ticker: ticker 30s linear infinite;
+  --animate-pulse-green: pulse-green 2s ease-in-out infinite;
+  --animate-count-up: count-up 1.5s ease-out forwards;
+  --animate-blink: blink 1s step-end infinite;
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  @keyframes pulse-green {
+    0%, 100% { opacity: 1; box-shadow: 0 0 4px #00ff41; }
+    50% { opacity: 0.4; box-shadow: 0 0 12px #00ff41; }
+  }
+
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+}
+
+/* CSS custom properties for Recharts and inline styles */
+:root {
+  --chart-green: #00ff41;
+  --chart-danger: #ff3b30;
+  --chart-gold: #ffd700;
+  --chart-muted: #a0a0a0;
+  --chart-surface: #111111;
+  --chart-border: #1a1a1a;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #ededed;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Scrollbar styling for terminal feel */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-green);
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 65, 0.2);
+  color: var(--color-green);
+}
