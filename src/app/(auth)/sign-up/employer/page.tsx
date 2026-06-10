@@ -54,42 +54,36 @@ export default function EmployerSignUpPage() {
   }
 
   return (
-    <div className="border border-border bg-surface p-8">
+    <div className="panel p-8">
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Link href="/sign-up" className="text-muted hover:text-green font-mono text-xs">
-            ← BACK
-          </Link>
-        </div>
-        <h1 className="font-mono text-green text-lg tracking-wide">EMPLOYER REGISTRATION</h1>
-        <p className="text-muted text-xs font-mono mt-1">
-          BROWSE RANKED TALENT. PAY PER MATCH.
-        </p>
+        <Link href="/sign-up" className="link-up mono mb-1 inline-block" style={{ fontSize: 11 }}>
+          ← BACK
+        </Link>
+        <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
+          EMPLOYER REGISTRATION
+        </h1>
+        <p className="kicker mt-1">BROWSE RANKED TALENT. PAY PER MATCH.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-            COMPANY NAME
-          </label>
+          <label className="kicker mb-1.5 block">COMPANY NAME</label>
           <input
             type="text"
             value={form.companyName}
             onChange={(e) => update("companyName", e.target.value)}
             required
-            className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green transition-colors"
+            className="field"
             placeholder="Acme Corp"
           />
         </div>
 
         <div>
-          <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-            COMPANY SIZE
-          </label>
+          <label className="kicker mb-1.5 block">COMPANY SIZE</label>
           <select
             value={form.companySize}
             onChange={(e) => update("companySize", e.target.value)}
-            className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green transition-colors"
+            className="field"
           >
             <option value="">SELECT SIZE</option>
             {COMPANY_SIZES.map((s) => (
@@ -106,31 +100,30 @@ export default function EmployerSignUpPage() {
           { label: "PASSWORD", field: "password", type: "password", placeholder: "••••••••" },
         ].map(({ label, field, type, placeholder }) => (
           <div key={field}>
-            <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-              {label}
-            </label>
+            <label className="kicker mb-1.5 block">{label}</label>
             <input
               type={type}
               value={form[field as keyof typeof form]}
               onChange={(e) => update(field, e.target.value)}
               required
-              className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green transition-colors"
+              className="field"
               placeholder={placeholder}
             />
           </div>
         ))}
 
         {error && (
-          <div className="border border-danger/30 bg-danger/10 px-3 py-2">
-            <p className="text-danger text-xs font-mono">{error}</p>
+          <div
+            className="rounded px-3 py-2"
+            style={{ border: "1px solid color-mix(in oklch, var(--down) 40%, transparent)", background: "var(--down-dim)" }}
+          >
+            <p className="mono" style={{ fontSize: 12, color: "var(--down)" }}>
+              {error}
+            </p>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-green text-bg font-mono text-sm font-bold py-3 tracking-widest hover:bg-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
           {loading ? "REGISTERING..." : "CREATE EMPLOYER ACCOUNT"}
         </button>
       </form>

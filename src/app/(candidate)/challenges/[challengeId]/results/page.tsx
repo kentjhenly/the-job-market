@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/Badge";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DataRow } from "@/components/terminal/DataRow";
+import { scoreBadgeVariant } from "@/lib/utils/score";
 import { formatScore, formatPercentile, formatTimeRemaining } from "@/lib/utils/formatters";
 
 interface ResultsPageProps {
@@ -32,78 +32,57 @@ export default async function ChallengeResultsPage({
     .eq("id", challengeId)
     .single();
 
-  const scoreVariant =
-    (result?.raw_score ?? 0) >= 80
-      ? "gold"
-      : (result?.raw_score ?? 0) >= 60
-        ? "green"
-        : "danger";
-
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <p className="font-mono text-muted text-xs tracking-widest">CHALLENGE COMPLETE</p>
-        <h1 className="font-mono text-green text-xl mt-1">
+    <div className="view-enter max-w-2xl space-y-6">
+      <div>
+        <p className="kicker">CHALLENGE COMPLETE</p>
+        <h1 className="mono mt-1" style={{ fontSize: 20, fontWeight: 700, color: "var(--up)" }}>
           {challenge?.title?.toUpperCase() ?? "RESULTS"}
         </h1>
       </div>
 
-      <Card noPadding className="mb-4">
-        <CardHeader>
-          <CardTitle>SCORE BREAKDOWN</CardTitle>
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">SCORE BREAKDOWN</span>
           {result && (
-            <Badge variant={scoreVariant}>
+            <Badge variant={scoreBadgeVariant(result.raw_score ?? 0)}>
               {result.raw_score?.toFixed(0)}/{challenge?.max_score}
             </Badge>
           )}
-        </CardHeader>
-        <div className="px-4 py-2">
+        </div>
+        <div className="px-4">
           <DataRow
             label="RAW SCORE"
             value={result ? `${formatScore(result.raw_score ?? 0)} / ${challenge?.max_score}` : "—"}
-            valueColor="green"
+            color="up"
           />
           <DataRow
             label="PERCENTILE"
-            value={
-              result?.normalised_score != null
-                ? formatPercentile(result.normalised_score)
-                : "CALCULATING..."
-            }
-            valueColor="gold"
+            value={result?.normalised_score != null ? formatPercentile(result.normalised_score) : "CALCULATING..."}
+            color="gold"
           />
           <DataRow
             label="TIME TAKEN"
-            value={
-              result?.time_taken_sec != null
-                ? formatTimeRemaining(result.time_taken_sec)
-                : "—"
-            }
+            value={result?.time_taken_sec != null ? formatTimeRemaining(result.time_taken_sec) : "—"}
           />
           <DataRow label="VERTICAL" value={challenge?.vertical?.toUpperCase() ?? "—"} />
         </div>
-      </Card>
+      </div>
 
-      <div className="border border-green/20 bg-green/5 p-4 mb-6">
-        <p className="font-mono text-green text-xs tracking-widest">
+      <div className="rounded-lg p-4" style={{ border: "1px solid color-mix(in oklch, var(--up) 40%, transparent)", background: "var(--up-dim)" }}>
+        <p className="kicker" style={{ color: "var(--up)" }}>
           YOUR COMPOSITE SCORE IS BEING UPDATED
         </p>
-        <p className="font-mono text-muted text-xs mt-1">
+        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
           The recommendation algorithm will recalculate your ranking shortly.
         </p>
       </div>
 
       <div className="flex gap-3">
-        <Link
-          href="/dashboard"
-          className="font-mono text-xs text-green border border-green px-4 py-2 hover:bg-green/10 transition-colors"
-        >
+        <Link href="/dashboard" className="btn btn-primary">
           VIEW DASHBOARD
         </Link>
-        <Link
-          href="/challenges"
-          className="font-mono text-xs text-muted border border-border px-4 py-2 hover:border-green hover:text-green transition-colors"
-        >
+        <Link href="/challenges" className="btn btn-ghost">
           MORE CHALLENGES
         </Link>
       </div>

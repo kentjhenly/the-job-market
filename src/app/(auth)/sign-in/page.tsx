@@ -30,64 +30,62 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="border border-border bg-surface p-8">
+    <div className="panel p-8">
       <div className="mb-6">
-        <h1 className="font-mono text-green text-lg tracking-wide">ACCESS TERMINAL</h1>
-        <p className="text-muted text-xs font-mono mt-1">AUTHENTICATE TO CONTINUE</p>
+        <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
+          ACCESS TERMINAL
+        </h1>
+        <p className="kicker mt-1">AUTHENTICATE TO CONTINUE</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-            EMAIL
-          </label>
+          <label className="kicker mb-1.5 block">EMAIL</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green transition-colors"
+            className="field"
             placeholder="you@company.com"
           />
         </div>
 
         <div>
-          <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-            PASSWORD
-          </label>
+          <label className="kicker mb-1.5 block">PASSWORD</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green transition-colors"
+            className="field"
             placeholder="••••••••"
           />
         </div>
 
         {error && (
-          <div className="border border-danger/30 bg-danger/10 px-3 py-2">
-            <p className="text-danger text-xs font-mono">{error}</p>
+          <div
+            className="rounded px-3 py-2"
+            style={{ border: "1px solid color-mix(in oklch, var(--down) 40%, transparent)", background: "var(--down-dim)" }}
+          >
+            <p className="mono" style={{ fontSize: 12, color: "var(--down)" }}>
+              {error}
+            </p>
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-green text-bg font-mono text-sm font-bold py-3 tracking-widest hover:bg-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
           {loading ? "AUTHENTICATING..." : "SIGN IN"}
         </button>
       </form>
 
-      <div className="mt-6 pt-6 border-t border-border text-center">
-        <p className="text-muted text-xs font-mono">
-          NEW TO THE MARKET?{" "}
-          <Link href="/sign-up" className="text-green hover:underline">
-            REGISTER
-          </Link>
-        </p>
-      </div>
+      <div className="hr my-6" />
+      <p className="mono text-center" style={{ fontSize: 12, color: "var(--muted)" }}>
+        NEW TO THE MARKET?{" "}
+        <Link href="/sign-up" className="link-up">
+          REGISTER
+        </Link>
+      </p>
     </div>
   );
 }

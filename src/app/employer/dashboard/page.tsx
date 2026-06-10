@@ -1,8 +1,8 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import Link from "next/link";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DataRow } from "@/components/terminal/DataRow";
+import { StatCard } from "@/components/terminal/StatCard";
 import { formatSalary } from "@/lib/utils/formatters";
 
 export default async function EmployerDashboardPage() {
@@ -28,89 +28,107 @@ export default async function EmployerDashboardPage() {
   const acceptedCount = matches?.filter((m) => m.status === "accepted").length ?? 0;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="view-enter max-w-3xl space-y-6">
       <div>
-        <h1 className="font-mono text-green text-sm tracking-widest">
+        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           {employer?.company_name?.toUpperCase() ?? "EMPLOYER DASHBOARD"}
         </h1>
-        <p className="text-muted text-xs font-mono mt-1">MARKET OVERVIEW</p>
+        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
+          MARKET OVERVIEW
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card>
-          <CardTitle className="mb-3">CREDITS</CardTitle>
-          <div className="font-mono text-4xl font-bold text-green">
+        <StatCard
+          label="CREDITS"
+          footer={<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>PITCHES REMAINING</span>}
+        >
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--up)", lineHeight: 1 }}>
             {employer?.credits ?? 0}
-          </div>
-          <p className="text-muted text-xs font-mono mt-2">PITCHES REMAINING</p>
-        </Card>
+          </span>
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">CANDIDATES</CardTitle>
-          <div className="font-mono text-4xl font-bold text-white">
+        <StatCard
+          label="CANDIDATES"
+          footer={
+            <Link href="/employer/feed" className="link-up mono" style={{ fontSize: 11 }}>
+              VIEW FEED →
+            </Link>
+          }
+        >
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>
             {(candidates as any)?.count ?? "—"}
-          </div>
-          <Link href="/employer/feed" className="text-green text-xs font-mono mt-2 block hover:underline">
-            VIEW FEED →
-          </Link>
-        </Card>
+          </span>
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">PENDING</CardTitle>
-          <div className="font-mono text-4xl font-bold text-gold">{pendingCount}</div>
-          <p className="text-muted text-xs font-mono mt-2">AWAITING RESPONSE</p>
-        </Card>
+        <StatCard
+          label="PENDING"
+          footer={<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>AWAITING RESPONSE</span>}
+        >
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--gold)", lineHeight: 1 }}>
+            {pendingCount}
+          </span>
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">ACCEPTED</CardTitle>
-          <div className="font-mono text-4xl font-bold text-green">{acceptedCount}</div>
-          <p className="text-muted text-xs font-mono mt-2">MATCHES CLOSED</p>
-        </Card>
+        <StatCard
+          label="ACCEPTED"
+          footer={<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>MATCHES CLOSED</span>}
+        >
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--up)", lineHeight: 1 }}>
+            {acceptedCount}
+          </span>
+        </StatCard>
       </div>
 
-      <Card noPadding>
-        <CardHeader>
-          <CardTitle>COMPANY PROFILE</CardTitle>
-        </CardHeader>
-        <div className="px-4 py-2">
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">COMPANY PROFILE</span>
+        </div>
+        <div className="px-4">
           <DataRow label="COMPANY" value={employer?.company_name ?? "—"} />
           <DataRow label="SIZE" value={employer?.company_size ?? "NOT SET"} />
           <DataRow label="INDUSTRY" value={employer?.industry ?? "NOT SET"} />
-          <DataRow label="REPUTATION" value={`${employer?.reputation_score?.toFixed(0) ?? 100}/100`} valueColor="green" />
+          <DataRow label="REPUTATION" value={`${employer?.reputation_score?.toFixed(0) ?? 100}/100`} color="up" />
           <DataRow label="VERIFIED" value={employer?.verified ? "YES" : "PENDING"} />
         </div>
-      </Card>
+      </div>
 
       {matches && matches.length > 0 && (
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>RECENT PITCHES</CardTitle>
-            <Link href="/employer/matches" className="font-mono text-xs text-green hover:underline">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">RECENT PITCHES</span>
+            <Link href="/employer/matches" className="link-up mono" style={{ fontSize: 11 }}>
               VIEW ALL
             </Link>
-          </CardHeader>
-          <div className="divide-y divide-border">
-            {matches.map((m) => (
-              <div key={m.id} className="px-4 py-3 flex items-center justify-between">
-                <span className="font-mono text-xs text-muted">{new Date(m.created_at).toLocaleDateString()}</span>
-                <span className="font-mono text-xs text-white">
-                  {m.offered_salary ? formatSalary(m.offered_salary) : "SALARY NOT DISCLOSED"}
-                </span>
-                <span
-                  className={`font-mono text-xs ${
-                    m.status === "accepted"
-                      ? "text-green"
-                      : m.status === "declined" || m.status === "ghosted"
-                        ? "text-danger"
-                        : "text-gold"
-                  }`}
-                >
-                  {m.status.toUpperCase()}
-                </span>
-              </div>
-            ))}
           </div>
-        </Card>
+          <div>
+            {matches.map((m, idx) => {
+              const color =
+                m.status === "accepted"
+                  ? "var(--up)"
+                  : m.status === "declined" || m.status === "ghosted"
+                    ? "var(--down)"
+                    : "var(--gold)";
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ borderBottom: idx === matches.length - 1 ? "none" : "1px solid var(--border-soft)" }}
+                >
+                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--text)" }}>
+                    {m.offered_salary ? formatSalary(m.offered_salary) : "SALARY NOT DISCLOSED"}
+                  </span>
+                  <span className="mono" style={{ fontSize: 11, color }}>
+                    {m.status.toUpperCase()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

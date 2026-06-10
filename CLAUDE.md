@@ -1,7 +1,7 @@
 # The Job Market — CLAUDE.md
 
 ## Overview
-Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates complete **skill challenges** (no CVs). A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: Bloomberg/trading terminal aesthetic.
+Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates complete **skill challenges** (no CVs). A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
 
 **Revenue:** Transaction fees — employer pays per pitch sent; candidate pays on match accepted.
 **Launch vertical:** Tech · Singapore.
@@ -17,7 +17,7 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 | Auth | Better Auth | 1.x |
 | Email | Resend | — |
 | Analytics | PostHog | — |
-| Charts | Recharts | 3.x |
+| Charts | Custom inline SVG (`src/components/charts/`) | — |
 | Server state | TanStack Query | 5.x |
 | Deployment | Vercel | — |
 
@@ -42,22 +42,50 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - **All monetary values stored as integer cents** in the database (e.g., SGD 80,000 = `8000000`)
 - Use `formatSalary()` / `formatSalaryBand()` from `src/lib/utils/formatters.ts` for display
 
-### Tailwind v4 Config
-Color tokens live in `src/app/globals.css` under `@theme`. Use Tailwind classes:
-| Class | Hex | Use |
+### Design System (src/app/globals.css)
+Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switcher. CSS custom properties on `:root`, mapped into Tailwind v4 `@theme` (CSS-based config, no `tailwind.config.ts`).
+
+**Color tokens** (`--var` → Tailwind utility):
+| `--var` | Tailwind utility | Use |
 |---|---|---|
-| `bg-bg` | `#0A0A0A` | Page background |
-| `bg-surface` | `#111111` | Card/panel background |
-| `text-green` / `bg-green` | `#00FF41` | Primary accent, active, positive |
-| `text-danger` / `bg-danger` | `#FF3B30` | Errors, declined, negative |
-| `text-muted` | `#A0A0A0` | Secondary text, labels |
-| `text-gold` | `#FFD700` | Top-tier rank, gold signals |
-| `border-border` | `#1A1A1A` | All borders |
+| `--bg` / `--bg-deep` | `bg-bg` / `bg-bg-deep` | Page background (deep = body/html base) |
+| `--surface` / `--surface-2` / `--surface-3` | `bg-surface` / `bg-surface-2` / `bg-surface-3` | Panel backgrounds, increasing elevation |
+| `--border-soft` | `border-border` (default) | Standard panel/row borders |
+| `--border-strong` | `border-border-strong` | Emphasized borders |
+| `--border` (medium) | *no utility* — use `style={{ borderColor: 'var(--border)' }}` | Inputs, dividers needing more contrast than soft |
+| `--text` / `--text-2` | `text-text` / `text-text-2` | Primary / secondary copy |
+| `--muted` / `--dim` | `text-muted` / `text-dim` | Labels, captions, placeholders |
+| `--up` (+`-dim`) | `text-up`/`bg-up`/`bg-up-dim` (alias `text-green`/`bg-green`) | Positive, active, primary accent |
+| `--down` (+`-dim`) | `text-down`/`bg-down`/`bg-down-dim` (alias `text-danger`/`bg-danger`) | Negative, errors, declined |
+| `--gold` (+`-dim`) | `text-gold`/`bg-gold`/`bg-gold-dim` | Top-tier rank, gold signals |
+| `--info` | `text-info` | Informational accent |
+
+`-dim` variants and translucent borders use `color-mix(in oklch, var(--x) N%, transparent)`.
+
+**Utility classes** (defined in globals.css — prefer these over ad-hoc Tailwind):
+- `.mono` / `.tnum` — JetBrains Mono + tabular numerals
+- `.kicker` — uppercase mono label (10.5px, letter-spaced, `--muted`)
+- `.c-up` / `.c-down` / `.c-gold` / `.c-muted` / `.c-text` / `.c-dim` — text color shorthands
+- `.btn`, `.btn-primary`, `.btn-danger`, `.btn-ghost`, `.btn-sm`, `.btn-lg` — buttons (use `Button` component)
+- `.panel`, `.panel-head`, `.panel-title` — card/panel chrome (use raw classes; `Card`/`CardHeader`/`CardTitle` were removed)
+- `.field` — inputs, selects, textareas
+- `.badge`, `.badge-up`, `.badge-down`, `.badge-gold`, `.badge-muted` — status pills (use `Badge` component)
+- `.datarow`, `.dr-label`, `.dr-value` — `key: value` rows (use `DataRow` component, `color` prop = `up`/`down`/`gold`)
+- `.live-dot` (+ `livepulse` animation) — realtime indicator (use `LiveDot` component)
+- `.countup` (+ `countup` animation) — paired with `useCountUp` hook for number tickers
+- `.view-enter` — staggered rise-in for top-level page sections (apply once per page, max ~6 direct children)
+- `.ticker-wrap` / `.ticker-track` (+ `tickerscroll`, `--tdur` var) — horizontal marquee (`MatchTickerTape`)
+- `.slideover-panel` (+ `slideover` animation, gated by `html.anim-on` via `AnimEnabler`) — slide-in detail drawers
+- `.grid-tex` — subtle grid texture (landing hero)
+- `.link-up`, `.hr`, `.navitem`/`.active`/`.ni-dot`, `.tabbar`/`.tab`/`.active`
+- All animations respect `prefers-reduced-motion`
+
+**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `DepthBar`, `ScoreBar`. Recharts remains an installed dependency but is unused — prefer the SVG components for any new chart.
 
 ### Typography
-- `font-mono` — **JetBrains Mono** — ALL numbers, scores, salaries, data values, labels
-- `font-sans` — **Inter** — headings, body copy, marketing text
-- Monospace rule: if it's a number on screen, it must be `font-mono`
+- `font-mono` (JetBrains Mono) — ALL numbers, scores, salaries, data values, labels, kickers
+- `font-sans` (Inter) — headings, body copy, marketing text
+- Monospace rule: if it's a number on screen, it must be `font-mono` / `.mono`
 
 ---
 

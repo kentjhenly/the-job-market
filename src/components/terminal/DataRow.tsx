@@ -3,28 +3,20 @@ import { cn } from "@/lib/utils/cn";
 interface DataRowProps {
   label: string;
   value: React.ReactNode;
-  valueColor?: "green" | "gold" | "danger" | "muted" | "white";
+  color?: "up" | "down" | "gold";
   className?: string;
 }
 
-const valueColors = {
-  green: "text-green",
-  gold: "text-gold",
-  danger: "text-danger",
-  muted: "text-muted",
-  white: "text-white",
-};
+export function DataRow({ label, value, color, className }: DataRowProps) {
+  const colorVar =
+    color === "up" ? "var(--up)" : color === "down" ? "var(--down)" : color === "gold" ? "var(--gold)" : "var(--text)";
 
-export function DataRow({ label, value, valueColor = "white", className }: DataRowProps) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between py-2 border-b border-border last:border-0",
-        className
-      )}
-    >
-      <span className="font-mono text-xs text-muted tracking-wider uppercase">{label}</span>
-      <span className={cn("font-mono text-sm", valueColors[valueColor])}>{value}</span>
+    <div className={cn("datarow", className)}>
+      <span className="dr-label">{label}</span>
+      <span className="dr-value" style={{ color: colorVar }}>
+        {value}
+      </span>
     </div>
   );
 }

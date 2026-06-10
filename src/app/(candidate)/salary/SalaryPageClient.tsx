@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DataRow } from "@/components/terminal/DataRow";
-import { SalaryCurveChart } from "@/components/charts/SalaryCurveChart";
+import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { formatSalary, formatPercentile } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -42,10 +41,12 @@ export function SalaryPageClient({ candidate }: { candidate: Candidate | null })
 
   if (!candidate?.years_exp_claimed) {
     return (
-      <div className="max-w-3xl">
-        <h1 className="font-mono text-green text-sm tracking-widest mb-6">SALARY ENGINE</h1>
-        <div className="border border-border bg-surface p-8 text-center">
-          <p className="font-mono text-muted text-xs">
+      <div className="view-enter max-w-3xl space-y-6">
+        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          SALARY ENGINE
+        </h1>
+        <div className="panel p-8 text-center">
+          <p className="kicker">
             SET YOUR YEARS OF EXPERIENCE IN YOUR PROFILE TO SEE YOUR MARKET SALARY POSITION.
           </p>
         </div>
@@ -54,57 +55,60 @@ export function SalaryPageClient({ candidate }: { candidate: Candidate | null })
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="view-enter max-w-3xl space-y-6">
       <div>
-        <h1 className="font-mono text-green text-sm tracking-widest">SALARY ENGINE</h1>
-        <p className="text-muted text-xs font-mono mt-1">
+        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          SALARY ENGINE
+        </h1>
+        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
           SINGAPORE TECH MARKET · DEGREE-2 REGRESSION MODEL
         </p>
       </div>
 
-      <Card noPadding>
-        <CardHeader>
-          <CardTitle>MARKET SALARY CURVE</CardTitle>
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">MARKET SALARY CURVE</span>
           {salaryData && (
-            <span className="font-mono text-xs text-green">
+            <span className="badge badge-up">
               YOUR POSITION: {formatPercentile(salaryData.candidate_percentile)}
             </span>
           )}
-        </CardHeader>
+        </div>
         <div className="p-4">
           {loading ? (
-            <div className="h-52 flex items-center justify-center">
-              <p className="font-mono text-muted text-xs animate-pulse">COMPUTING REGRESSION...</p>
+            <div className="flex h-52 items-center justify-center">
+              <p className="kicker animate-pulse">COMPUTING REGRESSION...</p>
             </div>
           ) : salaryData ? (
-            <SalaryCurveChart
+            <SalaryCurve
               curve={salaryData.curve}
-              candidateYearsExp={candidate.years_exp_claimed ?? undefined}
-              candidateSalaryMin={candidate.desired_salary_min ?? undefined}
+              candYears={candidate.years_exp_claimed ?? undefined}
+              candMin={candidate.desired_salary_min ?? undefined}
+              height={260}
             />
           ) : (
-            <div className="h-52 flex items-center justify-center">
-              <p className="font-mono text-muted text-xs">NO SALARY DATA AVAILABLE</p>
+            <div className="flex h-52 items-center justify-center">
+              <p className="kicker">NO SALARY DATA AVAILABLE</p>
             </div>
           )}
         </div>
-      </Card>
+      </div>
 
       {salaryData && (
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>YOUR MARKET POSITION</CardTitle>
-          </CardHeader>
-          <div className="px-4 py-2">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">YOUR MARKET POSITION</span>
+          </div>
+          <div className="px-4">
             <DataRow
               label="MARKET MEDIAN (YOUR EXP)"
               value={formatSalary(salaryData.median_at_exp)}
-              valueColor="green"
+              color="up"
             />
             <DataRow
               label="YOUR PERCENTILE"
               value={formatPercentile(salaryData.candidate_percentile)}
-              valueColor="gold"
+              color="gold"
             />
             <DataRow
               label="YOUR FLOOR"
@@ -117,15 +121,18 @@ export function SalaryPageClient({ candidate }: { candidate: Candidate | null })
             <DataRow label="YEARS EXPERIENCE" value={`${candidate.years_exp_claimed} YRS`} />
             <DataRow label="LOCATION" value={candidate.location ?? "SINGAPORE"} />
           </div>
-        </Card>
+        </div>
       )}
 
       {salaryData && (
-        <div className="border border-border bg-surface p-4">
-          <p className="font-mono text-xs text-muted leading-relaxed">
-            <span className="text-green">MARGINAL VALUE:</span> Based on the regression curve,
-            each additional year of experience at your level is worth approximately{" "}
-            <span className="text-white">
+        <div className="panel p-4">
+          <p className="mono" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.7 }}>
+            <span className="kicker" style={{ color: "var(--up)" }}>
+              MARGINAL VALUE:
+            </span>{" "}
+            Based on the regression curve, each additional year of experience at your level is
+            worth approximately{" "}
+            <span style={{ color: "var(--text)" }}>
               {formatSalary(
                 Math.max(
                   0,

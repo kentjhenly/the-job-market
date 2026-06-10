@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils/formatters";
-import { LiveIndicator } from "@/components/terminal/LiveIndicator";
+import { LiveDot } from "@/components/terminal/LiveDot";
 
 interface TickerItem {
   id: string;
@@ -48,51 +48,50 @@ export default function PublicTickerPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg">
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="font-mono text-green text-sm tracking-widest">
+    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+      <nav className="flex items-center justify-between border-b border-border px-6 py-4">
+        <Link
+          href="/"
+          className="mono"
+          style={{ color: "var(--up)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}
+        >
           ← THE JOB MARKET
         </Link>
-        <div className="flex items-center gap-2">
-          <LiveIndicator />
-          <span className="font-mono text-xs text-muted">LIVE MATCH FEED</span>
-        </div>
+        <LiveDot label="LIVE MATCH FEED" />
       </nav>
 
-      <main className="max-w-3xl mx-auto p-6">
+      <main className="mx-auto max-w-3xl p-6">
         <div className="mb-6">
-          <h1 className="font-mono text-green text-sm tracking-widest">MATCH TAPE</h1>
-          <p className="text-muted text-xs font-mono mt-1">
+          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+            MATCH TAPE
+          </h1>
+          <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
             ANONYMISED RECENT MATCHES · UPDATES IN REAL TIME
           </p>
         </div>
 
         {items.length === 0 ? (
-          <div className="border border-border bg-surface p-12 text-center">
-            <p className="font-mono text-muted text-xs animate-pulse">
-              WAITING FOR MATCH EVENTS...
-            </p>
+          <div className="panel p-12 text-center">
+            <p className="kicker animate-pulse">WAITING FOR MATCH EVENTS...</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="view-enter space-y-1">
             {items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between border border-border bg-surface px-4 py-3"
-              >
+              <div key={item.id} className="panel flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-4">
-                  <span className="font-mono text-xs text-muted">
+                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
                     [{item.vertical.toUpperCase()}]
                   </span>
-                  <span className="font-mono text-sm text-white">
-                    {item.role_label ?? "ENGINEER"}{" "}
-                    <span className="text-green">MATCH</span>
+                  <span className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+                    {item.role_label ?? "ENGINEER"} <span style={{ color: "var(--up)" }}>MATCH</span>
                   </span>
                   {item.salary_band && (
-                    <span className="font-mono text-xs text-gold">{item.salary_band}</span>
+                    <span className="mono" style={{ fontSize: 11, color: "var(--gold)" }}>
+                      {item.salary_band}
+                    </span>
                   )}
                 </div>
-                <span className="font-mono text-xs text-muted">
+                <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
                   {formatRelativeTime(item.created_at)}
                 </span>
               </div>

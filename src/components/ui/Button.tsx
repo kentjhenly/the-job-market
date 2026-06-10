@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils/cn";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
-type Variant = "primary" | "ghost" | "danger" | "outline";
+type Variant = "primary" | "ghost" | "danger" | "outline" | "default";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -10,21 +10,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
-const variants: Record<Variant, string> = {
-  primary:
-    "bg-green text-bg font-bold hover:bg-green/90 disabled:opacity-50",
-  ghost:
-    "bg-transparent text-muted border border-border hover:border-green hover:text-green",
-  danger:
-    "bg-danger text-white hover:bg-danger/90 disabled:opacity-50",
-  outline:
-    "bg-transparent text-white border border-border hover:border-green hover:text-green",
+const variantClass: Record<Variant, string> = {
+  default: "",
+  primary: "btn-primary",
+  danger: "btn-danger",
+  ghost: "btn-ghost",
+  outline: "btn-ghost",
 };
 
-const sizes: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
-  lg: "px-6 py-3 text-sm",
+const sizeClass: Record<Size, string> = {
+  sm: "btn-sm",
+  md: "",
+  lg: "btn-lg",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -35,16 +32,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={cn(
-        "font-mono tracking-widest transition-colors cursor-pointer",
-        "disabled:cursor-not-allowed",
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      className={cn("btn", variantClass[variant], sizeClass[size], className)}
       {...props}
     >
-      {loading ? "LOADING..." : children}
+      {loading ? "LOADING…" : children}
     </button>
   )
 );

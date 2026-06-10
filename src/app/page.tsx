@@ -29,93 +29,82 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
-      {/* Ticker tape */}
+    <div className="flex min-h-screen flex-col" style={{ background: "var(--bg)" }}>
       <MatchTickerTape />
 
-      {/* Nav */}
-      <nav className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <span className="font-mono text-green text-sm tracking-widest">THE JOB MARKET</span>
+      <nav className="flex items-center justify-between border-b border-border px-6 py-4">
+        <span className="mono" style={{ color: "var(--up)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}>
+          ◧ THE JOB MARKET
+        </span>
         <div className="flex items-center gap-6">
-          <Link
-            href="/ticker"
-            className="font-mono text-xs text-muted hover:text-green transition-colors tracking-widest"
-          >
+          <Link href="/ticker" className="kicker transition-colors hover:text-text-2">
             LIVE FEED
           </Link>
-          <Link
-            href="/sign-in"
-            className="font-mono text-xs text-muted hover:text-green transition-colors tracking-widest"
-          >
+          <Link href="/sign-in" className="kicker transition-colors hover:text-text-2">
             SIGN IN
           </Link>
-          <Link
-            href="/sign-up"
-            className="font-mono text-xs bg-green text-bg px-4 py-2 hover:bg-green/90 transition-colors tracking-widest"
-          >
+          <Link href="/sign-up" className="btn btn-primary btn-sm">
             JOIN →
           </Link>
         </div>
       </nav>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <p className="font-mono text-muted text-xs tracking-widest mb-4">
-          SINGAPORE TECH · BETA
-        </p>
-        <h1 className="font-mono text-3xl md:text-5xl font-bold text-white leading-tight max-w-3xl">
+      <main className="grid-tex flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
+        <p className="kicker mb-4">SINGAPORE TECH · BETA</p>
+        <h1
+          className="mono max-w-3xl text-3xl font-bold md:text-5xl"
+          style={{ color: "var(--text)", lineHeight: 1.15 }}
+        >
           THE TRADING FLOOR
           <br />
-          <span className="text-green">FOR HUMAN TALENT</span>
+          <span style={{ color: "var(--up)" }}>FOR HUMAN TALENT</span>
         </h1>
-        <p className="font-mono text-muted text-sm max-w-xl mt-6 leading-relaxed">
+        <p className="mono mt-6 max-w-xl" style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.7 }}>
           The best candidate rises to the top. The salary is grounded in data.
           <br />
           Every match has a price.
         </p>
 
-        <div className="flex gap-4 mt-10">
-          <Link
-            href="/sign-up/candidate"
-            className="font-mono text-sm bg-green text-bg px-8 py-4 hover:bg-green/90 transition-colors tracking-widest font-bold"
-          >
+        <div className="mt-10 flex gap-4">
+          <Link href="/sign-up/candidate" className="btn btn-primary btn-lg">
             I AM A CANDIDATE
           </Link>
-          <Link
-            href="/sign-up/employer"
-            className="font-mono text-sm border border-border text-white px-8 py-4 hover:border-green hover:text-green transition-colors tracking-widest"
-          >
+          <Link href="/sign-up/employer" className="btn btn-ghost btn-lg">
             I AM AN EMPLOYER
           </Link>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 mt-20 w-full max-w-3xl">
+        <div className="view-enter mt-20 grid w-full max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
           {STATS.map((s) => (
-            <div key={s.label} className="border border-border bg-surface p-4 text-left">
-              <p className="font-mono text-xs text-muted tracking-widest">{s.label}</p>
-              <p className="font-mono text-green text-sm font-bold mt-1">{s.value}</p>
-              <p className="font-mono text-muted text-xs mt-1">{s.desc}</p>
+            <div key={s.label} className="panel p-4 text-left">
+              <p className="kicker">{s.label}</p>
+              <p className="mono mt-1" style={{ fontSize: 13, fontWeight: 700, color: "var(--up)" }}>
+                {s.value}
+              </p>
+              <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
+                {s.desc}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-8 w-full max-w-3xl">
+        <div className="view-enter mt-8 grid w-full max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
           {FEATURES.map((f) => (
-            <div key={f.title} className="border border-border bg-surface p-6 text-left">
-              <h3 className="font-mono text-xs text-green tracking-widest mb-2">{f.title}</h3>
-              <p className="font-mono text-muted text-xs leading-relaxed">{f.desc}</p>
+            <div key={f.title} className="panel p-6 text-left">
+              <h3 className="kicker mb-2" style={{ color: "var(--up)" }}>
+                {f.title}
+              </h3>
+              <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.7 }}>{f.desc}</p>
             </div>
           ))}
         </div>
       </main>
 
-      <footer className="border-t border-border px-6 py-4 flex items-center justify-between">
-        <span className="font-mono text-muted text-xs">
+      <footer className="flex items-center justify-between border-t border-border px-6 py-4">
+        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
           © {new Date().getFullYear()} THE JOB MARKET
         </span>
-        <span className="font-mono text-muted text-xs">
+        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
           SINGAPORE · TECH VERTICAL ONLY IN BETA
         </span>
       </footer>

@@ -6,6 +6,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatTimeRemaining } from "@/lib/utils/formatters";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { DataRow } from "@/components/terminal/DataRow";
 
 interface Option {
   id: string;
@@ -113,41 +114,36 @@ export default function ChallengeRunnerPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <span className="font-mono text-muted text-xs animate-pulse">LOADING CHALLENGE...</span>
+      <div className="flex h-64 items-center justify-center">
+        <span className="kicker animate-pulse">LOADING CHALLENGE...</span>
       </div>
     );
   }
 
-  if (!challenge) return <p className="font-mono text-danger">Challenge not found.</p>;
+  if (!challenge) return <p className="mono" style={{ fontSize: 13, color: "var(--down)" }}>Challenge not found.</p>;
 
   if (!started) {
     return (
-      <div className="max-w-2xl">
-        <div className="border border-border bg-surface p-8">
+      <div className="view-enter max-w-2xl">
+        <div className="panel p-8">
           <div className="mb-6">
-            <p className="font-mono text-muted text-xs tracking-widest">{challenge.vertical.toUpperCase()}</p>
-            <h1 className="font-mono text-green text-xl mt-1">{challenge.title.toUpperCase()}</h1>
+            <p className="kicker">{challenge.vertical.toUpperCase()}</p>
+            <h1 className="mono mt-1" style={{ fontSize: 20, fontWeight: 700, color: "var(--up)" }}>
+              {challenge.title.toUpperCase()}
+            </h1>
           </div>
-          <div className="space-y-2 mb-8">
-            <p className="font-mono text-xs text-muted">
-              TIME LIMIT: <span className="text-white">{formatTimeRemaining(challenge.time_limit_sec)}</span>
-            </p>
-            <p className="font-mono text-xs text-muted">
-              QUESTIONS: <span className="text-white">{questions.length}</span>
-            </p>
-            <p className="font-mono text-xs text-muted">
-              MAX SCORE: <span className="text-white">{challenge.max_score} PTS</span>
-            </p>
+          <div className="mb-8">
+            <DataRow label="TIME LIMIT" value={formatTimeRemaining(challenge.time_limit_sec)} />
+            <DataRow label="QUESTIONS" value={String(questions.length)} />
+            <DataRow label="MAX SCORE" value={`${challenge.max_score} PTS`} />
           </div>
-          <div className="border-t border-border pt-6">
-            <p className="text-muted text-xs font-mono mb-4">
-              THE TIMER STARTS WHEN YOU CLICK BEGIN. ENSURE YOU HAVE ENOUGH TIME TO COMPLETE.
-            </p>
-            <Button onClick={beginChallenge} size="lg">
-              BEGIN CHALLENGE →
-            </Button>
-          </div>
+          <div className="hr mb-6" />
+          <p className="mono mb-4" style={{ fontSize: 11, color: "var(--muted)" }}>
+            THE TIMER STARTS WHEN YOU CLICK BEGIN. ENSURE YOU HAVE ENOUGH TIME TO COMPLETE.
+          </p>
+          <Button onClick={beginChallenge} size="lg">
+            BEGIN CHALLENGE →
+          </Button>
         </div>
       </div>
     );
@@ -159,50 +155,61 @@ export default function ChallengeRunnerPage() {
   return (
     <div className="max-w-3xl">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-surface border border-border px-4 py-3 flex items-center justify-between mb-6">
-        <span className="font-mono text-xs text-muted tracking-widest">{challenge.title.toUpperCase()}</span>
+      <div className="panel sticky top-0 z-10 mb-6 flex items-center justify-between px-4 py-3">
+        <span className="kicker">{challenge.title.toUpperCase()}</span>
         <div className="flex items-center gap-6">
-          <span className="font-mono text-xs text-muted">
+          <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
             {answered}/{total} ANSWERED
           </span>
-          <span className={`font-mono text-sm tabular-nums ${timeLeft < 300 ? "text-danger" : "text-green"}`}>
+          <span
+            className="mono tnum"
+            style={{ fontSize: 14, fontWeight: 700, color: timeLeft < 300 ? "var(--down)" : "var(--up)" }}
+          >
             {formatTimeRemaining(timeLeft)}
           </span>
         </div>
       </div>
 
       {/* Questions */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {questions.map((q, idx) => (
-          <div key={q.id} className="border border-border bg-surface p-6">
-            <p className="font-mono text-muted text-xs mb-3 tracking-widest">Q{idx + 1}</p>
-            <p className="text-white text-sm mb-4 leading-relaxed">{q.prompt}</p>
+          <div key={q.id} className="panel p-6">
+            <p className="kicker mb-3">Q{idx + 1}</p>
+            <p className="mb-4" style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
+              {q.prompt}
+            </p>
 
             {q.type === "multiple_choice" && q.options && (
               <div className="space-y-2">
-                {q.options.map((opt) => (
-                  <label
-                    key={opt.id}
-                    className={`flex items-center gap-3 p-3 border cursor-pointer transition-colors ${
-                      answers[q.id] === opt.id
-                        ? "border-green bg-green/5 text-green"
-                        : "border-border hover:border-muted text-muted"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={q.id}
-                      value={opt.id}
-                      checked={answers[q.id] === opt.id}
-                      onChange={() => setAnswer(q.id, opt.id)}
-                      className="sr-only"
-                    />
-                    <span className="font-mono text-xs w-4 shrink-0">
-                      {opt.id.toUpperCase()}.
-                    </span>
-                    <span className="font-mono text-xs">{opt.text}</span>
-                  </label>
-                ))}
+                {q.options.map((opt) => {
+                  const selected = answers[q.id] === opt.id;
+                  return (
+                    <label
+                      key={opt.id}
+                      className="flex cursor-pointer items-center gap-3 rounded p-3 transition-colors"
+                      style={{
+                        border: `1px solid ${selected ? "var(--up)" : "var(--border)"}`,
+                        background: selected ? "var(--up-dim)" : "transparent",
+                        color: selected ? "var(--up)" : "var(--muted)",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name={q.id}
+                        value={opt.id}
+                        checked={selected}
+                        onChange={() => setAnswer(q.id, opt.id)}
+                        className="sr-only"
+                      />
+                      <span className="mono shrink-0" style={{ fontSize: 11, width: 16 }}>
+                        {opt.id.toUpperCase()}.
+                      </span>
+                      <span className="mono" style={{ fontSize: 12 }}>
+                        {opt.text}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             )}
 
@@ -212,7 +219,8 @@ export default function ChallengeRunnerPage() {
                 onChange={(e) => setAnswer(q.id, e.target.value)}
                 placeholder="// Write your answer here..."
                 rows={8}
-                className="w-full bg-bg border border-border text-green font-mono text-xs p-3 resize-y focus:outline-none focus:border-green"
+                className="field"
+                style={{ color: "var(--up)" }}
               />
             )}
           </div>
@@ -227,13 +235,13 @@ export default function ChallengeRunnerPage() {
       </div>
 
       <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="CONFIRM SUBMISSION">
-        <p className="font-mono text-xs text-muted mb-4">
+        <p className="mono mb-4" style={{ fontSize: 12, color: "var(--muted)" }}>
           YOU HAVE ANSWERED {answered} OF {total} QUESTIONS.
-          {answered < total && (
-            <span className="text-danger"> {total - answered} UNANSWERED.</span>
-          )}
+          {answered < total && <span style={{ color: "var(--down)" }}> {total - answered} UNANSWERED.</span>}
         </p>
-        <p className="font-mono text-xs text-white mb-6">SUBMIT NOW?</p>
+        <p className="mono mb-6" style={{ fontSize: 12, color: "var(--text)" }}>
+          SUBMIT NOW?
+        </p>
         <div className="flex gap-3">
           <Button onClick={handleSubmit} loading={submitting}>
             SUBMIT

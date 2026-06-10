@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
+import { AnimEnabler } from "@/components/providers/AnimEnabler";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -39,7 +40,8 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-bg text-white">
+      <body className="min-h-full bg-bg-deep text-text">
+        <AnimEnabler />
         <QueryProvider>
           <PostHogProvider>{children}</PostHogProvider>
         </QueryProvider>

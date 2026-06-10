@@ -1,14 +1,18 @@
+import Link from "next/link";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4" style={{ background: "var(--bg-deep)" }}>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="font-mono text-green text-sm tracking-widest uppercase">
-            THE JOB MARKET
-          </span>
-          <p className="text-muted text-xs mt-1 font-mono">
-            THE TRADING FLOOR FOR HUMAN TALENT
-          </p>
+          <Link
+            href="/"
+            className="mono"
+            style={{ color: "var(--up)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}
+          >
+            ◧ THE JOB MARKET
+          </Link>
+          <p className="kicker mt-2">THE TRADING FLOOR FOR HUMAN TALENT</p>
         </div>
         {children}
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
@@ -16,10 +15,10 @@ interface Match {
   employers?: { company_name: string; reputation_score: number } | null;
 }
 
-const statusVariant: Record<string, "green" | "danger" | "gold" | "muted"> = {
-  accepted: "green",
-  declined: "danger",
-  ghosted: "danger",
+const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
+  accepted: "up",
+  declined: "down",
+  ghosted: "down",
   expired: "muted",
   pending: "gold",
 };
@@ -48,17 +47,19 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
   const past = matches.filter((m) => m.status !== "pending");
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="view-enter max-w-3xl space-y-6">
       <div>
-        <h1 className="font-mono text-green text-sm tracking-widest">INCOMING PITCHES</h1>
-        <p className="text-muted text-xs font-mono mt-1">
+        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          INCOMING PITCHES
+        </h1>
+        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
           EMPLOYERS PAY TO CONTACT YOU. EVERY PITCH IS SERIOUS.
         </p>
       </div>
 
       {pending.length === 0 && past.length === 0 && (
-        <div className="border border-border bg-surface p-12 text-center">
-          <p className="font-mono text-muted text-xs">
+        <div className="panel p-12 text-center">
+          <p className="kicker">
             NO PITCHES YET. IMPROVE YOUR SKILL SCORE TO ATTRACT EMPLOYERS.
           </p>
         </div>
@@ -66,7 +67,7 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
 
       {pending.length > 0 && (
         <div>
-          <p className="font-mono text-xs text-gold tracking-widest mb-3">
+          <p className="kicker mb-3" style={{ color: "var(--gold)" }}>
             PENDING ({pending.length})
           </p>
           <div className="space-y-3">
@@ -79,7 +80,7 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
 
       {past.length > 0 && (
         <div>
-          <p className="font-mono text-xs text-muted tracking-widest mb-3">HISTORY</p>
+          <p className="kicker mb-3">HISTORY</p>
           <div className="space-y-3">
             {past.map((m) => (
               <MatchCard key={m.id} match={m} onRespond={respond} loading={loading[m.id]} />
@@ -102,71 +103,52 @@ function MatchCard({
 }) {
   const isPending = match.status === "pending";
   const variant = statusVariant[match.status] ?? "muted";
+  const reputation = match.employers?.reputation_score;
+  const reputationColor =
+    reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
 
   return (
-    <Card noPadding>
-      <CardHeader>
+    <div className="panel">
+      <div className="panel-head">
         <div>
-          <CardTitle>{match.employers?.company_name ?? "UNKNOWN COMPANY"}</CardTitle>
-          <p className="text-muted text-xs font-mono mt-0.5">
+          <span className="panel-title">{match.employers?.company_name ?? "UNKNOWN COMPANY"}</span>
+          <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
             {formatRelativeTime(match.created_at)}
-            {isPending && (
-              <>
-                {" "}· EXPIRES {formatRelativeTime(match.expires_at)}
-              </>
-            )}
+            {isPending && <> · EXPIRES {formatRelativeTime(match.expires_at)}</>}
           </p>
         </div>
         <Badge variant={variant}>{match.status.toUpperCase()}</Badge>
-      </CardHeader>
+      </div>
 
-      <div className="px-4 py-3 space-y-3">
+      <div className="space-y-3 px-4 py-3">
         {match.offered_salary && (
-          <p className="font-mono text-sm text-green">
+          <p className="mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--up)" }}>
             OFFERED: {formatSalary(match.offered_salary)}
           </p>
         )}
         {match.pitch_message && (
-          <p className="text-muted text-xs font-mono leading-relaxed">{match.pitch_message}</p>
+          <p className="mono" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.7 }}>
+            {match.pitch_message}
+          </p>
         )}
 
-        {match.employers?.reputation_score != null && (
-          <p className="font-mono text-xs text-muted">
-            EMPLOYER REPUTATION:{" "}
-            <span
-              className={
-                match.employers.reputation_score >= 80
-                  ? "text-green"
-                  : match.employers.reputation_score >= 50
-                    ? "text-gold"
-                    : "text-danger"
-              }
-            >
-              {match.employers.reputation_score.toFixed(0)}/100
-            </span>
+        {reputation != null && (
+          <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+            EMPLOYER REPUTATION: <span style={{ color: reputationColor }}>{reputation.toFixed(0)}/100</span>
           </p>
         )}
 
         {isPending && (
           <div className="flex gap-3 pt-1">
-            <Button
-              onClick={() => onRespond(match.id, "accept")}
-              loading={loading}
-              size="sm"
-            >
+            <Button onClick={() => onRespond(match.id, "accept")} loading={loading} size="sm">
               ACCEPT MATCH
             </Button>
-            <Button
-              variant="danger"
-              onClick={() => onRespond(match.id, "decline")}
-              loading={loading}
-              size="sm"
-            >
+            <Button variant="danger" onClick={() => onRespond(match.id, "decline")} loading={loading} size="sm">
               DECLINE
             </Button>
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }

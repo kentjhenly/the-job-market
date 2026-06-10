@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { ScoreTicker } from "@/components/terminal/ScoreTicker";
 import { DataRow } from "@/components/terminal/DataRow";
-import { Badge } from "@/components/ui/Badge";
-import { ScoreRadarChart } from "@/components/charts/ScoreRadarChart";
-import { SalaryCurveChart } from "@/components/charts/SalaryCurveChart";
-import { ScoreHistorySparkline } from "@/components/charts/ScoreHistorySparkline";
+import { Delta } from "@/components/terminal/Delta";
+import { StatCard } from "@/components/terminal/StatCard";
+import { RadarChart } from "@/components/charts/RadarChart";
+import { SalaryCurve } from "@/components/charts/SalaryCurve";
+import { Sparkline } from "@/components/charts/Sparkline";
 import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -99,119 +100,116 @@ export function DashboardClient({
       ? results.reduce((s, r) => s + (r.raw_score ?? 0), 0) / results.length
       : 0;
 
-  const radarDimensions = [
-    { subject: "AVG SCORE", score: avgScore, peerAvg: 60 },
-    { subject: "SPEED", score: 65, peerAvg: 55 },
-    { subject: "BREADTH", score: (completedCount / 5) * 100, peerAvg: 40 },
-    {
-      subject: "REPUTATION",
-      score: candidate?.reputation_score ?? 100,
-      peerAvg: 80,
-    },
-    {
-      subject: "PROFILE",
-      score: candidate?.years_exp_claimed ? 100 : 50,
-      peerAvg: 70,
-    },
+  const radarDims = [
+    { axis: "AVG SCORE", you: avgScore, peer: 60 },
+    { axis: "SPEED", you: 65, peer: 55 },
+    { axis: "BREADTH", you: (completedCount / 5) * 100, peer: 40 },
+    { axis: "REPUTATION", you: candidate?.reputation_score ?? 100, peer: 80 },
+    { axis: "PROFILE", you: candidate?.years_exp_claimed ? 100 : 50, peer: 70 },
   ];
 
-  const scoreColor =
-    (candidate?.composite_score ?? 0) >= 90
-      ? "gold"
-      : (candidate?.composite_score ?? 0) >= 60
-        ? "green"
-        : "danger";
+  const sortedHistory = [...scoreHistory].sort(
+    (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+  );
+  const sparklineData = sortedHistory.map((h) => h.composite_score);
+  const scoreDelta =
+    sortedHistory.length >= 2
+      ? sortedHistory[sortedHistory.length - 1].composite_score -
+        sortedHistory[sortedHistory.length - 2].composite_score
+      : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="view-enter space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mono text-green text-sm tracking-widest">SCORE TERMINAL</h1>
-          <p className="text-muted text-xs font-mono mt-0.5">
+          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+            SCORE TERMINAL
+          </h1>
+          <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
             {profile?.display_name ?? "CANDIDATE"}
           </p>
         </div>
-        <Badge variant={scoreColor}>
+        <Badge variant={candidate?.is_visible ? "up" : "muted"}>
           {candidate?.is_visible ? "VISIBLE TO EMPLOYERS" : "HIDDEN"}
         </Badge>
       </div>
 
       {/* Score panels */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card>
-          <CardTitle className="mb-3">COMPOSITE SCORE</CardTitle>
-          <ScoreTicker
-            score={candidate?.composite_score ?? 0}
-            size="lg"
-            showLabel
-          />
-        </Card>
+        <StatCard
+          label="COMPOSITE SCORE"
+          footer={
+            scoreDelta !== 0 ? (
+              <Delta value={scoreDelta} />
+            ) : (
+              <span className="mono" style={{ fontSize: 11, color: "var(--dim)" }}>
+                NO CHANGE
+              </span>
+            )
+          }
+        >
+          <ScoreTicker score={candidate?.composite_score ?? 0} size="xl" suffix="/100" />
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">PERCENTILE RANK</CardTitle>
-          <div className="font-mono text-4xl font-bold text-gold">
+        <StatCard label="PERCENTILE RANK">
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--gold)", lineHeight: 1 }}>
             {Math.round(candidate?.percentile_rank ?? 0)}
-            <span className="text-muted text-xs ml-1 align-middle">th</span>
-          </div>
-          <p className="text-muted text-xs font-mono mt-2">
+            <span style={{ fontSize: 16, color: "var(--muted)" }}>th</span>
+          </span>
+          <p className="mono mt-2" style={{ fontSize: 11, color: "var(--muted)" }}>
             {formatPercentile(candidate?.percentile_rank ?? 0)}
           </p>
-        </Card>
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">CHALLENGES</CardTitle>
-          <div className="font-mono text-4xl font-bold text-white">
+        <StatCard
+          label="CHALLENGES"
+          footer={
+            <Link href="/challenges" className="link-up mono" style={{ fontSize: 11 }}>
+              TAKE MORE →
+            </Link>
+          }
+        >
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>
             {completedCount}
-            <span className="text-muted text-sm ml-1">/ {challenges.length}</span>
-          </div>
-          <Link
-            href="/challenges"
-            className="text-green text-xs font-mono mt-2 block hover:underline"
-          >
-            TAKE MORE →
-          </Link>
-        </Card>
+            <span style={{ fontSize: 16, color: "var(--muted)" }}> / {challenges.length}</span>
+          </span>
+        </StatCard>
 
-        <Card>
-          <CardTitle className="mb-3">REPUTATION</CardTitle>
-          <div className="font-mono text-4xl font-bold text-green">
+        <StatCard label="REPUTATION" footer={<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>RESPONSE SCORE</span>}>
+          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--up)", lineHeight: 1 }}>
             {(candidate?.reputation_score ?? 100).toFixed(0)}
-          </div>
-          <p className="text-muted text-xs font-mono mt-2">RESPONSE SCORE</p>
-        </Card>
+          </span>
+        </StatCard>
       </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>SKILL RADAR</CardTitle>
-          </CardHeader>
-          <div className="p-4">
-            <ScoreRadarChart dimensions={radarDimensions} />
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">SKILL RADAR</span>
           </div>
-        </Card>
+          <div className="p-4">
+            <RadarChart dims={radarDims} />
+          </div>
+        </div>
 
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>SALARY POSITION</CardTitle>
-            {salaryData && (
-              <span className="font-mono text-xs text-green">
-                {salaryData.candidate_percentile}th PERCENTILE
-              </span>
-            )}
-          </CardHeader>
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">SALARY POSITION</span>
+            {salaryData && <span className="badge badge-up">{salaryData.candidate_percentile}TH PERCENTILE</span>}
+          </div>
           <div className="p-4">
             {salaryData ? (
-              <SalaryCurveChart
+              <SalaryCurve
                 curve={salaryData.curve}
-                candidateYearsExp={candidate?.years_exp_claimed ?? undefined}
-                candidateSalaryMin={candidate?.desired_salary_min ?? undefined}
+                candYears={candidate?.years_exp_claimed ?? undefined}
+                candMin={candidate?.desired_salary_min ?? undefined}
+                height={210}
               />
             ) : (
-              <div className="h-52 flex items-center justify-center">
-                <p className="font-mono text-muted text-xs">
+              <div className="flex h-52 items-center justify-center">
+                <p className="kicker">
                   {candidate?.years_exp_claimed
                     ? "LOADING MARKET DATA..."
                     : "SET EXPERIENCE IN PROFILE TO SEE SALARY CURVE"}
@@ -219,57 +217,50 @@ export function DashboardClient({
               </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Score history + profile data */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>SCORE HISTORY</CardTitle>
-          </CardHeader>
-          <div className="px-4 pb-4">
-            <ScoreHistorySparkline data={scoreHistory} />
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">SCORE HISTORY</span>
           </div>
-        </Card>
+          <div className="px-4 pb-4 pt-3">
+            {sparklineData.length >= 2 ? (
+              <Sparkline data={sparklineData} h={64} />
+            ) : (
+              <div className="flex h-16 items-center justify-center">
+                <p className="kicker">NOT ENOUGH DATA</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <Card noPadding>
-          <CardHeader>
-            <CardTitle>PROFILE</CardTitle>
-            <Link href="/profile" className="font-mono text-xs text-green hover:underline">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">PROFILE</span>
+            <Link href="/profile" className="link-up mono" style={{ fontSize: 11 }}>
               EDIT
             </Link>
-          </CardHeader>
-          <div className="px-4 py-2">
+          </div>
+          <div className="px-4">
             <DataRow
               label="EXPERIENCE"
-              value={
-                candidate?.years_exp_claimed != null
-                  ? `${candidate.years_exp_claimed} YRS`
-                  : "NOT SET"
-              }
+              value={candidate?.years_exp_claimed != null ? `${candidate.years_exp_claimed} YRS` : "NOT SET"}
             />
-            <DataRow
-              label="LOCATION"
-              value={candidate?.location ?? "NOT SET"}
-            />
+            <DataRow label="LOCATION" value={candidate?.location ?? "NOT SET"} />
             <DataRow
               label="SALARY FLOOR"
               value={
                 candidate?.desired_salary_min && candidate?.desired_salary_max
-                  ? formatSalaryBand(
-                      candidate.desired_salary_min,
-                      candidate.desired_salary_max
-                    )
+                  ? formatSalaryBand(candidate.desired_salary_min, candidate.desired_salary_max)
                   : "NOT SET"
               }
             />
-            <DataRow
-              label="REMOTE ONLY"
-              value={candidate?.remote_only ? "YES" : "NO"}
-            />
+            <DataRow label="REMOTE ONLY" value={candidate?.remote_only ? "YES" : "NO"} color={candidate?.remote_only ? "up" : undefined} />
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

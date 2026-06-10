@@ -25,23 +25,15 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-bg/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-[oklch(0.08_0_0_/_0.6)] backdrop-blur-sm"
         onClick={onClose}
       />
       <div
-        className={cn(
-          "relative z-10 bg-surface border border-border w-full max-w-lg",
-          className
-        )}
+        className={cn("panel relative z-10 w-full max-w-lg shadow-(--shadow-pop)", className)}
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <span className="font-mono text-xs tracking-widest text-muted uppercase">
-            {title}
-          </span>
-          <button
-            onClick={onClose}
-            className="text-muted hover:text-white font-mono text-sm transition-colors"
-          >
+        <div className="panel-head">
+          <span className="panel-title">{title}</span>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">
             ✕
           </button>
         </div>

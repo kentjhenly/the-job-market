@@ -7,8 +7,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { Badge } from "@/components/ui/Badge";
-import { formatSalary, formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
-import { SCORE_TIERS } from "@/lib/utils/constants";
+import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
+import { scoreBadgeVariant } from "@/lib/utils/score";
 import type { Database } from "@/lib/supabase/types";
 
 type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
@@ -79,69 +79,48 @@ export function FeedClient({ employerId, initialCandidates, employerCredits }: P
     setSending(false);
   }
 
-  const scoreColor =
-    (selected?.composite_score ?? 0) >= SCORE_TIERS.gold
-      ? "gold"
-      : (selected?.composite_score ?? 0) >= SCORE_TIERS.green
-        ? "green"
-        : "danger";
-
   return (
-    <div className="space-y-4">
+    <div className="view-enter space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-mono text-green text-sm tracking-widest">CANDIDATE FEED</h1>
-          <p className="text-muted text-xs font-mono mt-0.5">
+          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+            CANDIDATE FEED
+          </h1>
+          <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
             RANKED BY COMPOSITE SCORE · LIVE UPDATES
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-muted">
-            CREDITS: <span className="text-green">{credits}</span>
-          </span>
-        </div>
+        <span className="badge badge-up">CREDITS: {credits}</span>
       </div>
 
-      <OrderBook
-        candidates={candidates}
-        onSelect={setSelected}
-        selectedId={selected?.id}
-      />
+      <OrderBook candidates={candidates} onSelect={setSelected} selectedId={selected?.id} />
 
       {/* Candidate detail slide-in */}
       {selected && (
-        <div className="fixed right-0 top-0 bottom-0 w-96 bg-surface border-l border-border z-40 flex flex-col shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <span className="font-mono text-xs tracking-widest text-muted">CANDIDATE DETAIL</span>
-            <button
-              onClick={() => setSelected(null)}
-              className="text-muted hover:text-white font-mono text-sm transition-colors"
-            >
+        <div
+          className="slideover-panel fixed right-0 top-0 bottom-0 z-40 flex w-96 flex-col"
+          style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
+        >
+          <div className="panel-head">
+            <span className="panel-title">CANDIDATE DETAIL</span>
+            <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm">
               ✕
             </button>
           </div>
 
-          <div className="flex-1 overflow-auto p-4 space-y-4">
+          <div className="flex-1 space-y-4 overflow-auto p-4">
             <div>
-              <p className="font-mono text-white text-sm">
+              <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
                 {selected.profiles?.display_name ?? `CAND-${selected.id.slice(0, 8).toUpperCase()}`}
               </p>
-              <Badge variant={scoreColor} className="mt-1">
+              <Badge variant={scoreBadgeVariant(selected.composite_score)} className="mt-1">
                 SCORE {selected.composite_score.toFixed(1)}
               </Badge>
             </div>
 
             <div>
-              <DataRow
-                label="COMPOSITE SCORE"
-                value={selected.composite_score.toFixed(1)}
-                valueColor="green"
-              />
-              <DataRow
-                label="PERCENTILE"
-                value={formatPercentile(selected.percentile_rank)}
-                valueColor="gold"
-              />
+              <DataRow label="COMPOSITE SCORE" value={selected.composite_score.toFixed(1)} color="up" />
+              <DataRow label="PERCENTILE" value={formatPercentile(selected.percentile_rank)} color="gold" />
               <DataRow
                 label="EXPERIENCE"
                 value={
@@ -162,17 +141,15 @@ export function FeedClient({ employerId, initialCandidates, employerCredits }: P
               <DataRow
                 label="REMOTE ONLY"
                 value={selected.remote_only ? "YES" : "NO"}
+                color={selected.remote_only ? "up" : undefined}
               />
-              <DataRow
-                label="REPUTATION"
-                value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`}
-              />
+              <DataRow label="REPUTATION" value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`} />
             </div>
           </div>
 
-          <div className="border-t border-border p-4">
+          <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
             {credits < 1 ? (
-              <p className="font-mono text-xs text-danger text-center">
+              <p className="kicker text-center" style={{ color: "var(--down)" }}>
                 NO CREDITS REMAINING
               </p>
             ) : (
@@ -192,50 +169,54 @@ export function FeedClient({ employerId, initialCandidates, employerCredits }: P
 
       <Modal open={pitchOpen} onClose={() => setPitchOpen(false)} title="SEND PITCH">
         <div className="space-y-4">
-          <p className="font-mono text-xs text-muted">
+          <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
             PITCHING TO:{" "}
-            <span className="text-white">
+            <span style={{ color: "var(--text)" }}>
               {selected?.profiles?.display_name ?? "CANDIDATE"}
             </span>
           </p>
 
           <div>
-            <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-              PITCH MESSAGE
-            </label>
+            <label className="kicker mb-1.5 block">PITCH MESSAGE</label>
             <textarea
               value={pitchMsg}
               onChange={(e) => setPitchMsg(e.target.value)}
               rows={4}
               placeholder="Tell this candidate why they should join your team..."
-              className="w-full bg-bg border border-border text-white font-mono text-xs px-3 py-2 focus:outline-none focus:border-green resize-none"
+              className="field"
             />
           </div>
 
           <div>
-            <label className="block text-muted text-xs font-mono mb-1 tracking-widest">
-              OFFERED SALARY (SGD)
-            </label>
+            <label className="kicker mb-1.5 block">OFFERED SALARY (SGD)</label>
             <input
               type="number"
               value={pitchSalary}
               onChange={(e) => setPitchSalary(e.target.value)}
               placeholder="120000"
-              className="w-full bg-bg border border-border text-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-green"
+              className="field"
             />
-            <p className="text-muted text-xs font-mono mt-1">
+            <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
               1 CREDIT WILL BE DEDUCTED · {credits} REMAINING
             </p>
           </div>
 
           {pitchResult === "success" && (
-            <div className="border border-green/30 bg-green/5 p-3">
-              <p className="font-mono text-green text-xs">PITCH SENT · CANDIDATE NOTIFIED</p>
+            <div
+              className="rounded p-3"
+              style={{ border: "1px solid color-mix(in oklch, var(--up) 40%, transparent)", background: "var(--up-dim)" }}
+            >
+              <p className="mono" style={{ fontSize: 11, color: "var(--up)" }}>
+                PITCH SENT · CANDIDATE NOTIFIED
+              </p>
             </div>
           )}
           {pitchResult === "error" && (
-            <div className="border border-danger/30 bg-danger/10 p-3">
-              <p className="font-mono text-danger text-xs">
+            <div
+              className="rounded p-3"
+              style={{ border: "1px solid color-mix(in oklch, var(--down) 40%, transparent)", background: "var(--down-dim)" }}
+            >
+              <p className="mono" style={{ fontSize: 11, color: "var(--down)" }}>
                 PITCH FAILED · YOU MAY HAVE ALREADY PITCHED THIS CANDIDATE
               </p>
             </div>
