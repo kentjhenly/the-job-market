@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL!,
+});
+
 export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL!,
-  }),
+  database: pool,
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
@@ -20,6 +22,24 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         input: true,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const { id, name, email, role, display_name } = user as typeof user & {
+            role: string;
+            display_name?: string;
+          };
+          await pool.query(
+            `insert into profiles (id, role, display_name, email)
+             values ($1, $2::user_role, $3, $4)
+             on conflict (id) do nothing`,
+            [id, role, display_name ?? name, email]
+          );
+        },
       },
     },
   },
