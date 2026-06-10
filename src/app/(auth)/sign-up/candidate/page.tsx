@@ -50,7 +50,7 @@ export default function CandidateSignUpPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/candidate/dashboard");
     router.refresh();
   }
 

@@ -1,11 +1,11 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { MatchesClient } from "./MatchesClient";
 
 export default async function CandidateMatchesPage() {
   const session = await getServerSession();
-  const supabase = await getSupabaseServerClient();
   if (!session) return null;
+  const supabase = getSupabaseServiceClient();
 
   const { data: matches } = await supabase
     .from("matches")

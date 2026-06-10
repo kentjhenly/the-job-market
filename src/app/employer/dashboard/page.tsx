@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import Link from "next/link";
 import { DataRow } from "@/components/terminal/DataRow";
@@ -7,10 +7,10 @@ import { formatSalary } from "@/lib/utils/formatters";
 
 export default async function EmployerDashboardPage() {
   const session = await getServerSession();
-  const supabase = await getSupabaseServerClient();
   if (!session) return null;
+  const supabase = getSupabaseServiceClient();
 
-  const [{ data: employer }, { data: matches }, { data: candidates }] = await Promise.all([
+  const [{ data: employer }, { data: matches }, { count: candidateCount }] = await Promise.all([
     supabase.from("employers").select("*").eq("id", session.user.id).single(),
     supabase
       .from("matches")
@@ -57,7 +57,7 @@ export default async function EmployerDashboardPage() {
           }
         >
           <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>
-            {(candidates as any)?.count ?? "—"}
+            {candidateCount ?? "—"}
           </span>
         </StatCard>
 

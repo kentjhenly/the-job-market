@@ -1,12 +1,12 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/Badge";
 import { formatSalary, formatRelativeTime, formatPercentile } from "@/lib/utils/formatters";
 
 export default async function EmployerMatchesPage() {
   const session = await getServerSession();
-  const supabase = await getSupabaseServerClient();
   if (!session) return null;
+  const supabase = getSupabaseServiceClient();
 
   const { data: matches } = await supabase
     .from("matches")

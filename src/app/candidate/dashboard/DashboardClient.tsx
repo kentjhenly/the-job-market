@@ -165,7 +165,7 @@ export function DashboardClient({
         <StatCard
           label="CHALLENGES"
           footer={
-            <Link href="/challenges" className="link-up mono" style={{ fontSize: 11 }}>
+            <Link href="/candidate/challenges" className="link-up mono" style={{ fontSize: 11 }}>
               TAKE MORE →
             </Link>
           }
@@ -240,7 +240,7 @@ export function DashboardClient({
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">PROFILE</span>
-            <Link href="/profile" className="link-up mono" style={{ fontSize: 11 }}>
+            <Link href="/candidate/profile" className="link-up mono" style={{ fontSize: 11 }}>
               EDIT
             </Link>
           </div>

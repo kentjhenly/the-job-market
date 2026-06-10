@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/Badge";
 
 export default async function ChallengesPage() {
   const session = await getServerSession();
-  const supabase = await getSupabaseServerClient();
+  const supabase = getSupabaseServiceClient();
 
-  const [{ data: challenges }, { data: results }] = await Promise.all([
+  const [{ data: challenges }, { data: results }, { data: allQuestions }] = await Promise.all([
     supabase.from("challenges").select("*").eq("is_active", true).order("created_at"),
     session
       ? supabase
@@ -15,9 +15,15 @@ export default async function ChallengesPage() {
           .select("challenge_id, raw_score, normalised_score, scored_at, attempt_number")
           .eq("candidate_id", session.user.id)
       : { data: [] },
+    supabase.from("questions").select("challenge_id"),
   ]);
 
   const completedMap = new Map(results?.map((r) => [r.challenge_id, r]));
+
+  const questionCountMap = new Map<string, number>();
+  for (const q of allQuestions ?? []) {
+    questionCountMap.set(q.challenge_id, (questionCountMap.get(q.challenge_id) ?? 0) + 1);
+  }
 
   return (
     <div className="view-enter max-w-3xl space-y-6">
@@ -56,7 +62,7 @@ export default async function ChallengesPage() {
                   ) : (
                     <Badge variant="muted">NOT TAKEN</Badge>
                   )}
-                  <Link href={`/challenges/${c.id}`} className="link-up mono" style={{ fontSize: 11, letterSpacing: "0.08em" }}>
+                  <Link href={`/candidate/challenges/${c.id}`} className="link-up mono" style={{ fontSize: 11, letterSpacing: "0.08em" }}>
                     {completed ? "RETAKE" : "START →"}
                   </Link>
                 </div>
@@ -64,6 +70,9 @@ export default async function ChallengesPage() {
               <div className="flex gap-6 px-4 py-3">
                 <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
                   TIME: {Math.floor(c.time_limit_sec / 60)}MIN
+                </span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                  QUESTIONS: {questionCountMap.get(c.id) ?? 0}
                 </span>
                 <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
                   MAX: {c.max_score}PTS

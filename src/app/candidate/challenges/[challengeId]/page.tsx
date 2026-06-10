@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatTimeRemaining } from "@/lib/utils/formatters";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { DataRow } from "@/components/terminal/DataRow";
 
@@ -33,7 +33,6 @@ interface Challenge {
 export default function ChallengeRunnerPage() {
   const { challengeId } = useParams<{ challengeId: string }>();
   const router = useRouter();
-  const supabase = getSupabaseBrowserClient();
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -47,20 +46,13 @@ export default function ChallengeRunnerPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: c }, { data: q }] = await Promise.all([
-        supabase.from("challenges").select("*").eq("id", challengeId).single(),
-        supabase
-          .from("questions")
-          .select("id, type, prompt, options, weight, order_index")
-          .eq("challenge_id", challengeId)
-          .order("order_index"),
-      ]);
-
-      if (c) {
+      const res = await fetch(`/api/challenges/${challengeId}`);
+      if (res.ok) {
+        const { challenge: c, questions: q } = await res.json();
         setChallenge(c as Challenge);
         setTimeLeft(c.time_limit_sec);
+        setQuestions(q as Question[]);
       }
-      if (q) setQuestions(q as Question[]);
       setLoading(false);
     }
     load();
@@ -105,7 +97,7 @@ export default function ChallengeRunnerPage() {
 
     if (res.ok) {
       const { resultId } = await res.json();
-      router.push(`/challenges/${challengeId}/results?resultId=${resultId}`);
+      router.push(`/candidate/challenges/${challengeId}/results?resultId=${resultId}`);
     } else {
       alert("Submission failed. Please try again.");
       setSubmitting(false);
@@ -141,9 +133,14 @@ export default function ChallengeRunnerPage() {
           <p className="mono mb-4" style={{ fontSize: 11, color: "var(--muted)" }}>
             THE TIMER STARTS WHEN YOU CLICK BEGIN. ENSURE YOU HAVE ENOUGH TIME TO COMPLETE.
           </p>
-          <Button onClick={beginChallenge} size="lg">
-            BEGIN CHALLENGE →
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={beginChallenge} size="lg">
+              BEGIN CHALLENGE →
+            </Button>
+            <Button variant="ghost" size="lg" onClick={() => router.push("/candidate/challenges")}>
+              BACK
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -174,7 +171,15 @@ export default function ChallengeRunnerPage() {
       <div className="space-y-4">
         {questions.map((q, idx) => (
           <div key={q.id} className="panel p-6">
-            <p className="kicker mb-3">Q{idx + 1}</p>
+            <div className="mb-3 flex items-center gap-3">
+              <p className="kicker">Q{idx + 1}</p>
+              <Badge variant="muted">{q.type === "coding" ? "CODE" : "MULTIPLE CHOICE"}</Badge>
+              {q.weight > 1 && (
+                <span className="mono" style={{ fontSize: 10, color: "var(--gold)" }}>
+                  ×{q.weight} WEIGHT
+                </span>
+              )}
+            </div>
             <p className="mb-4" style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
               {q.prompt}
             </p>

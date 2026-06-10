@@ -3,14 +3,14 @@ import { TopBar } from "@/components/terminal/TopBar";
 import { Sidebar } from "@/components/terminal/Sidebar";
 import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
 import { getServerSession } from "@/lib/auth/session";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 const NAV = [
-  { href: "/dashboard", label: "DASHBOARD" },
-  { href: "/challenges", label: "CHALLENGES" },
-  { href: "/salary", label: "SALARY" },
-  { href: "/matches", label: "PITCHES" },
-  { href: "/profile", label: "PROFILE" },
+  { href: "/candidate/dashboard", label: "DASHBOARD" },
+  { href: "/candidate/challenges", label: "CHALLENGES" },
+  { href: "/candidate/salary", label: "SALARY" },
+  { href: "/candidate/matches", label: "PITCHES" },
+  { href: "/candidate/profile", label: "PROFILE" },
 ];
 
 export default async function CandidateLayout({
@@ -24,7 +24,7 @@ export default async function CandidateLayout({
   const role = (session.user as { role?: string }).role;
   if (role !== "candidate") redirect("/employer/dashboard");
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = getSupabaseServiceClient();
   const { data: candidate } = await supabase
     .from("candidates")
     .select("composite_score")
@@ -34,7 +34,7 @@ export default async function CandidateLayout({
   return (
     <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
       <TopBar
-        homeHref="/dashboard"
+        homeHref="/candidate/dashboard"
         stat={{ label: "SCORE", value: (candidate?.composite_score ?? 0).toFixed(1) }}
       />
       <MatchTickerTape />

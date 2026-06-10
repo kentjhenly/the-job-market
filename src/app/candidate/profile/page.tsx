@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useSession } from "@/hooks/useSession";
 import { Button } from "@/components/ui/Button";
 import { VERTICALS, type VerticalType } from "@/lib/utils/constants";
 
 export default function ProfilePage() {
   const { user } = useSession();
-  const supabase = getSupabaseBrowserClient();
 
   const [form, setForm] = useState({
     display_name: "",
@@ -26,29 +24,24 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user?.id) return;
 
-    Promise.all([
-      supabase.from("profiles").select("display_name, vertical").eq("id", user.id).single(),
-      supabase
-        .from("candidates")
-        .select("years_exp_claimed, location, remote_only, desired_salary_min, desired_salary_max")
-        .eq("id", user.id)
-        .single(),
-    ]).then(([{ data: profile }, { data: candidate }]) => {
-      setForm({
-        display_name: profile?.display_name ?? "",
-        vertical: (profile?.vertical as VerticalType) ?? "",
-        years_exp: candidate?.years_exp_claimed?.toString() ?? "",
-        location: candidate?.location ?? "",
-        remote_only: candidate?.remote_only ?? false,
-        desired_salary_min: candidate?.desired_salary_min
-          ? (candidate.desired_salary_min / 100).toString()
-          : "",
-        desired_salary_max: candidate?.desired_salary_max
-          ? (candidate.desired_salary_max / 100).toString()
-          : "",
+    fetch("/api/profile")
+      .then((res) => res.json())
+      .then(({ profile, candidate }) => {
+        setForm({
+          display_name: profile?.display_name ?? "",
+          vertical: (profile?.vertical as VerticalType) ?? "",
+          years_exp: candidate?.years_exp_claimed?.toString() ?? "",
+          location: candidate?.location ?? "",
+          remote_only: candidate?.remote_only ?? false,
+          desired_salary_min: candidate?.desired_salary_min
+            ? (candidate.desired_salary_min / 100).toString()
+            : "",
+          desired_salary_max: candidate?.desired_salary_max
+            ? (candidate.desired_salary_max / 100).toString()
+            : "",
+        });
+        setLoading(false);
       });
-      setLoading(false);
-    });
   }, [user?.id]);
 
   async function save(e: React.FormEvent) {
@@ -56,29 +49,23 @@ export default function ProfilePage() {
     if (!user?.id) return;
     setSaving(true);
 
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .update({
-          display_name: form.display_name,
-          vertical: form.vertical || null,
-        })
-        .eq("id", user.id),
-      supabase
-        .from("candidates")
-        .update({
-          years_exp_claimed: form.years_exp ? parseInt(form.years_exp) : null,
-          location: form.location || null,
-          remote_only: form.remote_only,
-          desired_salary_min: form.desired_salary_min
-            ? Math.round(parseFloat(form.desired_salary_min) * 100)
-            : null,
-          desired_salary_max: form.desired_salary_max
-            ? Math.round(parseFloat(form.desired_salary_max) * 100)
-            : null,
-        })
-        .eq("id", user.id),
-    ]);
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        display_name: form.display_name,
+        vertical: form.vertical || null,
+        years_exp_claimed: form.years_exp ? parseInt(form.years_exp) : null,
+        location: form.location || null,
+        remote_only: form.remote_only,
+        desired_salary_min: form.desired_salary_min
+          ? Math.round(parseFloat(form.desired_salary_min) * 100)
+          : null,
+        desired_salary_max: form.desired_salary_max
+          ? Math.round(parseFloat(form.desired_salary_max) * 100)
+          : null,
+      }),
+    });
 
     setSaved(true);
     setSaving(false);

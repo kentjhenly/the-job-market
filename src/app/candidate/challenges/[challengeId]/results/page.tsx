@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { getServerSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/Badge";
 import { DataRow } from "@/components/terminal/DataRow";
 import { scoreBadgeVariant } from "@/lib/utils/score";
@@ -14,15 +15,17 @@ export default async function ChallengeResultsPage({
   searchParams,
   params,
 }: ResultsPageProps) {
+  const session = await getServerSession();
   const { resultId } = await searchParams;
   const { challengeId } = await params;
-  const supabase = await getSupabaseServerClient();
+  const supabase = getSupabaseServiceClient();
 
-  const { data: result } = resultId
+  const { data: result } = resultId && session
     ? await supabase
         .from("challenge_results")
         .select("*")
         .eq("id", resultId)
+        .eq("candidate_id", session.user.id)
         .single()
     : { data: null };
 
@@ -31,6 +34,14 @@ export default async function ChallengeResultsPage({
     .select("title, max_score, vertical")
     .eq("id", challengeId)
     .single();
+
+  const { data: questions } = await supabase
+    .from("questions")
+    .select("id, type, correct_answer")
+    .eq("challenge_id", challengeId)
+    .order("order_index");
+
+  const submittedAnswers = (result?.answers as Record<string, string> | null) ?? null;
 
   return (
     <div className="view-enter max-w-2xl space-y-6">
@@ -69,6 +80,36 @@ export default async function ChallengeResultsPage({
         </div>
       </div>
 
+      {result && questions && questions.length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">PER-QUESTION</span>
+          </div>
+          <div className="px-4">
+            {questions.map((q, idx) => {
+              const isMcq = q.type === "multiple_choice";
+              const correct = isMcq && q.correct_answer
+                ? submittedAnswers?.[q.id] === q.correct_answer
+                : null;
+              return (
+                <div key={q.id} className="datarow">
+                  <span className="dr-label">Q{idx + 1}</span>
+                  <span
+                    className="dr-value mono"
+                    style={{
+                      fontWeight: 600,
+                      color: correct === null ? "var(--muted)" : correct ? "var(--up)" : "var(--down)",
+                    }}
+                  >
+                    {correct === null ? "MANUAL REVIEW" : correct ? "✓ CORRECT" : "✗ MISSED"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg p-4" style={{ border: "1px solid color-mix(in oklch, var(--up) 40%, transparent)", background: "var(--up-dim)" }}>
         <p className="kicker" style={{ color: "var(--up)" }}>
           YOUR COMPOSITE SCORE IS BEING UPDATED
@@ -79,10 +120,10 @@ export default async function ChallengeResultsPage({
       </div>
 
       <div className="flex gap-3">
-        <Link href="/dashboard" className="btn btn-primary">
+        <Link href="/candidate/dashboard" className="btn btn-primary">
           VIEW DASHBOARD
         </Link>
-        <Link href="/challenges" className="btn btn-ghost">
+        <Link href="/candidate/challenges" className="btn btn-ghost">
           MORE CHALLENGES
         </Link>
       </div>

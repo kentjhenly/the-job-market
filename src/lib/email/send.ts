@@ -31,7 +31,7 @@ export async function sendPitchNotification({
         <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">From: <strong style="color: #fff;">${companyName}</strong></p>
         ${pitchMessage ? `<p style="color: #ededed; font-size: 13px; border-left: 2px solid #00ff41; padding-left: 12px; margin: 0 0 24px;">${pitchMessage}</p>` : ""}
         ${salaryLine ? `<p style="color: #ffd700; font-size: 13px; margin: 0 0 24px;">${salaryLine}</p>` : ""}
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/matches" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/candidate/matches" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
           VIEW PITCH →
         </a>
         <p style="color: #444; font-size: 11px; margin-top: 32px;">This pitch expires in 72 hours. Ignoring pitches reduces your employer's reputation score.</p>
@@ -80,7 +80,7 @@ export async function sendWelcomeEmail({ to, name, role }: WelcomeEmailParams) {
   const dashboardUrl =
     role === "employer"
       ? `${process.env.NEXT_PUBLIC_APP_URL}/employer/dashboard`
-      : `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+      : `${process.env.NEXT_PUBLIC_APP_URL}/candidate/dashboard`;
 
   return resend.emails.send({
     from: FROM,

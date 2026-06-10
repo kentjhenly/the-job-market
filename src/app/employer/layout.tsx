@@ -3,12 +3,12 @@ import { TopBar } from "@/components/terminal/TopBar";
 import { Sidebar } from "@/components/terminal/Sidebar";
 import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
 import { getServerSession } from "@/lib/auth/session";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 const NAV = [
   { href: "/employer/dashboard", label: "DASHBOARD" },
-  { href: "/employer/feed", label: "CANDIDATE FEED" },
-  { href: "/employer/matches", label: "MATCHES" },
+  { href: "/employer/feed", label: "FEED" },
+  { href: "/employer/matches", label: "SENT PITCHES" },
 ];
 
 export default async function EmployerLayout({
@@ -20,9 +20,9 @@ export default async function EmployerLayout({
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "employer") redirect("/dashboard");
+  if (role !== "employer") redirect("/candidate/dashboard");
 
-  const supabase = await getSupabaseServerClient();
+  const supabase = getSupabaseServiceClient();
   const { data: employer } = await supabase
     .from("employers")
     .select("credits")

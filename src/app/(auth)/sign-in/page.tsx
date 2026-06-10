@@ -25,7 +25,7 @@ export default function SignInPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/candidate/dashboard");
     router.refresh();
   }
 

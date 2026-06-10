@@ -22,7 +22,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Optimistic check: presence of Better Auth's session cookie. The
-  // authoritative session + role checks happen in the (candidate) and
+  // authoritative session + role checks happen in the candidate and
   // employer layouts via getServerSession().
   const sessionToken = getSessionCookie(request);
 
@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (sessionToken && (pathname === "/sign-in" || pathname.startsWith("/sign-up"))) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/candidate/dashboard";
     return NextResponse.redirect(url);
   }
 

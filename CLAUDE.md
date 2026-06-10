@@ -29,8 +29,10 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - **Server Components by default** — only add `"use client"` when using hooks, browser APIs, or event handlers
 - All DB queries in Server Components or Route Handlers — never expose `SUPABASE_SERVICE_ROLE_KEY` to the client
 - Supabase browser client: `src/lib/supabase/client.ts` (singleton, anon key)
-- Supabase server client: `src/lib/supabase/server.ts` (cookie-based via `@supabase/ssr`)
-- Service client: `getSupabaseServiceClient()` in `server.ts` — use only in Route Handlers and Edge Functions
+- Supabase server client: `src/lib/supabase/server.ts` (cookie-based via `@supabase/ssr`) — only useful for tables with RLS policies that don't depend on `auth.uid()` (e.g. `challenges_public_read`)
+- Service client: `getSupabaseServiceClient()` in `server.ts` — use in Route Handlers, Edge Functions, **and Server Components for any "select/update own row" query**
+
+**Why service client in Server Components:** Better Auth issues its own `better-auth.session_token` cookie, never a Supabase Auth JWT, so `auth.uid()` is always `NULL` in Postgres for these requests. Every RLS policy of the form `using (auth.uid()::text = id)` (or via `get_user_role(auth.uid()::text)`) silently returns no rows under the anon/cookie-based server client. The fix: use `getSupabaseServiceClient()` (bypasses RLS) and apply the ownership filter explicitly in the query (e.g. `.eq("id", session.user.id)` / `.eq("candidate_id", session.user.id)`). RLS remains enabled as defense-in-depth against direct API abuse. Client components that need "own data" reads/writes (e.g. `/profile`, the challenge runner) call a Route Handler backed by the service client instead of querying Supabase directly.
 
 ### Auth
 - Better Auth session is the source of truth for authentication
@@ -97,23 +99,23 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 | `/sign-up` | Public | Role picker |
 | `/sign-up/candidate` | Public | Candidate registration |
 | `/sign-up/employer` | Public | Employer registration |
-| `/dashboard` | Candidate | Score terminal (live score, radar, salary curve) |
-| `/challenges` | Candidate | Challenge list |
-| `/challenges/[id]` | Candidate | Challenge runner |
-| `/challenges/[id]/results` | Candidate | Post-challenge score breakdown |
-| `/salary` | Candidate | Full salary curve + market position |
-| `/matches` | Candidate | Incoming pitches (accept/decline) |
-| `/profile` | Candidate | Edit profile (exp, location, salary range) |
+| `/candidate/dashboard` | Candidate | Score terminal (live score, radar, salary curve) |
+| `/candidate/challenges` | Candidate | Challenge list |
+| `/candidate/challenges/[id]` | Candidate | Challenge runner |
+| `/candidate/challenges/[id]/results` | Candidate | Post-challenge score breakdown |
+| `/candidate/salary` | Candidate | Full salary curve + market position |
+| `/candidate/matches` | Candidate | Incoming pitches (accept/decline) |
+| `/candidate/profile` | Candidate | Edit profile (exp, location, salary range) |
 | `/employer/dashboard` | Employer | Overview stats |
 | `/employer/feed` | Employer | Ranked candidate feed (order book layout) |
 | `/employer/matches` | Employer | Sent pitches + match status |
 | `/ticker` | Public | Live anonymised match feed (marketing) |
 
-### Middleware (src/middleware.ts)
+### Proxy (src/proxy.ts)
 - Refreshes Supabase session cookie on every request
 - Redirects unauthenticated users to `/sign-in`
 - Redirects employers from candidate routes to `/employer/dashboard`
-- Redirects candidates from employer routes to `/dashboard`
+- Redirects candidates from employer routes to `/candidate/dashboard`
 
 ---
 
@@ -175,6 +177,8 @@ Called via `/api/salary` proxy route.
 | `FeedClient` | `candidates` | UPDATE (all visible) | Reorder feed when scores change |
 | `MatchTickerTape` | `match_ticker_events` | INSERT | Live anonymous match stream |
 | `PublicTickerPage` | `match_ticker_events` | INSERT | Public marketing ticker |
+
+> **Known limitation:** `DashboardClient`'s and `FeedClient`'s `candidates` channels subscribe via the anon-key browser client, so Supabase Realtime evaluates the same `auth.uid()`-dependent RLS policies (`candidates_select_own` / `candidates_employer_read`) — both always evaluate false, so these two channels never deliver `postgres_changes` events. `MatchTickerTape`/`PublicTickerPage` are unaffected (`match_ticker_events` has a public-read policy with no `auth.uid()` dependency). Initial page loads for `/dashboard` and `/employer/feed` are correct (service client); only the *live* reorder/score-update behavior is silently inert. Fixing this requires either a broader public RLS policy or replacing these channels with polling against a Route Handler — not yet decided.
 
 ---
 

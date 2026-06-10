@@ -1,12 +1,12 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { DashboardClient } from "./DashboardClient";
 
 export default async function DashboardPage() {
   const session = await getServerSession();
-  const supabase = await getSupabaseServerClient();
-
   if (!session) return null;
+
+  const supabase = getSupabaseServiceClient();
 
   const [
     { data: candidate },
