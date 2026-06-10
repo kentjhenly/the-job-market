@@ -18,7 +18,6 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 | Email | Resend | — |
 | Analytics | PostHog | — |
 | Charts | Custom inline SVG (`src/components/charts/`) | — |
-| Server state | TanStack Query | 5.x |
 | Deployment | Vercel | — |
 
 ---
@@ -82,7 +81,7 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 - `.link-up`, `.hr`, `.navitem`/`.active`/`.ni-dot`, `.tabbar`/`.tab`/`.active`
 - All animations respect `prefers-reduced-motion`
 
-**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `DepthBar`, `ScoreBar`. Recharts remains an installed dependency but is unused — prefer the SVG components for any new chart.
+**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart.
 
 ### Typography
 - `font-mono` (JetBrains Mono) — ALL numbers, scores, salaries, data values, labels, kickers

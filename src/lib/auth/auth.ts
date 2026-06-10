@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
+import { sendWelcomeEmail } from "@/lib/email/send";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL!,
@@ -39,6 +40,12 @@ export const auth = betterAuth({
              on conflict (id) do nothing`,
             [id, role, display_name ?? name, email]
           );
+
+          sendWelcomeEmail({
+            to: email,
+            name: display_name ?? name,
+            role: role as "candidate" | "employer",
+          }).catch((err) => console.error("sendWelcomeEmail failed:", err));
         },
       },
     },

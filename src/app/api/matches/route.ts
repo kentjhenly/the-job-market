@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { sendPitchNotification } from "@/lib/email/send";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   // Check employer has credits
   const { data: employer } = await supabase
     .from("employers")
-    .select("credits")
+    .select("credits, company_name")
     .eq("id", session.user.id)
     .single();
 
@@ -56,6 +57,22 @@ export async function POST(request: NextRequest) {
     .from("employers")
     .update({ credits: employer.credits - 1 })
     .eq("id", session.user.id);
+
+  // Notify candidate of the new pitch (best-effort, don't block the response)
+  const { data: candidateProfile } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("id", candidate_id)
+    .single();
+
+  if (candidateProfile) {
+    sendPitchNotification({
+      to: candidateProfile.email,
+      companyName: employer.company_name,
+      pitchMessage: pitch_message ?? null,
+      offeredSalary: offered_salary ?? null,
+    }).catch((err) => console.error("sendPitchNotification failed:", err));
+  }
 
   return NextResponse.json({ matchId: match.id });
 }

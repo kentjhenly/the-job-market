@@ -45,7 +45,7 @@ export default function PublicTickerPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [supabase]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>

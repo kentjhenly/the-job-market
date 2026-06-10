@@ -1,6 +1,11 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { MatchesClient } from "./MatchesClient";
+import type { Database } from "@/lib/supabase/types";
+
+type MatchWithEmployer = Database["public"]["Tables"]["matches"]["Row"] & {
+  employers: { company_name: string; reputation_score: number } | null;
+};
 
 export default async function CandidateMatchesPage() {
   const session = await getServerSession();
@@ -13,5 +18,5 @@ export default async function CandidateMatchesPage() {
     .eq("candidate_id", session.user.id)
     .order("created_at", { ascending: false });
 
-  return <MatchesClient matches={(matches as any) ?? []} />;
+  return <MatchesClient matches={(matches as MatchWithEmployer[] | null) ?? []} />;
 }

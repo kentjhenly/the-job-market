@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatTimeRemaining } from "@/lib/utils/formatters";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +44,28 @@ export default function ChallengeRunnerPage() {
   const [startTime, setStartTime] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
+  const handleSubmit = useCallback(async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setConfirmOpen(false);
+
+    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+
+    const res = await fetch(`/api/challenges/${challengeId}/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers, time_taken_sec: timeTaken }),
+    });
+
+    if (res.ok) {
+      const { resultId } = await res.json();
+      router.push(`/candidate/challenges/${challengeId}/results?resultId=${resultId}`);
+    } else {
+      alert("Submission failed. Please try again.");
+      setSubmitting(false);
+    }
+  }, [submitting, startTime, challengeId, answers, router]);
+
   useEffect(() => {
     async function load() {
       const res = await fetch(`/api/challenges/${challengeId}`);
@@ -71,7 +93,7 @@ export default function ChallengeRunnerPage() {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [started, timeLeft]);
+  }, [started, timeLeft, handleSubmit]);
 
   function beginChallenge() {
     setStarted(true);
@@ -80,28 +102,6 @@ export default function ChallengeRunnerPage() {
 
   function setAnswer(qId: string, value: string) {
     setAnswers((prev) => ({ ...prev, [qId]: value }));
-  }
-
-  async function handleSubmit() {
-    if (submitting) return;
-    setSubmitting(true);
-    setConfirmOpen(false);
-
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-
-    const res = await fetch(`/api/challenges/${challengeId}/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers, time_taken_sec: timeTaken }),
-    });
-
-    if (res.ok) {
-      const { resultId } = await res.json();
-      router.push(`/candidate/challenges/${challengeId}/results?resultId=${resultId}`);
-    } else {
-      alert("Submission failed. Please try again.");
-      setSubmitting(false);
-    }
   }
 
   if (loading) {

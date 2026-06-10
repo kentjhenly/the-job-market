@@ -6,10 +6,6 @@ export function formatSalary(cents: number, currency = "SGD"): string {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-export function formatSalaryFull(cents: number, currency = "SGD"): string {
-  return `${currency} ${(cents / 100).toLocaleString("en-SG")}`;
-}
-
 export function formatSalaryBand(minCents: number, maxCents: number, currency = "SGD"): string {
   return `${formatSalary(minCents, currency)}–${formatSalary(maxCents, currency)}`;
 }

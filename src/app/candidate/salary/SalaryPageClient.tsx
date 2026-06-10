@@ -15,12 +15,16 @@ interface SalaryData {
 }
 
 export function SalaryPageClient({ candidate }: { candidate: Candidate | null }) {
-  const [salaryData, setSalaryData] = useState<SalaryData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ key: string; data: SalaryData | null } | null>(null);
+
+  const fetchKey = candidate?.years_exp_claimed
+    ? `${candidate.years_exp_claimed}-${candidate.location ?? ""}`
+    : null;
+  const salaryData = result?.key === fetchKey ? result.data : null;
+  const loading = fetchKey !== null && result?.key !== fetchKey;
 
   useEffect(() => {
-    if (!candidate?.years_exp_claimed) return;
-    setLoading(true);
+    if (!fetchKey || !candidate?.years_exp_claimed) return;
 
     fetch("/api/salary", {
       method: "POST",
@@ -32,12 +36,9 @@ export function SalaryPageClient({ candidate }: { candidate: Candidate | null })
       }),
     })
       .then((r) => r.json())
-      .then((d) => {
-        if (!d.error) setSalaryData(d);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [candidate?.years_exp_claimed, candidate?.location]);
+      .then((d) => setResult({ key: fetchKey, data: d.error ? null : d }))
+      .catch(() => setResult({ key: fetchKey, data: null }));
+  }, [fetchKey, candidate?.years_exp_claimed, candidate?.location]);
 
   if (!candidate?.years_exp_claimed) {
     return (

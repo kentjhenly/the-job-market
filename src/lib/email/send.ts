@@ -5,7 +5,6 @@ interface PitchNotificationParams {
   companyName: string;
   pitchMessage: string | null;
   offeredSalary: number | null;
-  matchId: string;
 }
 
 export async function sendPitchNotification({
@@ -13,7 +12,6 @@ export async function sendPitchNotification({
   companyName,
   pitchMessage,
   offeredSalary,
-  matchId,
 }: PitchNotificationParams) {
   const salaryLine =
     offeredSalary != null
@@ -43,13 +41,11 @@ export async function sendPitchNotification({
 interface MatchAcceptedParams {
   to: string;
   candidateName: string;
-  matchId: string;
 }
 
 export async function sendMatchAcceptedNotification({
   to,
   candidateName,
-  matchId,
 }: MatchAcceptedParams) {
   return resend.emails.send({
     from: FROM,

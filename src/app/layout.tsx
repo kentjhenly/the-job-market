@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { AnimEnabler } from "@/components/providers/AnimEnabler";
 
@@ -42,9 +41,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-bg-deep text-text">
         <AnimEnabler />
-        <QueryProvider>
-          <PostHogProvider>{children}</PostHogProvider>
-        </QueryProvider>
+        <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
   );

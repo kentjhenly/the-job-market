@@ -11,17 +11,16 @@ import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
 import { scoreBadgeVariant } from "@/lib/utils/score";
 import type { Database } from "@/lib/supabase/types";
 
-type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
+export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
   profiles?: { display_name: string } | null;
 };
 
 interface Props {
-  employerId: string;
   initialCandidates: Candidate[];
   employerCredits: number;
 }
 
-export function FeedClient({ employerId, initialCandidates, employerCredits }: Props) {
+export function FeedClient({ initialCandidates, employerCredits }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [credits, setCredits] = useState(employerCredits);
@@ -51,7 +50,7 @@ export function FeedClient({ employerId, initialCandidates, employerCredits }: P
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase]);
 
   async function sendPitch() {
     if (!selected || credits < 1) return;

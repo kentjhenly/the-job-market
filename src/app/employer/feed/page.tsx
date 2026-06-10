@@ -1,6 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
-import { FeedClient } from "./FeedClient";
+import { FeedClient, type Candidate } from "./FeedClient";
 
 export default async function EmployerFeedPage() {
   const session = await getServerSession();
@@ -22,8 +22,7 @@ export default async function EmployerFeedPage() {
 
   return (
     <FeedClient
-      employerId={session.user.id}
-      initialCandidates={(candidates as any) ?? []}
+      initialCandidates={(candidates as Candidate[] | null) ?? []}
       employerCredits={employer?.credits ?? 0}
     />
   );

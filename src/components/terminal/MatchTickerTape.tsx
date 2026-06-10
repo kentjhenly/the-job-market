@@ -41,7 +41,7 @@ export function MatchTickerTape({ className }: { className?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [supabase]);
 
   if (items.length === 0) return null;
 

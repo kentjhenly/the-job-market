@@ -20,8 +20,8 @@ function fitPolynomialRegression(
   }
 
   // Build X matrix (n x 3): [x^2, x, 1]
-  let s0 = n,
-    s1 = 0,
+  const s0 = n;
+  let s1 = 0,
     s2 = 0,
     s3 = 0,
     s4 = 0;

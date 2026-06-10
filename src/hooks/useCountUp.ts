@@ -10,16 +10,11 @@ export function useCountUp(target: number, duration = 900): number {
     const from = prevRef.current;
     const to = target;
     const start = performance.now();
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf: number;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setValue(to);
-      prevRef.current = to;
-      return;
-    }
-
     function tick(now: number) {
-      const progress = Math.min(1, (now - start) / duration);
+      const progress = reduced ? 1 : Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(from + (to - from) * eased);
       if (progress < 1) {

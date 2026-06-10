@@ -73,7 +73,7 @@ export function DashboardClient({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [candidateId]);
+  }, [candidateId, supabase]);
 
   // Fetch salary data
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { sendMatchAcceptedNotification } from "@/lib/email/send";
 
 export async function POST(
   request: NextRequest,
@@ -64,6 +65,22 @@ export async function POST(
       role_label: "ENGINEER",
       match_type: "match",
     });
+
+    // Notify employer that the candidate accepted (best-effort, don't block the response)
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, email, display_name")
+      .in("id", [match.employer_id, match.candidate_id]);
+
+    const employerProfile = profiles?.find((p) => p.id === match.employer_id);
+    const candidateProfile = profiles?.find((p) => p.id === match.candidate_id);
+
+    if (employerProfile && candidateProfile) {
+      sendMatchAcceptedNotification({
+        to: employerProfile.email,
+        candidateName: candidateProfile.display_name,
+      }).catch((err) => console.error("sendMatchAcceptedNotification failed:", err));
+    }
   }
 
   return NextResponse.json({ status: newStatus });
