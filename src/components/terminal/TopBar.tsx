@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Clock } from "./Clock";
+import { SignOutButton } from "./SignOutButton";
 
 interface TopBarProps {
   homeHref: string;
@@ -29,6 +30,7 @@ export function TopBar({ homeHref, stat }: TopBarProps) {
           </span>
         )}
         <Clock />
+        <SignOutButton />
       </div>
     </header>
   );
