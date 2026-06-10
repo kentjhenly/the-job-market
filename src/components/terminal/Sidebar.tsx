@@ -32,7 +32,7 @@ export function Sidebar({ nav, role }: { nav: NavItem[]; role: "candidate" | "em
       </nav>
       <div className="mt-auto border-t border-border p-4">
         <p className="mono" style={{ fontSize: 9.5, color: "var(--dim)", lineHeight: 1.6, letterSpacing: "0.04em" }}>
-          SINGAPORE · TECH
+          HONG KONG · TECH
           <br />
           VERTICAL · BETA
         </p>

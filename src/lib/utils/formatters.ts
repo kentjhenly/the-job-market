@@ -1,4 +1,4 @@
-export function formatSalary(cents: number, currency = "SGD"): string {
+export function formatSalary(cents: number, currency = "HKD"): string {
   const amount = cents / 100;
   if (amount >= 1000) {
     return `${currency} ${(amount / 1000).toFixed(0)}K`;
@@ -6,7 +6,7 @@ export function formatSalary(cents: number, currency = "SGD"): string {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-export function formatSalaryBand(minCents: number, maxCents: number, currency = "SGD"): string {
+export function formatSalaryBand(minCents: number, maxCents: number, currency = "HKD"): string {
   return `${formatSalary(minCents, currency)}–${formatSalary(maxCents, currency)}`;
 }
 

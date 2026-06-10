@@ -4,7 +4,7 @@
 Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates complete **skill challenges** (no CVs). A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
 
 **Revenue:** Transaction fees — employer pays per pitch sent; candidate pays on match accepted.
-**Launch vertical:** Tech · Singapore.
+**Launch vertical:** Tech · Hong Kong.
 
 ---
 
@@ -40,7 +40,7 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - Role stored on `profiles.role` (enum: candidate | employer)
 
 ### Money
-- **All monetary values stored as integer cents** in the database (e.g., SGD 80,000 = `8000000`)
+- **All monetary values stored as integer cents** in the database (e.g., HKD 80,000 = `8000000`)
 - Use `formatSalary()` / `formatSalaryBand()` from `src/lib/utils/formatters.ts` for display
 
 ### Design System (src/app/globals.css)
@@ -81,7 +81,7 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 - `.link-up`, `.hr`, `.navitem`/`.active`/`.ni-dot`, `.tabbar`/`.tab`/`.active`
 - All animations respect `prefers-reduced-motion`
 
-**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart.
+**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `SalaryScatter`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart. `SalaryScatter` (linear regression over per-position market data) is used in the job posting form's MARKET DATA panel; for now it's seeded from the same `/api/salary` regression curve as `SalaryCurve` (curve points mapped to `{years_exp, salary}`) as a placeholder until a dedicated per-position scatter-data API exists. Shows an "AWAITING MARKET DATA" empty state if fewer than 2 points are returned.
 
 ### Typography
 - `font-mono` (JetBrains Mono) — ALL numbers, scores, salaries, data values, labels, kickers
@@ -102,12 +102,15 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 | `/candidate/challenges` | Candidate | Challenge list |
 | `/candidate/challenges/[id]` | Candidate | Challenge runner |
 | `/candidate/challenges/[id]/results` | Candidate | Post-challenge score breakdown |
-| `/candidate/salary` | Candidate | Full salary curve + market position |
-| `/candidate/matches` | Candidate | Incoming pitches (accept/decline) |
-| `/candidate/profile` | Candidate | Edit profile (exp, location, salary range) |
+| `/candidate/postings` | Candidate | Job postings grid (up to 10 positions) |
+| `/candidate/postings/[postingId]` | Candidate | Create/edit job posting (incl. market data scatter chart) |
+| `/candidate/matches` | Candidate | Incoming pitches (accept/decline) + chat for accepted matches |
+| `/candidate/profile` | Candidate | Profile — settings & biodata (display name, vertical, experience, location, salary) |
 | `/employer/dashboard` | Employer | Overview stats |
 | `/employer/feed` | Employer | Ranked candidate feed (order book layout) |
-| `/employer/matches` | Employer | Sent pitches + match status |
+| `/employer/postings` | Employer | Job postings grid (create roles, set candidate cap) |
+| `/employer/postings/[postingId]` | Employer | Create/edit posting + ranked matched-candidates panel (pitch directly from a match) |
+| `/employer/matches` | Employer | Sent pitches + match status + chat for accepted matches |
 | `/ticker` | Public | Live anonymised match feed (marketing) |
 
 ### Proxy (src/proxy.ts)
@@ -139,10 +142,13 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 | `questions` | challenge_id, type, prompt, options (JSONB), correct_answer, weight |
 | `challenge_results` | candidate_id, challenge_id, raw_score, normalised_score, answers (JSONB) |
 | `salary_data_points` | vertical, years_exp, location, annual_salary (cents), source |
-| `matches` | employer_id, candidate_id, status, offered_salary, expires_at (72hr) |
+| `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr) |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
 | `score_history` | candidate_id, composite_score, recorded_at (sparkline data) |
+| `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, notice_period_days |
+| `employer_job_postings` | employer_id, title, description, vertical, years_exp_*, location, work_modes, salary_*, skills, max_candidates (default 5), status |
+| `match_messages` | match_id, sender_id, body, created_at — chat for `accepted` matches only |
 
 ### DB triggers
 - `profile_create_role_row` — after INSERT on `profiles`, auto-creates `candidates` or `employers` row
@@ -166,6 +172,12 @@ Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno mat
 `{ curve: [{years_exp, predicted_salary, ci_lower, ci_upper}], candidate_percentile, median_at_exp }`
 
 Called via `/api/salary` proxy route.
+
+### `candidate-matcher` (POST `{posting_id}`)
+Triggered by `GET /api/employer-postings/[postingId]/candidates`. Ranks every visible `candidate_job_postings` row against the given `employer_job_postings` row across 6 weighted factors:
+- skills overlap (0.35), experience-range fit (0.20), salary-range overlap (0.15), location/work-mode fit (0.10), vertical match (0.10), candidate `composite_score` (0.10)
+
+Returns the top 25 as `{ matches: [{candidate_id, candidate_posting_id, match_score (0-100), ...}] }`. The Route Handler adds `pitchedCandidateIds` and `capacity: { max, active }` (active = `pending`/`accepted` matches on that posting).
 
 ---
 
@@ -191,8 +203,15 @@ Called via `/api/salary` proxy route.
 ## Anti-Ghosting System
 - Matches expire after 72 hours (`expires_at` default)
 - Accept/decline inserts `reputation_events` row (`event_type: 'responded'`)
-- A scheduled function should mark expired pending matches as `ghosted` and insert employer reputation event
+- `GET|POST /api/cron/expire-matches` finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
 - `recommendation-scorer` reads `reputation_events` to adjust reputation signal in composite score
+
+---
+
+## Chat (Accepted Matches)
+- `match_messages` (match_id, sender_id, body, created_at) — RLS: participants of the match can read; insert requires `sender_id = auth.uid()` and `matches.status = 'accepted'`
+- `GET|POST /api/matches/[matchId]/messages` — service client, scoped to the match's `employer_id`/`candidate_id`; POST rejected (409) unless the match is `accepted`
+- `MatchChat` (`src/components/terminal/MatchChat.tsx`) — polling-based (5s interval; no Realtime, per the known `auth.uid()` RLS limitation above), rendered inside accepted-match cards on `/candidate/matches` and `/employer/matches`
 
 ---
 
@@ -216,3 +235,4 @@ See `.env.example`. Required:
 - `BETTER_AUTH_SECRET` (32-char random string)
 - `RESEND_API_KEY`
 - `NEXT_PUBLIC_POSTHOG_KEY`
+- `CRON_SECRET` (optional — verifies `/api/cron/*` requests)

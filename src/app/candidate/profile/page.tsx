@@ -87,7 +87,7 @@ export default function ProfilePage() {
           PROFILE
         </h1>
         <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          THIS INFORMATION IS VISIBLE TO EMPLOYERS IN THE FEED
+          THIS INFORMATION IS USED FOR YOUR COMPOSITE SCORE AND THE EMPLOYER FEED
         </p>
       </div>
 
@@ -146,7 +146,7 @@ export default function ProfilePage() {
                 value={form.location}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 className="field"
-                placeholder="Singapore"
+                placeholder="Hong Kong"
               />
             </div>
 
@@ -164,7 +164,7 @@ export default function ProfilePage() {
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">SALARY EXPECTATIONS (SGD)</span>
+            <span className="panel-title">SALARY EXPECTATIONS (HKD)</span>
           </div>
           <div className="grid grid-cols-2 gap-4 p-4">
             <div>
@@ -192,7 +192,7 @@ export default function ProfilePage() {
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
-            SAVE PROFILE
+            SAVE SETTINGS
           </Button>
           {saved && (
             <span className="mono" style={{ fontSize: 11, color: "var(--up)" }}>

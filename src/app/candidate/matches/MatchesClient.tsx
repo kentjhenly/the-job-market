@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { MatchChat } from "@/components/terminal/MatchChat";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
 
 interface Match {
@@ -149,6 +150,12 @@ function MatchCard({
           </div>
         )}
       </div>
+
+      {match.status === "accepted" && (
+        <div className="px-4 pb-4">
+          <MatchChat matchId={match.id} counterpartLabel={match.employers?.company_name ?? "EMPLOYER"} />
+        </div>
+      )}
     </div>
   );
 }

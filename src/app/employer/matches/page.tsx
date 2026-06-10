@@ -1,6 +1,7 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/Badge";
+import { MatchChat } from "@/components/terminal/MatchChat";
 import { formatSalary, formatRelativeTime, formatPercentile } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -86,6 +87,15 @@ export default async function EmployerMatchesPage() {
                   </p>
                 )}
               </div>
+
+              {m.status === "accepted" && (
+                <div className="px-4 pb-4">
+                  <MatchChat
+                    matchId={m.id}
+                    counterpartLabel={m.candidates?.profiles?.display_name ?? `CAND-${m.candidate_id?.slice(0, 6).toUpperCase()}`}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

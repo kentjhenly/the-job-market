@@ -1,25 +1,19 @@
 "use client";
 
-import { useId } from "react";
-
-interface CurvePoint {
+interface ScatterPoint {
   years_exp: number;
-  predicted_salary: number;
-  ci_lower: number;
-  ci_upper: number;
+  salary: number;
 }
 
-interface SalaryCurveProps {
-  curve: CurvePoint[];
+interface SalaryScatterProps {
+  points: ScatterPoint[];
   candYears?: number;
-  candMin?: number;
+  candSalaryMin?: number;
+  candSalaryMax?: number;
   height?: number;
 }
 
-export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryCurveProps) {
-  const id = useId();
-  const gradientId = `curveband-${id}`;
-
+export function SalaryScatter({ points, candYears, candSalaryMin, candSalaryMax, height = 230 }: SalaryScatterProps) {
   const W = 460;
   const H = height;
   const padL = 52;
@@ -27,30 +21,34 @@ export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryC
   const padT = 16;
   const padB = 30;
 
-  const xs = curve.map((c) => c.years_exp);
-  const ys = curve.flatMap((c) => [c.ci_lower, c.ci_upper]);
-  const xmin = Math.min(...xs);
-  const xmax = Math.max(...xs);
-  const ymin = Math.min(...ys) * 0.96;
-  const ymax = Math.max(...ys) * 1.02;
+  if (points.length < 2) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: H }}>
+        <p className="kicker">AWAITING MARKET DATA</p>
+      </div>
+    );
+  }
+
+  const xs = points.map((p) => p.years_exp);
+  const ys = points.map((p) => p.salary);
+  const xmin = Math.min(...xs, candYears ?? Infinity);
+  const xmax = Math.max(...xs, candYears ?? -Infinity);
+  const ymin = Math.min(...ys, candSalaryMin ?? Infinity) * 0.96;
+  const ymax = Math.max(...ys, candSalaryMax ?? -Infinity) * 1.02;
   const X = (v: number) => padL + ((v - xmin) / (xmax - xmin)) * (W - padL - padR);
   const Y = (v: number) => padT + (1 - (v - ymin) / (ymax - ymin)) * (H - padT - padB);
 
-  const lineP = curve
-    .map((c, i) => `${i === 0 ? "M" : "L"}${X(c.years_exp).toFixed(1)},${Y(c.predicted_salary).toFixed(1)}`)
-    .join(" ");
-  const bandP =
-    curve.map((c, i) => `${i === 0 ? "M" : "L"}${X(c.years_exp).toFixed(1)},${Y(c.ci_upper).toFixed(1)}`).join(" ") +
-    " " +
-    curve
-      .slice()
-      .reverse()
-      .map((c) => `L${X(c.years_exp).toFixed(1)},${Y(c.ci_lower).toFixed(1)}`)
-      .join(" ") +
-    " Z";
+  // least-squares linear regression
+  const n = points.length;
+  const sumX = xs.reduce((a, b) => a + b, 0);
+  const sumY = ys.reduce((a, b) => a + b, 0);
+  const sumXY = points.reduce((a, p) => a + p.years_exp * p.salary, 0);
+  const sumX2 = xs.reduce((a, x) => a + x * x, 0);
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+  const lineP = `M${X(xmin).toFixed(1)},${Y(slope * xmin + intercept).toFixed(1)} L${X(xmax).toFixed(1)},${Y(slope * xmax + intercept).toFixed(1)}`;
 
   const yTicks = 4;
-  // curve values are stored in integer cents — convert to HKD thousands for axis labels
   const fmtK = (cents: number) => `${(cents / 100000).toFixed(0)}K`;
 
   const xTickCount = 4;
@@ -58,12 +56,6 @@ export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryC
 
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--up)" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="var(--up)" stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
       {Array.from({ length: yTicks + 1 }).map((_, i) => {
         const v = ymin + (i / yTicks) * (ymax - ymin);
         return (
@@ -80,7 +72,9 @@ export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryC
           {yr}Y
         </text>
       ))}
-      <path d={bandP} fill={`url(#${gradientId})`} />
+      {points.map((p, i) => (
+        <circle key={i} cx={X(p.years_exp)} cy={Y(p.salary)} r="3" fill="var(--muted)" opacity="0.5" />
+      ))}
       <path d={lineP} fill="none" stroke="var(--up)" strokeWidth="2" />
       {candYears != null && (
         <g>
@@ -94,7 +88,8 @@ export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryC
             strokeDasharray="4 3"
             opacity="0.8"
           />
-          {candMin != null && <circle cx={X(candYears)} cy={Y(candMin)} r="4.5" fill="var(--gold)" stroke="var(--bg)" strokeWidth="1.5" />}
+          {candSalaryMin != null && <circle cx={X(candYears)} cy={Y(candSalaryMin)} r="4.5" fill="var(--gold)" stroke="var(--bg)" strokeWidth="1.5" />}
+          {candSalaryMax != null && <circle cx={X(candYears)} cy={Y(candSalaryMax)} r="4.5" fill="var(--gold)" stroke="var(--bg)" strokeWidth="1.5" />}
         </g>
       )}
     </svg>

@@ -6,6 +6,8 @@ export type UserRole = "candidate" | "employer";
 export type ChallengeType = "multiple_choice" | "coding" | "written";
 export type MatchStatus = "pending" | "accepted" | "declined" | "expired" | "ghosted";
 export type Vertical = "tech" | "finance" | "marketing" | "design" | "ops";
+export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
+export type PostingStatus = "open" | "closed";
 
 type Relationship = {
   foreignKeyName: string;
@@ -235,6 +237,7 @@ export interface Database {
           id: string;
           employer_id: string;
           candidate_id: string;
+          posting_id: string | null;
           status: MatchStatus;
           pitch_message: string | null;
           offered_salary: number | null;
@@ -246,6 +249,7 @@ export interface Database {
           id?: string;
           employer_id: string;
           candidate_id: string;
+          posting_id?: string | null;
           status?: MatchStatus;
           pitch_message?: string | null;
           offered_salary?: number | null;
@@ -317,6 +321,117 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: Relationship[];
       };
+      candidate_job_postings: {
+        Row: {
+          id: string;
+          candidate_id: string;
+          title: string;
+          location: string | null;
+          work_modes: WorkMode[];
+          desired_salary_min: number | null;
+          desired_salary_max: number | null;
+          skills: string[];
+          notice_period_days: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          candidate_id: string;
+          title: string;
+          location?: string | null;
+          work_modes?: WorkMode[];
+          desired_salary_min?: number | null;
+          desired_salary_max?: number | null;
+          skills?: string[];
+          notice_period_days?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          location?: string | null;
+          work_modes?: WorkMode[];
+          desired_salary_min?: number | null;
+          desired_salary_max?: number | null;
+          skills?: string[];
+          notice_period_days?: number | null;
+          updated_at?: string;
+        };
+        Relationships: Relationship[];
+      };
+      employer_job_postings: {
+        Row: {
+          id: string;
+          employer_id: string;
+          title: string;
+          description: string | null;
+          vertical: Vertical;
+          years_exp_min: number | null;
+          years_exp_max: number | null;
+          location: string | null;
+          work_modes: WorkMode[];
+          salary_min: number | null;
+          salary_max: number | null;
+          skills: string[];
+          max_candidates: number;
+          status: PostingStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          employer_id: string;
+          title: string;
+          description?: string | null;
+          vertical?: Vertical;
+          years_exp_min?: number | null;
+          years_exp_max?: number | null;
+          location?: string | null;
+          work_modes?: WorkMode[];
+          salary_min?: number | null;
+          salary_max?: number | null;
+          skills?: string[];
+          max_candidates?: number;
+          status?: PostingStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          vertical?: Vertical;
+          years_exp_min?: number | null;
+          years_exp_max?: number | null;
+          location?: string | null;
+          work_modes?: WorkMode[];
+          salary_min?: number | null;
+          salary_max?: number | null;
+          skills?: string[];
+          max_candidates?: number;
+          status?: PostingStatus;
+          updated_at?: string;
+        };
+        Relationships: Relationship[];
+      };
+      match_messages: {
+        Row: {
+          id: string;
+          match_id: string;
+          sender_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          sender_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -325,6 +440,7 @@ export interface Database {
       challenge_type: ChallengeType;
       match_status: MatchStatus;
       vertical: Vertical;
+      work_mode: WorkMode;
     };
     CompositeTypes: Record<string, never>;
   };

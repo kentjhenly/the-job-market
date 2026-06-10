@@ -15,7 +15,7 @@ export async function sendPitchNotification({
 }: PitchNotificationParams) {
   const salaryLine =
     offeredSalary != null
-      ? `Offered salary: SGD ${(offeredSalary / 100).toLocaleString()}`
+      ? `Offered salary: HKD ${(offeredSalary / 100).toLocaleString()}`
       : "";
 
   return resend.emails.send({

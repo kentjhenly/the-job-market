@@ -50,7 +50,7 @@ export default function LandingPage() {
       </nav>
 
       <main className="grid-tex flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
-        <p className="kicker mb-4">SINGAPORE TECH · BETA</p>
+        <p className="kicker mb-4">HONG KONG TECH · BETA</p>
         <h1
           className="mono max-w-3xl text-3xl font-bold md:text-5xl"
           style={{ color: "var(--text)", lineHeight: 1.15 }}
@@ -105,7 +105,7 @@ export default function LandingPage() {
           © {new Date().getFullYear()} THE JOB MARKET
         </span>
         <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-          SINGAPORE · TECH VERTICAL ONLY IN BETA
+          HONG KONG · TECH VERTICAL ONLY IN BETA
         </span>
       </footer>
     </div>

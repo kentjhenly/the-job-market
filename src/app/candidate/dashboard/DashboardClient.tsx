@@ -85,7 +85,7 @@ export function DashboardClient({
       body: JSON.stringify({
         vertical: "tech",
         years_exp: candidate.years_exp_claimed,
-        location: candidate.location ?? "Singapore",
+        location: candidate.location ?? "Hong Kong",
       }),
     })
       .then((r) => r.json())

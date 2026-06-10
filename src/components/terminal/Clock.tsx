@@ -18,7 +18,7 @@ export function Clock() {
 
   return (
     <span className="mono tnum" style={{ fontSize: 12, color: "var(--text-2)" }}>
-      {time} <span style={{ color: "var(--dim)" }}>SGT</span>
+      {time} <span style={{ color: "var(--dim)" }}>HKT</span>
     </span>
   );
 }

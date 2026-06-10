@@ -187,7 +187,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
           </div>
 
           <div>
-            <label className="kicker mb-1.5 block">OFFERED SALARY (SGD)</label>
+            <label className="kicker mb-1.5 block">OFFERED SALARY (HKD)</label>
             <input
               type="number"
               value={pitchSalary}

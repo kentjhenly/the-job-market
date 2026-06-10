@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Employers only" }, { status: 403 });
   }
 
-  const { candidate_id, pitch_message, offered_salary } = await request.json();
+  const { candidate_id, pitch_message, offered_salary, posting_id } = await request.json();
   if (!candidate_id) {
     return NextResponse.json({ error: "candidate_id required" }, { status: 400 });
   }
@@ -30,12 +30,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
+  // If pitching from a posting, enforce its candidate capacity
+  if (posting_id) {
+    const { data: posting } = await supabase
+      .from("employer_job_postings")
+      .select("max_candidates")
+      .eq("id", posting_id)
+      .eq("employer_id", session.user.id)
+      .single();
+
+    if (!posting) {
+      return NextResponse.json({ error: "Posting not found" }, { status: 404 });
+    }
+
+    const { data: existingMatches } = await supabase
+      .from("matches")
+      .select("status")
+      .eq("posting_id", posting_id);
+
+    const activeCount = (existingMatches ?? []).filter(
+      (m) => m.status === "pending" || m.status === "accepted"
+    ).length;
+
+    if (activeCount >= posting.max_candidates) {
+      return NextResponse.json(
+        { error: `Posting has reached its candidate capacity (${posting.max_candidates})` },
+        { status: 409 }
+      );
+    }
+  }
+
   // Create match (will fail on duplicate due to unique index)
   const { data: match, error } = await supabase
     .from("matches")
     .insert({
       employer_id: session.user.id,
       candidate_id,
+      posting_id: posting_id ?? null,
       pitch_message: pitch_message ?? null,
       offered_salary: offered_salary ?? null,
     })
