@@ -38,7 +38,7 @@ export default async function EmployerLayout({
       <MatchTickerTape />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar nav={NAV} />
+        <Sidebar nav={NAV} role="employer" />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
     </div>
