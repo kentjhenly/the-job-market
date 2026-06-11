@@ -112,34 +112,35 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // If a specific role was given, prefer per-role data points
+  // Try progressively broader filters until enough points are found:
+  // role+location → role → vertical+location → vertical. The location
+  // filter is dropped before the role filter so a candidate outside the
+  // seeded market (all seed rows are 'Hong Kong') still gets a curve.
+  const attempts: { byRole: boolean; byLocation: boolean }[] = [];
+  if (role) {
+    if (location) attempts.push({ byRole: true, byLocation: true });
+    attempts.push({ byRole: true, byLocation: false });
+  }
+  if (location) attempts.push({ byRole: false, byLocation: true });
+  attempts.push({ byRole: false, byLocation: false });
+
   let dataPoints: { years_exp: number; monthly_salary: number }[] | null = null;
 
-  if (role) {
-    let roleQuery = supabase
-      .from("salary_data_points")
-      .select("years_exp, monthly_salary")
-      .eq("role_label", role);
-
-    if (location) roleQuery = roleQuery.eq("location", location);
-    if (remote !== undefined) roleQuery = roleQuery.eq("remote", remote);
-
-    const { data } = await roleQuery;
-    dataPoints = data;
-  }
-
-  // Fall back to vertical-level data if no role given or too few role-specific points
-  if (!dataPoints || dataPoints.length < 3) {
+  for (const attempt of attempts) {
     let query = supabase
       .from("salary_data_points")
-      .select("years_exp, monthly_salary")
-      .eq("vertical", vertical);
+      .select("years_exp, monthly_salary");
 
-    if (location) query = query.eq("location", location);
+    if (attempt.byRole) query = query.eq("role_label", role);
+    else query = query.eq("vertical", vertical);
+    if (attempt.byLocation) query = query.eq("location", location);
     if (remote !== undefined) query = query.eq("remote", remote);
 
     const { data } = await query;
-    dataPoints = data;
+    if (data && data.length >= 3) {
+      dataPoints = data;
+      break;
+    }
   }
 
   if (!dataPoints || dataPoints.length < 3) {

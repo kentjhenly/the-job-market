@@ -79,15 +79,13 @@ export function DashboardClient({
 
   // Fetch salary data
   useEffect(() => {
-    if (!candidate?.years_exp_claimed) return;
-
     fetch("/api/salary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         vertical: "tech",
-        years_exp: candidate.years_exp_claimed,
-        location: candidate.location ?? "Hong Kong",
+        years_exp: candidate?.years_exp_claimed ?? 0,
+        location: candidate?.location ?? "Hong Kong",
       }),
     })
       .then((r) => r.json())

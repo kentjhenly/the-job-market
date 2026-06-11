@@ -48,15 +48,13 @@ export function JobPostingForm({ initial, candYears, candLocation, vertical, ver
   const [scatterPoints, setScatterPoints] = useState<ScatterPoint[]>([]);
 
   useEffect(() => {
-    if (!candYears) return;
-
     const timeout = setTimeout(() => {
       fetch("/api/salary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vertical: vertical ?? "tech",
-          years_exp: candYears,
+          years_exp: candYears ?? 0,
           location: candLocation ?? "Hong Kong",
           role: form.title || undefined,
         }),

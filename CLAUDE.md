@@ -124,8 +124,9 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 ## Database
 ### Run migrations
 ```bash
-npx supabase db push
+node scripts/apply-migration.cjs supabase/migrations/00XX_name.sql
 ```
+> Migrations 0010+ were applied directly through the pooler (`DATABASE_URL` in `.env.local`) via this script, so the Supabase CLI's migration history doesn't track them — `npx supabase db push` would try to re-apply them and fail. Confirm with the user before running this against the live DB.
 
 ### Generate types
 ```bash
@@ -216,7 +217,7 @@ Returns the top 25 as `{ matches: [{candidate_id, candidate_posting_id, match_sc
 
 ## Salary Data Flow
 All salary signals — the ticker, the regression curve, and real outcomes — share one underlying dataset (`salary_data_points`), so the market reference stays grounded in the same numbers shown to users:
-- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (42 roles across the 5 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role.
+- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (42 roles across the 5 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role. Per migration `0016_real_salary_benchmarks.sql`, each role's seed curve is calibrated to real published HK benchmarks (Morgan McKinley HK Salary Guide 2026, JobsDB employer-disclosed ranges, PayScale/Glassdoor 2026, and the C&SD 2025 Annual Earnings and Hours Survey) — entry and 10-year points per role anchor a `base + growth * yrs^0.85` curve with ±10% noise; full citations are in the migration header.
 - The TITLE / JOB ROLE field on `/candidate/postings/[postingId]` (`JobPostingForm.tsx`) is a searchable combobox (`src/components/ui/Combobox.tsx`) populated from `JOB_ROLES`, grouped by vertical. Selecting (or typing) a role is sent to `/api/salary` as `role`, driving the `SalaryScatter` regression below it.
 - `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), and `salary_band` as a ±5% band around `matches.offered_salary` via `formatSalaryBand()`.
 - The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see.
