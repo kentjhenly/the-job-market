@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { MatchChat } from "@/components/terminal/MatchChat";
-import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
+import { formatSalary, formatRelativeTime, formatPercentile } from "@/lib/utils/formatters";
+import type { Database } from "@/lib/supabase/types";
 
-interface Match {
-  id: string;
-  status: string;
-  pitch_message: string | null;
-  offered_salary: number | null;
-  expires_at: string;
-  created_at: string;
-  employers?: { company_name: string; reputation_score: number } | null;
-}
+type MatchWithCandidate = Database["public"]["Tables"]["matches"]["Row"] & {
+  candidates: {
+    composite_score: number;
+    percentile_rank: number;
+    profiles: { display_name: string } | null;
+  } | null;
+};
 
 const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   accepted: "up",
@@ -25,42 +23,26 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "7rem 1.6fr 8rem 7rem 8rem";
-const HEADERS = ["STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT"];
+const COLUMNS = "7rem 1.6fr 7rem 8rem 8rem";
+const HEADERS = ["STATUS", "CANDIDATE", "SCORE", "OFFERED", "SENT"];
 
-function reputationColor(reputation?: number | null) {
-  return reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
+function candidateLabel(m: MatchWithCandidate) {
+  return m.candidates?.profiles?.display_name ?? `CAND-${m.candidate_id?.slice(0, 6).toUpperCase()}`;
 }
 
-export function MatchesClient({ matches: initial }: { matches: Match[] }) {
-  const [matches, setMatches] = useState<Match[]>(initial);
+export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const selected = matches.find((m) => m.id === selectedId) ?? null;
-
-  async function respond(matchId: string, action: "accept" | "decline") {
-    setLoading((prev) => ({ ...prev, [matchId]: true }));
-    const res = await fetch(`/api/matches/${matchId}/respond`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    if (res.ok) {
-      const { status } = await res.json();
-      setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status } : m)));
-    }
-    setLoading((prev) => ({ ...prev, [matchId]: false }));
-  }
 
   return (
     <div className="view-enter space-y-6">
       <div>
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
-          INCOMING PITCHES
+          SENT PITCHES
         </h1>
         <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          EMPLOYERS PAY TO CONTACT YOU. EVERY PITCH IS SERIOUS. RANKED BY OFFERED SALARY.
+          TRACK YOUR OUTREACH AND MATCH STATUS. RANKED BY OFFERED SALARY.
         </p>
       </div>
 
@@ -78,11 +60,11 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
 
         {matches.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="kicker">NO PITCHES YET. IMPROVE YOUR SKILL SCORE TO ATTRACT EMPLOYERS.</p>
+            <p className="kicker">NO PITCHES SENT YET. BROWSE THE CANDIDATE FEED TO GET STARTED.</p>
           </div>
         ) : (
           matches.map((m, idx) => {
-            const reputation = m.employers?.reputation_score;
+            const score = m.candidates?.composite_score;
             const sel = m.id === selectedId;
             return (
               <div
@@ -100,16 +82,16 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
                   <Badge variant={statusVariant[m.status] ?? "muted"}>{m.status.toUpperCase()}</Badge>
                 </div>
                 <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
-                  {m.employers?.company_name ?? "UNKNOWN COMPANY"}
+                  {candidateLabel(m)}
                 </p>
+                <span className="mono tnum" style={{ fontSize: 12, color: score != null ? "var(--up)" : "var(--muted)" }}>
+                  {score != null ? score.toFixed(1) : "—"}
+                </span>
                 <span
                   className="mono tnum"
                   style={{ fontSize: 12, fontWeight: 600, color: m.offered_salary ? "var(--up)" : "var(--muted)" }}
                 >
                   {m.offered_salary ? formatSalary(m.offered_salary) : "—"}
-                </span>
-                <span className="mono tnum" style={{ fontSize: 11, color: reputationColor(reputation) }}>
-                  {reputation != null ? `${reputation.toFixed(0)}/100` : "—"}
                 </span>
                 <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
                   {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
@@ -136,21 +118,20 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
           <div className="flex-1 space-y-4 overflow-auto p-4">
             <div className="flex items-center justify-between">
               <span className="mono" style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>
-                {selected.employers?.company_name ?? "UNKNOWN COMPANY"}
+                {candidateLabel(selected)}
               </span>
               <Badge variant={statusVariant[selected.status] ?? "muted"}>{selected.status.toUpperCase()}</Badge>
             </div>
 
             <div>
+              {selected.candidates?.composite_score != null && (
+                <DataRow label="SCORE" value={selected.candidates.composite_score.toFixed(1)} color="up" />
+              )}
+              {selected.candidates?.percentile_rank != null && (
+                <DataRow label="PERCENTILE" value={formatPercentile(selected.candidates.percentile_rank)} color="gold" />
+              )}
               {selected.offered_salary != null && (
                 <DataRow label="OFFERED SALARY" value={formatSalary(selected.offered_salary)} color="up" />
-              )}
-              {selected.employers?.reputation_score != null && (
-                <DataRow
-                  label="EMPLOYER REPUTATION"
-                  value={`${selected.employers.reputation_score.toFixed(0)}/100`}
-                  color={selected.employers.reputation_score >= 80 ? "up" : selected.employers.reputation_score >= 50 ? "gold" : "down"}
-                />
               )}
               <DataRow label="SENT" value={formatRelativeTime(selected.created_at)} />
               {selected.status === "pending" && (
@@ -167,21 +148,8 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
               </div>
             )}
 
-            {selected.status === "accepted" && (
-              <MatchChat matchId={selected.id} counterpartLabel={selected.employers?.company_name ?? "EMPLOYER"} />
-            )}
+            {selected.status === "accepted" && <MatchChat matchId={selected.id} counterpartLabel={candidateLabel(selected)} />}
           </div>
-
-          {selected.status === "pending" && (
-            <div className="flex gap-3 p-4" style={{ borderTop: "1px solid var(--border)" }}>
-              <Button onClick={() => respond(selected.id, "accept")} loading={loading[selected.id]} className="flex-1">
-                ACCEPT MATCH
-              </Button>
-              <Button variant="danger" onClick={() => respond(selected.id, "decline")} loading={loading[selected.id]} className="flex-1">
-                DECLINE
-              </Button>
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -16,6 +16,7 @@ export default async function CandidateMatchesPage() {
     .from("matches")
     .select("*, employers(company_name, reputation_score)")
     .eq("candidate_id", session.user.id)
+    .order("offered_salary", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
   return <MatchesClient matches={(matches as MatchWithEmployer[] | null) ?? []} />;

@@ -52,7 +52,7 @@ export function EmployerPostingsGridClient({ initialPostings, activeCounts }: Pr
           const active = activeCounts[posting.id] ?? 0;
 
           return (
-            <div key={posting.id} className="panel flex flex-col gap-3 p-4">
+            <div key={posting.id} className="panel flex min-h-[200px] flex-col gap-3 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
@@ -114,11 +114,10 @@ export function EmployerPostingsGridClient({ initialPostings, activeCounts }: Pr
 
         <Link
           href="/employer/postings/new"
-          className="flex flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+          className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
           style={{
             border: "1px dashed var(--border-strong)",
             borderRadius: "var(--r-lg)",
-            minHeight: 160,
           }}
         >
           <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>

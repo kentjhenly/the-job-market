@@ -33,14 +33,14 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {postings.map((posting) => {
           const noticeLabel = NOTICE_PERIODS.find((n) => n.value === posting.notice_period_days)?.label;
           const visibleSkills = posting.skills.slice(0, 3);
           const extraSkills = posting.skills.length - visibleSkills.length;
 
           return (
-            <div key={posting.id} className="panel flex flex-col gap-3 p-4">
+            <div key={posting.id} className="panel flex min-h-[200px] flex-col gap-3 p-4">
               <div>
                 <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                   {posting.title}
@@ -97,11 +97,10 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
         {postings.length < MAX_POSTINGS && (
           <Link
             href="/candidate/postings/new"
-            className="flex flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+            className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
             style={{
               border: "1px dashed var(--border-strong)",
               borderRadius: "var(--r-lg)",
-              minHeight: 160,
             }}
           >
             <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>
