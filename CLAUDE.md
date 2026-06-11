@@ -1,7 +1,7 @@
 # The Job Market — CLAUDE.md
 
 ## Overview
-Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates complete **skill challenges** (no CVs). A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
+Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates build a **portfolio** of projects — files and/or links tagged with skills — instead of submitting a CV. A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
 
 **Revenue:** Transaction fees — employer pays per pitch sent; candidate pays on match accepted.
 **Launch vertical:** Tech · Hong Kong.
@@ -28,10 +28,10 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - **Server Components by default** — only add `"use client"` when using hooks, browser APIs, or event handlers
 - All DB queries in Server Components or Route Handlers — never expose `SUPABASE_SERVICE_ROLE_KEY` to the client
 - Supabase browser client: `src/lib/supabase/client.ts` (singleton, anon key)
-- Supabase server client: `src/lib/supabase/server.ts` (cookie-based via `@supabase/ssr`) — only useful for tables with RLS policies that don't depend on `auth.uid()` (e.g. `challenges_public_read`)
+- Supabase server client: `src/lib/supabase/server.ts` (cookie-based via `@supabase/ssr`) — only useful for tables with RLS policies that don't depend on `auth.uid()` (e.g. `match_ticker_events`'s public-read policy)
 - Service client: `getSupabaseServiceClient()` in `server.ts` — use in Route Handlers, Edge Functions, **and Server Components for any "select/update own row" query**
 
-**Why service client in Server Components:** Better Auth issues its own `better-auth.session_token` cookie, never a Supabase Auth JWT, so `auth.uid()` is always `NULL` in Postgres for these requests. Every RLS policy of the form `using (auth.uid()::text = id)` (or via `get_user_role(auth.uid()::text)`) silently returns no rows under the anon/cookie-based server client. The fix: use `getSupabaseServiceClient()` (bypasses RLS) and apply the ownership filter explicitly in the query (e.g. `.eq("id", session.user.id)` / `.eq("candidate_id", session.user.id)`). RLS remains enabled as defense-in-depth against direct API abuse. Client components that need "own data" reads/writes (e.g. `/profile`, the challenge runner) call a Route Handler backed by the service client instead of querying Supabase directly.
+**Why service client in Server Components:** Better Auth issues its own `better-auth.session_token` cookie, never a Supabase Auth JWT, so `auth.uid()` is always `NULL` in Postgres for these requests. Every RLS policy of the form `using (auth.uid()::text = id)` (or via `get_user_role(auth.uid()::text)`) silently returns no rows under the anon/cookie-based server client. The fix: use `getSupabaseServiceClient()` (bypasses RLS) and apply the ownership filter explicitly in the query (e.g. `.eq("id", session.user.id)` / `.eq("candidate_id", session.user.id)`). RLS remains enabled as defense-in-depth against direct API abuse. Client components that need "own data" reads/writes (e.g. `/profile`, the portfolio editor) call a Route Handler backed by the service client instead of querying Supabase directly.
 
 ### Auth
 - Better Auth session is the source of truth for authentication
@@ -41,6 +41,7 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 
 ### Money
 - **All monetary values stored as integer cents** in the database (e.g., HKD 80,000 = `8000000`)
+- **All salary figures are MONTHLY**, per HK market convention (not annual) — `salary_data_points.monthly_salary`, `desired_salary_*`, `offered_salary`, and ticker `salary_band` strings all represent monthly compensation
 - Use `formatSalary()` / `formatSalaryBand()` from `src/lib/utils/formatters.ts` for display
 
 ### Design System (src/app/globals.css)
@@ -99,9 +100,8 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 | `/sign-up/candidate` | Public | Candidate registration |
 | `/sign-up/employer` | Public | Employer registration |
 | `/candidate/dashboard` | Candidate | Score terminal (live score, radar, salary curve) |
-| `/candidate/challenges` | Candidate | Challenge list |
-| `/candidate/challenges/[id]` | Candidate | Challenge runner |
-| `/candidate/challenges/[id]/results` | Candidate | Post-challenge score breakdown |
+| `/candidate/portfolio` | Candidate | Portfolio grid — projects with files/links and tagged skills |
+| `/candidate/portfolio/[projectId]` | Candidate | Create/edit portfolio project |
 | `/candidate/postings` | Candidate | Job postings grid (up to 10 positions) |
 | `/candidate/postings/[postingId]` | Candidate | Create/edit job posting (incl. market data scatter chart) |
 | `/candidate/matches` | Candidate | Incoming pitches (accept/decline) + chat for accepted matches |
@@ -138,17 +138,20 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 | `profiles` | id (FK auth.users), role (candidate/employer), display_name |
 | `candidates` | composite_score, percentile_rank, years_exp_claimed, desired_salary_*, is_visible |
 | `employers` | company_name, credits, reputation_score |
-| `challenges` | vertical, title, time_limit_sec, max_score, is_active |
-| `questions` | challenge_id, type, prompt, options (JSONB), correct_answer, weight |
-| `challenge_results` | candidate_id, challenge_id, raw_score, normalised_score, answers (JSONB) |
-| `salary_data_points` | vertical, years_exp, location, annual_salary (cents), source |
+| `salary_data_points` | vertical, years_exp, location, monthly_salary (cents), source |
 | `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr) |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
 | `score_history` | candidate_id, composite_score, recorded_at (sparkline data) |
 | `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, notice_period_days |
+| `candidate_portfolio_projects` | candidate_id, title, description, link_url, file_path, file_name, skills |
 | `employer_job_postings` | employer_id, title, description, vertical, years_exp_*, location, work_modes, salary_*, skills, max_candidates (default 5), status |
 | `match_messages` | match_id, sender_id, body, created_at — chat for `accepted` matches only |
+
+> **Legacy/unused:** `challenges`, `questions`, `challenge_results` — the old skill-challenge system, replaced by `candidate_portfolio_projects`. Tables and RLS policies remain in the DB (not dropped, reversible) but are no longer referenced by any route or Edge Function.
+
+### Storage
+- `portfolio-files` bucket (private, 10MB limit) — candidate portfolio project uploads, stored at `${candidateId}/${projectId}/${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/portfolio/[projectId]/file`.
 
 ### DB triggers
 - `profile_create_role_row` — after INSERT on `profiles`, auto-creates `candidates` or `employers` row
@@ -161,8 +164,10 @@ Deploy: `npx supabase functions deploy <name>`
 Serve locally: `npx supabase functions serve`
 
 ### `recommendation-scorer` (POST `{candidate_id}`)
-Triggered by challenge submit route (`/api/challenges/[id]/submit`). Computes `composite_score` (0-100) from weighted signals:
-- challenge_score_avg (0.40), recency with decay (0.10), speed (0.05), breadth (0.10)
+Triggered via `triggerRecommendationScorer()` (`src/lib/scoring/recommendation-scorer.ts`) after any create/update/delete on `/api/portfolio*`. Computes `composite_score` (0-100) from weighted signals:
+- portfolio_breadth (0.20) — `min(project_count / 5, 1)`
+- portfolio_skill_coverage (0.25) — `min(distinct_skills / 10, 1)`
+- portfolio_completeness (0.20) — avg per-project: +0.5 if `file_path` or `link_url` set, +0.5 if `skills` non-empty
 - reputation_score (0.20), response_rate (0.10), profile_completeness (0.05)
 
 Updates `candidates.composite_score` + `percentile_rank`. Inserts `score_history` row.
@@ -170,6 +175,7 @@ Updates `candidates.composite_score` + `percentile_rank`. Inserts `score_history
 ### `salary-regression` (POST `{vertical, years_exp, location?, remote?}`)
 Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno math). Returns:
 `{ curve: [{years_exp, predicted_salary, ci_lower, ci_upper}], candidate_percentile, median_at_exp }`
+All salary figures (`predicted_salary`, `ci_lower`/`ci_upper`, `median_at_exp`) are MONTHLY HKD in cents.
 
 Called via `/api/salary` proxy route.
 
@@ -205,6 +211,14 @@ Returns the top 25 as `{ matches: [{candidate_id, candidate_posting_id, match_sc
 - Accept/decline inserts `reputation_events` row (`event_type: 'responded'`)
 - `GET|POST /api/cron/expire-matches` finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
 - `recommendation-scorer` reads `reputation_events` to adjust reputation signal in composite score
+
+---
+
+## Salary Data Flow
+All salary signals — the ticker, the regression curve, and real outcomes — share one underlying dataset (`salary_data_points`), so the market reference stays grounded in the same numbers shown to users:
+- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel.
+- `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), and `salary_band` as a ±5% band around `matches.offered_salary` via `formatSalaryBand()`.
+- The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see.
 
 ---
 

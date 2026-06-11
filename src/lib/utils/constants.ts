@@ -3,6 +3,8 @@ import type { WorkMode } from "@/lib/supabase/types";
 export const VERTICALS = ["tech", "finance", "marketing", "design", "ops"] as const;
 export type VerticalType = (typeof VERTICALS)[number];
 
+export const MAX_PORTFOLIO_PROJECTS = 10;
+
 export const SCORE_TIERS = {
   gold: 90,
   green: 60,

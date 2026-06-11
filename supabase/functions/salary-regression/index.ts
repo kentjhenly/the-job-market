@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
   // Fetch salary data
   let query = supabase
     .from("salary_data_points")
-    .select("years_exp, annual_salary")
+    .select("years_exp, monthly_salary")
     .eq("vertical", vertical);
 
   if (location) query = query.eq("location", location);
@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const xs = dataPoints.map((d) => d.years_exp);
-  const ys = dataPoints.map((d) => d.annual_salary);
+  const ys = dataPoints.map((d) => d.monthly_salary);
 
   const [a, b, c] = fitPolynomialRegression(xs, ys);
 
@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
     (d) => Math.abs(d.years_exp - years_exp) <= 2
   );
   const nearbyCount = nearby.length;
-  const belowCount = nearby.filter((d) => d.annual_salary < candidatePredicted).length;
+  const belowCount = nearby.filter((d) => d.monthly_salary < candidatePredicted).length;
   const candidatePercentile = nearbyCount > 0 ? (belowCount / nearbyCount) * 100 : 50;
 
   return new Response(

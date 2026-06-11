@@ -10,7 +10,7 @@
 -- ----------------------------------------------------------------
 create table employer_job_postings (
   id              uuid primary key default gen_random_uuid(),
-  employer_id     uuid not null references employers(id) on delete cascade,
+  employer_id     text not null references employers(id) on delete cascade,
   title           text not null,
   description     text,
   vertical        vertical not null default 'tech',
@@ -37,13 +37,13 @@ create trigger employer_job_postings_updated_at
 alter table employer_job_postings enable row level security;
 
 create policy "employer_postings_select_own" on employer_job_postings
-  for select using (auth.uid() = employer_id);
+  for select using (auth.uid()::text = employer_id);
 create policy "employer_postings_insert_own" on employer_job_postings
-  for insert with check (auth.uid() = employer_id);
+  for insert with check (auth.uid()::text = employer_id);
 create policy "employer_postings_update_own" on employer_job_postings
-  for update using (auth.uid() = employer_id);
+  for update using (auth.uid()::text = employer_id);
 create policy "employer_postings_delete_own" on employer_job_postings
-  for delete using (auth.uid() = employer_id);
+  for delete using (auth.uid()::text = employer_id);
 
 -- ----------------------------------------------------------------
 -- Link matches to the employer posting that generated the pitch
@@ -59,7 +59,7 @@ create index matches_posting_idx on matches (posting_id);
 create table match_messages (
   id          uuid primary key default gen_random_uuid(),
   match_id    uuid not null references matches(id) on delete cascade,
-  sender_id   uuid not null references profiles(id),
+  sender_id   text not null references profiles(id),
   body        text not null,
   created_at  timestamptz not null default now()
 );
@@ -73,17 +73,17 @@ create policy "match_messages_select_participant" on match_messages
     exists (
       select 1 from matches m
       where m.id = match_messages.match_id
-      and (m.candidate_id = auth.uid() or m.employer_id = auth.uid())
+      and (m.candidate_id = auth.uid()::text or m.employer_id = auth.uid()::text)
     )
   );
 
 create policy "match_messages_insert_participant" on match_messages
   for insert with check (
-    sender_id = auth.uid()
+    sender_id = auth.uid()::text
     and exists (
       select 1 from matches m
       where m.id = match_messages.match_id
       and m.status = 'accepted'
-      and (m.candidate_id = auth.uid() or m.employer_id = auth.uid())
+      and (m.candidate_id = auth.uid()::text or m.employer_id = auth.uid()::text)
     )
   );

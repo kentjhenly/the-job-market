@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { JobPostingForm } from "../JobPostingForm";
-import type { VerticalType } from "@/lib/utils/constants";
+import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
 const MAX_POSTINGS = 10;
 
@@ -19,7 +19,7 @@ export default async function JobPostingPage({
   const supabase = getSupabaseServiceClient();
   const isNew = postingId === "new";
 
-  const [{ data: candidate }, { data: profile }, { data: results }] = await Promise.all([
+  const [{ data: candidate }, { data: profile }, { data: projects }] = await Promise.all([
     supabase
       .from("candidates")
       .select("years_exp_claimed, location")
@@ -27,15 +27,17 @@ export default async function JobPostingPage({
       .single(),
     supabase.from("profiles").select("vertical").eq("id", session.user.id).single(),
     supabase
-      .from("challenge_results")
-      .select("challenges(vertical)")
+      .from("candidate_portfolio_projects")
+      .select("skills")
       .eq("candidate_id", session.user.id),
   ]);
 
+  const skillToVertical = new Map(SKILLS.map((s) => [s.name, s.vertical]));
   const verifiedVerticals = Array.from(
     new Set(
-      ((results ?? []) as unknown as { challenges: { vertical: VerticalType } | null }[])
-        .map((r) => r.challenges?.vertical)
+      (projects ?? [])
+        .flatMap((p) => p.skills)
+        .map((s) => skillToVertical.get(s))
         .filter((v): v is VerticalType => !!v)
     )
   );

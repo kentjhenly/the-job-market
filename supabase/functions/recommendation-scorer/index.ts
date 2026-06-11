@@ -1,16 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const WEIGHTS = {
-  challenge_score_avg: 0.4,
-  challenge_recency: 0.1,
-  challenge_speed: 0.05,
-  challenge_breadth: 0.1,
+  portfolio_breadth: 0.2,
+  portfolio_skill_coverage: 0.25,
+  portfolio_completeness: 0.2,
   reputation_score: 0.2,
   response_rate: 0.1,
   profile_completeness: 0.05,
 };
 
-const DECAY_LAMBDA = 0.01; // per day
+const BREADTH_TARGET = 5; // project count for full breadth score
+const SKILL_COVERAGE_TARGET = 10; // distinct skills for full coverage score
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -29,12 +29,11 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: "candidate_id required" }), { status: 400 });
   }
 
-  // Fetch all challenge results
-  const { data: results } = await supabase
-    .from("challenge_results")
-    .select("raw_score, normalised_score, time_taken_sec, scored_at, challenge_id")
-    .eq("candidate_id", candidate_id)
-    .order("scored_at", { ascending: false });
+  // Fetch all portfolio projects
+  const { data: projects } = await supabase
+    .from("candidate_portfolio_projects")
+    .select("skills, file_path, link_url")
+    .eq("candidate_id", candidate_id);
 
   // Fetch candidate profile for completeness check
   const { data: candidate } = await supabase
@@ -59,37 +58,26 @@ Deno.serve(async (req: Request) => {
 
   // --- Signal computations ---
 
-  // 1. challenge_score_avg (0-1): average normalised score across all challenges
-  const avgScore =
-    results && results.length > 0
-      ? results.reduce((sum, r) => sum + (r.raw_score ?? 0), 0) / results.length / 100
-      : 0;
+  // 1. portfolio_breadth (0-1): project count, capped at BREADTH_TARGET
+  const projectCount = projects?.length ?? 0;
+  const breadthScore = Math.min(projectCount / BREADTH_TARGET, 1);
 
-  // 2. challenge_recency (0-1): exponential time decay on most recent score
-  let recencyScore = 0;
-  if (results && results.length > 0) {
-    const latest = results[0];
-    const daysSince =
-      (Date.now() - new Date(latest.scored_at).getTime()) / (1000 * 86400);
-    recencyScore = (latest.raw_score ?? 0) / 100 * Math.exp(-DECAY_LAMBDA * daysSince);
+  // 2. portfolio_skill_coverage (0-1): distinct skills across projects, capped at SKILL_COVERAGE_TARGET
+  const distinctSkills = new Set((projects ?? []).flatMap((p) => p.skills ?? [])).size;
+  const skillCoverageScore = Math.min(distinctSkills / SKILL_COVERAGE_TARGET, 1);
+
+  // 3. portfolio_completeness (0-1): avg per-project (has file/link + has skills)
+  let completenessScore = 0;
+  if (projects && projects.length > 0) {
+    const total = projects.reduce((sum, p) => {
+      const hasArtifact = p.file_path || p.link_url ? 0.5 : 0;
+      const hasSkills = p.skills && p.skills.length > 0 ? 0.5 : 0;
+      return sum + hasArtifact + hasSkills;
+    }, 0);
+    completenessScore = total / projects.length;
   }
 
-  // 3. challenge_speed (0-1): how fast compared to time limit
-  // We don't have per-challenge time limits here, use a heuristic: under 50% of time = full score
-  let speedScore = 0.5; // neutral default
-  if (results && results.length > 0) {
-    const avgTimeRatio =
-      results
-        .filter((r) => r.time_taken_sec)
-        .reduce((sum, r) => sum + (r.time_taken_sec ?? 1800) / 1800, 0) / results.length;
-    speedScore = Math.max(0, Math.min(1, 1 - avgTimeRatio));
-  }
-
-  // 4. challenge_breadth (0-1): distinct verticals covered (capped at 5 = full score)
-  const distinctChallenges = new Set(results?.map((r) => r.challenge_id) ?? []).size;
-  const breadthScore = Math.min(distinctChallenges / 5, 1);
-
-  // 5. reputation_score (0-1): normalised from reputation_events sum
+  // 4. reputation_score (0-1): normalised from reputation_events sum
   let reputationScore = 1.0;
   if (repEvents && repEvents.length > 0) {
     const repSum = repEvents.reduce((sum, e) => {
@@ -106,7 +94,7 @@ Deno.serve(async (req: Request) => {
     reputationScore = Math.max(0, Math.min(100, repSum)) / 100;
   }
 
-  // 6. response_rate (0-1): responded matches / total received (last 30 days)
+  // 5. response_rate (0-1): responded matches / total received (last 30 days)
   let responseRate = 0.5;
   if (recentMatches && recentMatches.length > 0) {
     const responded = recentMatches.filter(
@@ -115,24 +103,23 @@ Deno.serve(async (req: Request) => {
     responseRate = responded / recentMatches.length;
   }
 
-  // 7. profile_completeness (0-1)
-  const completenessFields = [
+  // 6. profile_completeness (0-1)
+  const profileFields = [
     candidate?.years_exp_claimed != null,
     candidate?.location != null,
     candidate?.desired_salary_min != null,
     candidate?.desired_salary_max != null,
   ];
-  const completenessScore = completenessFields.filter(Boolean).length / completenessFields.length;
+  const profileCompletenessScore = profileFields.filter(Boolean).length / profileFields.length;
 
   // Weighted composite score (0-100)
   const composite =
-    (avgScore * WEIGHTS.challenge_score_avg +
-      recencyScore * WEIGHTS.challenge_recency +
-      speedScore * WEIGHTS.challenge_speed +
-      breadthScore * WEIGHTS.challenge_breadth +
+    (breadthScore * WEIGHTS.portfolio_breadth +
+      skillCoverageScore * WEIGHTS.portfolio_skill_coverage +
+      completenessScore * WEIGHTS.portfolio_completeness +
       reputationScore * WEIGHTS.reputation_score +
       responseRate * WEIGHTS.response_rate +
-      completenessScore * WEIGHTS.profile_completeness) *
+      profileCompletenessScore * WEIGHTS.profile_completeness) *
     100;
 
   // Compute percentile rank
@@ -163,13 +150,12 @@ Deno.serve(async (req: Request) => {
   });
 
   const signals = {
-    challenge_score_avg: avgScore,
-    challenge_recency: recencyScore,
-    challenge_speed: speedScore,
-    challenge_breadth: breadthScore,
+    portfolio_breadth: breadthScore,
+    portfolio_skill_coverage: skillCoverageScore,
+    portfolio_completeness: completenessScore,
     reputation_score: reputationScore,
     response_rate: responseRate,
-    profile_completeness: completenessScore,
+    profile_completeness: profileCompletenessScore,
   };
 
   return new Response(

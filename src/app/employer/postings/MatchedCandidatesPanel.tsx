@@ -229,7 +229,7 @@ export function MatchedCandidatesPanel({ postingId }: Props) {
           </div>
 
           <div>
-            <label className="kicker mb-1.5 block">OFFERED SALARY (HKD)</label>
+            <label className="kicker mb-1.5 block">OFFERED SALARY (HKD/MONTH)</label>
             <input
               type="number"
               value={pitchSalary}

@@ -12,26 +12,26 @@ import { RadarChart } from "@/components/charts/RadarChart";
 import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
+import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
 type Candidate = Database["public"]["Tables"]["candidates"]["Row"];
 type Profile = { display_name: string };
-type Result = {
-  challenge_id: string;
-  raw_score: number | null;
-  normalised_score: number | null;
-  scored_at: string;
+type PortfolioProject = {
+  id: string;
+  title: string;
+  skills: string[];
+  file_path: string | null;
+  link_url: string | null;
 };
-type Challenge = { id: string; title: string; vertical: string };
 type ScorePoint = { composite_score: number; recorded_at: string };
 
 interface Props {
   candidateId: string;
   candidate: Candidate | null;
   profile: Profile | null;
-  results: Result[];
+  projects: PortfolioProject[];
   scoreHistory: ScorePoint[];
-  challenges: Challenge[];
 }
 
 interface SalaryData {
@@ -40,13 +40,15 @@ interface SalaryData {
   median_at_exp: number;
 }
 
+const BREADTH_TARGET = 5;
+const SKILL_COVERAGE_TARGET = 10;
+
 export function DashboardClient({
   candidateId,
   candidate: initial,
   profile,
-  results,
+  projects,
   scoreHistory,
-  challenges,
 }: Props) {
   const [candidate, setCandidate] = useState<Candidate | null>(initial);
   const [salaryData, setSalaryData] = useState<SalaryData | null>(null);
@@ -93,17 +95,25 @@ export function DashboardClient({
       .catch(() => null);
   }, [candidate?.years_exp_claimed, candidate?.location]);
 
-  const completedIds = new Set(results.map((r) => r.challenge_id));
-  const completedCount = completedIds.size;
-  const avgScore =
-    results.length > 0
-      ? results.reduce((s, r) => s + (r.raw_score ?? 0), 0) / results.length
+  const projectCount = projects.length;
+  const distinctSkills = new Set(projects.flatMap((p) => p.skills)).size;
+  const skillCoverage = Math.min(distinctSkills / SKILL_COVERAGE_TARGET, 1) * 100;
+  const breadth = Math.min(projectCount / BREADTH_TARGET, 1) * 100;
+  const completeness =
+    projectCount > 0
+      ? (projects.reduce((sum, p) => {
+          const hasArtifact = p.file_path || p.link_url ? 0.5 : 0;
+          const hasSkills = p.skills.length > 0 ? 0.5 : 0;
+          return sum + hasArtifact + hasSkills;
+        }, 0) /
+          projectCount) *
+        100
       : 0;
 
   const radarDims = [
-    { axis: "AVG SCORE", you: avgScore, peer: 60 },
-    { axis: "SPEED", you: 65, peer: 55 },
-    { axis: "BREADTH", you: (completedCount / 5) * 100, peer: 40 },
+    { axis: "SKILL COVERAGE", you: skillCoverage, peer: 60 },
+    { axis: "COMPLETENESS", you: completeness, peer: 55 },
+    { axis: "BREADTH", you: breadth, peer: 40 },
     { axis: "REPUTATION", you: candidate?.reputation_score ?? 100, peer: 80 },
     { axis: "PROFILE", you: candidate?.years_exp_claimed ? 100 : 50, peer: 70 },
   ];
@@ -163,16 +173,16 @@ export function DashboardClient({
         </StatCard>
 
         <StatCard
-          label="CHALLENGES"
+          label="PORTFOLIO"
           footer={
-            <Link href="/candidate/challenges" className="link-up mono" style={{ fontSize: 11 }}>
-              TAKE MORE →
+            <Link href="/candidate/portfolio" className="link-up mono" style={{ fontSize: 11 }}>
+              ADD PROJECT →
             </Link>
           }
         >
           <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--text)", lineHeight: 1 }}>
-            {completedCount}
-            <span style={{ fontSize: 16, color: "var(--muted)" }}> / {challenges.length}</span>
+            {projectCount}
+            <span style={{ fontSize: 16, color: "var(--muted)" }}> / {MAX_PORTFOLIO_PROJECTS}</span>
           </span>
         </StatCard>
 

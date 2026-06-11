@@ -7,7 +7,7 @@ create type work_mode as enum ('full_time', 'part_time', 'remote', 'internship')
 
 create table candidate_job_postings (
   id                  uuid primary key default gen_random_uuid(),
-  candidate_id        uuid not null references candidates(id) on delete cascade,
+  candidate_id        text not null references candidates(id) on delete cascade,
   title               text not null,
   location            text,
   work_modes          work_mode[] not null default '{}',
@@ -33,13 +33,13 @@ create trigger candidate_job_postings_updated_at
 alter table candidate_job_postings enable row level security;
 
 create policy "job_postings_select_own" on candidate_job_postings
-  for select using (auth.uid() = candidate_id);
+  for select using (auth.uid()::text = candidate_id);
 
 create policy "job_postings_insert_own" on candidate_job_postings
-  for insert with check (auth.uid() = candidate_id);
+  for insert with check (auth.uid()::text = candidate_id);
 
 create policy "job_postings_update_own" on candidate_job_postings
-  for update using (auth.uid() = candidate_id);
+  for update using (auth.uid()::text = candidate_id);
 
 create policy "job_postings_delete_own" on candidate_job_postings
-  for delete using (auth.uid() = candidate_id);
+  for delete using (auth.uid()::text = candidate_id);

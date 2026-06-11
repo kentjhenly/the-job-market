@@ -7,7 +7,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 const NAV = [
   { href: "/candidate/dashboard", label: "DASHBOARD" },
-  { href: "/candidate/challenges", label: "CHALLENGES" },
+  { href: "/candidate/portfolio", label: "PORTFOLIO" },
   { href: "/candidate/postings", label: "POSTINGS" },
   { href: "/candidate/matches", label: "PITCHES" },
   { href: "/candidate/profile", label: "PROFILE" },

@@ -215,7 +215,7 @@ export interface Database {
           years_exp: number;
           location: string | null;
           remote: boolean;
-          annual_salary: number;
+          monthly_salary: number;
           source: string;
           created_at: string;
         };
@@ -225,7 +225,7 @@ export interface Database {
           years_exp: number;
           location?: string | null;
           remote?: boolean;
-          annual_salary: number;
+          monthly_salary: number;
           source?: string;
           created_at?: string;
         };
@@ -356,6 +356,42 @@ export interface Database {
           desired_salary_max?: number | null;
           skills?: string[];
           notice_period_days?: number | null;
+          updated_at?: string;
+        };
+        Relationships: Relationship[];
+      };
+      candidate_portfolio_projects: {
+        Row: {
+          id: string;
+          candidate_id: string;
+          title: string;
+          description: string | null;
+          link_url: string | null;
+          file_path: string | null;
+          file_name: string | null;
+          skills: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          candidate_id: string;
+          title: string;
+          description?: string | null;
+          link_url?: string | null;
+          file_path?: string | null;
+          file_name?: string | null;
+          skills?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          link_url?: string | null;
+          file_path?: string | null;
+          file_name?: string | null;
+          skills?: string[];
           updated_at?: string;
         };
         Relationships: Relationship[];

@@ -164,7 +164,7 @@ export default function ProfilePage() {
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">SALARY EXPECTATIONS (HKD)</span>
+            <span className="panel-title">SALARY EXPECTATIONS (HKD/MONTH)</span>
           </div>
           <div className="grid grid-cols-2 gap-4 p-4">
             <div>

@@ -11,24 +11,21 @@ export default async function DashboardPage() {
   const [
     { data: candidate },
     { data: profile },
-    { data: results },
+    { data: projects },
     { data: scoreHistory },
-    { data: challenges },
   ] = await Promise.all([
     supabase.from("candidates").select("*").eq("id", session.user.id).single(),
     supabase.from("profiles").select("display_name").eq("id", session.user.id).single(),
     supabase
-      .from("challenge_results")
-      .select("challenge_id, raw_score, normalised_score, scored_at")
-      .eq("candidate_id", session.user.id)
-      .order("scored_at", { ascending: false }),
+      .from("candidate_portfolio_projects")
+      .select("id, title, skills, file_path, link_url")
+      .eq("candidate_id", session.user.id),
     supabase
       .from("score_history")
       .select("composite_score, recorded_at")
       .eq("candidate_id", session.user.id)
       .order("recorded_at", { ascending: false })
       .limit(30),
-    supabase.from("challenges").select("id, title, vertical").eq("is_active", true),
   ]);
 
   return (
@@ -36,9 +33,8 @@ export default async function DashboardPage() {
       candidateId={session.user.id}
       candidate={candidate}
       profile={profile}
-      results={results ?? []}
+      projects={projects ?? []}
       scoreHistory={scoreHistory ?? []}
-      challenges={challenges ?? []}
     />
   );
 }
