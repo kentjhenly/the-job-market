@@ -5,6 +5,7 @@ interface RegressionInput {
   years_exp: number;
   location?: string;
   remote?: boolean;
+  role?: string;
 }
 
 function fitPolynomialRegression(
@@ -103,7 +104,7 @@ Deno.serve(async (req: Request) => {
   );
 
   const input: RegressionInput = await req.json();
-  const { vertical, years_exp, location, remote } = input;
+  const { vertical, years_exp, location, remote, role } = input;
 
   if (!vertical || years_exp == null) {
     return new Response(JSON.stringify({ error: "vertical and years_exp required" }), {
@@ -111,16 +112,35 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Fetch salary data
-  let query = supabase
-    .from("salary_data_points")
-    .select("years_exp, monthly_salary")
-    .eq("vertical", vertical);
+  // If a specific role was given, prefer per-role data points
+  let dataPoints: { years_exp: number; monthly_salary: number }[] | null = null;
 
-  if (location) query = query.eq("location", location);
-  if (remote !== undefined) query = query.eq("remote", remote);
+  if (role) {
+    let roleQuery = supabase
+      .from("salary_data_points")
+      .select("years_exp, monthly_salary")
+      .eq("role_label", role);
 
-  const { data: dataPoints } = await query;
+    if (location) roleQuery = roleQuery.eq("location", location);
+    if (remote !== undefined) roleQuery = roleQuery.eq("remote", remote);
+
+    const { data } = await roleQuery;
+    dataPoints = data;
+  }
+
+  // Fall back to vertical-level data if no role given or too few role-specific points
+  if (!dataPoints || dataPoints.length < 3) {
+    let query = supabase
+      .from("salary_data_points")
+      .select("years_exp, monthly_salary")
+      .eq("vertical", vertical);
+
+    if (location) query = query.eq("location", location);
+    if (remote !== undefined) query = query.eq("remote", remote);
+
+    const { data } = await query;
+    dataPoints = data;
+  }
 
   if (!dataPoints || dataPoints.length < 3) {
     return new Response(

@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { Combobox } from "@/components/ui/Combobox";
 import { SalaryScatter } from "@/components/charts/SalaryScatter";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, NOTICE_PERIODS, SKILLS, VERTICALS, type VerticalType } from "@/lib/utils/constants";
+import { WORK_MODES, NOTICE_PERIODS, SKILLS, JOB_ROLES, VERTICALS, type VerticalType } from "@/lib/utils/constants";
 import type { Database, WorkMode } from "@/lib/supabase/types";
 
 type JobPosting = Database["public"]["Tables"]["candidate_job_postings"]["Row"];
@@ -49,28 +50,33 @@ export function JobPostingForm({ initial, candYears, candLocation, vertical, ver
   useEffect(() => {
     if (!candYears) return;
 
-    fetch("/api/salary", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        vertical: vertical ?? "tech",
-        years_exp: candYears,
-        location: candLocation ?? "Hong Kong",
-      }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.error && Array.isArray(d.curve)) {
-          setScatterPoints(
-            d.curve.map((c: { years_exp: number; predicted_salary: number }) => ({
-              years_exp: c.years_exp,
-              salary: c.predicted_salary,
-            }))
-          );
-        }
+    const timeout = setTimeout(() => {
+      fetch("/api/salary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vertical: vertical ?? "tech",
+          years_exp: candYears,
+          location: candLocation ?? "Hong Kong",
+          role: form.title || undefined,
+        }),
       })
-      .catch(() => null);
-  }, [candYears, candLocation, vertical]);
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.error && Array.isArray(d.curve)) {
+            setScatterPoints(
+              d.curve.map((c: { years_exp: number; predicted_salary: number }) => ({
+                years_exp: c.years_exp,
+                salary: c.predicted_salary,
+              }))
+            );
+          }
+        })
+        .catch(() => null);
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [candYears, candLocation, vertical, form.title]);
 
   function toggleWorkMode(mode: WorkMode) {
     setForm((f) => ({
@@ -154,11 +160,11 @@ export function JobPostingForm({ initial, candYears, candLocation, vertical, ver
           </div>
           <div className="p-4">
             <label className="kicker mb-1.5 block">TITLE / JOB ROLE</label>
-            <input
+            <Combobox
               value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              className="field"
-              placeholder="Frontend Engineer"
+              onChange={(title) => setForm((f) => ({ ...f, title }))}
+              options={JOB_ROLES.map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
+              placeholder="Search roles, e.g. Frontend Engineer"
               required
             />
           </div>

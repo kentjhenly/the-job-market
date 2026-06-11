@@ -82,7 +82,7 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 - `.link-up`, `.hr`, `.navitem`/`.active`/`.ni-dot`, `.tabbar`/`.tab`/`.active`
 - All animations respect `prefers-reduced-motion`
 
-**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `SalaryScatter`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart. `SalaryScatter` (linear regression over per-position market data) is used in the job posting form's MARKET DATA panel; for now it's seeded from the same `/api/salary` regression curve as `SalaryCurve` (curve points mapped to `{years_exp, salary}`) as a placeholder until a dedicated per-position scatter-data API exists. Shows an "AWAITING MARKET DATA" empty state if fewer than 2 points are returned.
+**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `SalaryScatter`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart. `SalaryScatter` (linear regression over per-position market data) is used in the job posting form's MARKET DATA panel, fed from the `/api/salary` regression curve (curve points mapped to `{years_exp, salary}`); the request includes `role: form.title`, so the curve reflects the job role selected in the TITLE / JOB ROLE combobox (see `JOB_ROLES` below) when seed data exists for it, falling back to the vertical-level curve otherwise. Shows an "AWAITING MARKET DATA" empty state if fewer than 2 points are returned.
 
 ### Typography
 - `font-mono` (JetBrains Mono) — ALL numbers, scores, salaries, data values, labels, kickers
@@ -138,7 +138,7 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 | `profiles` | id (FK auth.users), role (candidate/employer), display_name |
 | `candidates` | composite_score, percentile_rank, years_exp_claimed, desired_salary_*, is_visible |
 | `employers` | company_name, credits, reputation_score |
-| `salary_data_points` | vertical, years_exp, location, monthly_salary (cents), source |
+| `salary_data_points` | vertical, role_label, years_exp, location, monthly_salary (cents), source |
 | `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr) |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
@@ -172,8 +172,8 @@ Triggered via `triggerRecommendationScorer()` (`src/lib/scoring/recommendation-s
 
 Updates `candidates.composite_score` + `percentile_rank`. Inserts `score_history` row.
 
-### `salary-regression` (POST `{vertical, years_exp, location?, remote?}`)
-Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno math). Returns:
+### `salary-regression` (POST `{vertical, years_exp, location?, remote?, role?}`)
+Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno math). If `role` is given, filters by `salary_data_points.role_label` first and falls back to the vertical-level dataset if fewer than 3 role-specific points exist. Returns:
 `{ curve: [{years_exp, predicted_salary, ci_lower, ci_upper}], candidate_percentile, median_at_exp }`
 All salary figures (`predicted_salary`, `ci_lower`/`ci_upper`, `median_at_exp`) are MONTHLY HKD in cents.
 
@@ -216,7 +216,8 @@ Returns the top 25 as `{ matches: [{candidate_id, candidate_posting_id, match_sc
 
 ## Salary Data Flow
 All salary signals — the ticker, the regression curve, and real outcomes — share one underlying dataset (`salary_data_points`), so the market reference stays grounded in the same numbers shown to users:
-- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel.
+- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (42 roles across the 5 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role.
+- The TITLE / JOB ROLE field on `/candidate/postings/[postingId]` (`JobPostingForm.tsx`) is a searchable combobox (`src/components/ui/Combobox.tsx`) populated from `JOB_ROLES`, grouped by vertical. Selecting (or typing) a role is sent to `/api/salary` as `role`, driving the `SalaryScatter` regression below it.
 - `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), and `salary_band` as a ±5% band around `matches.offered_salary` via `formatSalaryBand()`.
 - The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see.
 

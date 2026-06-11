@@ -26,6 +26,56 @@ export const NOTICE_PERIODS: { value: number; label: string }[] = [
   { value: 90, label: "3+ MONTHS" },
 ];
 
+export const JOB_ROLES: { title: string; vertical: VerticalType }[] = [
+  // tech
+  { title: "Fullstack Engineer", vertical: "tech" },
+  { title: "Backend Engineer", vertical: "tech" },
+  { title: "Mobile Engineer", vertical: "tech" },
+  { title: "Senior Frontend Engineer", vertical: "tech" },
+  { title: "Data Engineer", vertical: "tech" },
+  { title: "ML Engineer", vertical: "tech" },
+  { title: "Platform Engineer", vertical: "tech" },
+  { title: "Site Reliability Engineer", vertical: "tech" },
+  { title: "Security Engineer", vertical: "tech" },
+  { title: "Staff Engineer", vertical: "tech" },
+  // finance
+  { title: "Accountant", vertical: "finance" },
+  { title: "Financial Analyst", vertical: "finance" },
+  { title: "Compliance Officer", vertical: "finance" },
+  { title: "Risk Analyst", vertical: "finance" },
+  { title: "Equity Research Analyst", vertical: "finance" },
+  { title: "Investment Banking Analyst", vertical: "finance" },
+  { title: "Financial Controller", vertical: "finance" },
+  { title: "Portfolio Manager", vertical: "finance" },
+  // marketing
+  { title: "Social Media Manager", vertical: "marketing" },
+  { title: "SEO Specialist", vertical: "marketing" },
+  { title: "Content Marketing Manager", vertical: "marketing" },
+  { title: "Marketing Analyst", vertical: "marketing" },
+  { title: "Performance Marketing Manager", vertical: "marketing" },
+  { title: "Brand Manager", vertical: "marketing" },
+  { title: "Growth Marketing Lead", vertical: "marketing" },
+  { title: "Marketing Director", vertical: "marketing" },
+  // design
+  { title: "Visual Designer", vertical: "design" },
+  { title: "UI Designer", vertical: "design" },
+  { title: "UX Designer", vertical: "design" },
+  { title: "Product Designer", vertical: "design" },
+  { title: "UX Researcher", vertical: "design" },
+  { title: "Brand Designer", vertical: "design" },
+  { title: "Design Systems Lead", vertical: "design" },
+  { title: "Design Director", vertical: "design" },
+  // ops
+  { title: "Logistics Coordinator", vertical: "ops" },
+  { title: "Operations Analyst", vertical: "ops" },
+  { title: "Supply Chain Analyst", vertical: "ops" },
+  { title: "Vendor Manager", vertical: "ops" },
+  { title: "Project Manager", vertical: "ops" },
+  { title: "Process Improvement Manager", vertical: "ops" },
+  { title: "Operations Manager", vertical: "ops" },
+  { title: "Operations Director", vertical: "ops" },
+];
+
 export const SKILLS: { name: string; vertical: VerticalType }[] = [
   // tech
   { name: "JavaScript", vertical: "tech" },

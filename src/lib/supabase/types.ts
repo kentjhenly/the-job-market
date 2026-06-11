@@ -212,6 +212,7 @@ export interface Database {
         Row: {
           id: string;
           vertical: Vertical;
+          role_label: string | null;
           years_exp: number;
           location: string | null;
           remote: boolean;
@@ -222,6 +223,7 @@ export interface Database {
         Insert: {
           id?: string;
           vertical: Vertical;
+          role_label?: string | null;
           years_exp: number;
           location?: string | null;
           remote?: boolean;
