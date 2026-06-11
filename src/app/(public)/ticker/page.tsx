@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { formatRelativeTime } from "@/lib/utils/formatters";
+import { formatRelativeTime, formatSalary } from "@/lib/utils/formatters";
 import { LiveDot } from "@/components/terminal/LiveDot";
 
 interface TickerItem {
@@ -13,6 +13,8 @@ interface TickerItem {
   vertical: string;
   salary_band: string | null;
   role_label: string | null;
+  salary: number | null;
+  delta_pct: number | null;
   match_type: string;
   created_at: string;
 }
@@ -85,9 +87,22 @@ export default function PublicTickerPage() {
                   <span className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
                     {item.role_label ?? "ENGINEER"} <span style={{ color: "var(--up)" }}>MATCH</span>
                   </span>
-                  {item.salary_band && (
-                    <span className="mono" style={{ fontSize: 11, color: "var(--gold)" }}>
-                      {item.salary_band}
+                  {(item.salary != null || item.salary_band) && (
+                    <span className="mono tnum" style={{ fontSize: 11, color: "var(--gold)" }}>
+                      {item.salary != null ? formatSalary(item.salary) : item.salary_band}
+                    </span>
+                  )}
+                  {item.delta_pct != null && (
+                    <span
+                      className="mono tnum"
+                      style={{
+                        fontSize: 11,
+                        color: item.delta_pct >= 0 ? "var(--up)" : "var(--down)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {item.delta_pct >= 0 ? "▲ +" : "▼ "}
+                      {Math.abs(item.delta_pct).toFixed(1)}%
                     </span>
                   )}
                 </div>

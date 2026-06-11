@@ -3,6 +3,7 @@
 interface ScatterPoint {
   years_exp: number;
   salary: number;
+  source?: string;
 }
 
 interface SalaryScatterProps {
@@ -111,9 +112,13 @@ export function SalaryScatter({
         </text>
       ))}
       {bandP && <path d={bandP} fill="var(--up)" opacity="0.09" />}
-      {points.map((p, i) => (
-        <circle key={i} cx={X(p.years_exp)} cy={Y(p.salary)} r="2.5" fill="var(--muted)" opacity="0.45" />
-      ))}
+      {points.map((p, i) =>
+        p.source === "match" ? (
+          <circle key={i} cx={X(p.years_exp)} cy={Y(p.salary)} r="3.5" fill="var(--up)" opacity="0.95" stroke="var(--bg)" strokeWidth="1" />
+        ) : (
+          <circle key={i} cx={X(p.years_exp)} cy={Y(p.salary)} r="2.5" fill="var(--muted)" opacity="0.45" />
+        )
+      )}
       <path d={lineP} fill="none" stroke="var(--up)" strokeWidth="2" />
       {showRange && (
         <g>

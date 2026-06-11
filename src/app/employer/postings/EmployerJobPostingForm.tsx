@@ -4,10 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { SkillPicker } from "@/components/ui/SkillPicker";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, SKILLS, VERTICALS } from "@/lib/utils/constants";
+import { WORK_MODES, VERTICALS, MAX_POSTING_SKILLS, type VerticalType } from "@/lib/utils/constants";
 import type { Database, WorkMode, Vertical, PostingStatus } from "@/lib/supabase/types";
 
 type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Row"];
@@ -48,12 +48,13 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
   }
 
   function toggleSkill(skill: string) {
-    setForm((f) => ({
-      ...f,
-      skills: f.skills.includes(skill)
-        ? f.skills.filter((s) => s !== skill)
-        : [...f.skills, skill],
-    }));
+    setForm((f) => {
+      if (f.skills.includes(skill)) {
+        return { ...f, skills: f.skills.filter((s) => s !== skill) };
+      }
+      if (f.skills.length >= MAX_POSTING_SKILLS) return f;
+      return { ...f, skills: [...f.skills, skill] };
+    });
   }
 
   async function save(e: React.FormEvent) {
@@ -102,8 +103,6 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
     setDeleting(false);
     if (res.ok) router.push("/employer/postings");
   }
-
-  const verticalSkills = SKILLS.filter((s) => s.vertical === form.vertical);
 
   return (
     <div className="view-enter max-w-2xl space-y-6">
@@ -191,7 +190,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">COMPENSATION (HKD/MONTH)</span>
+            <span className="panel-title">SALARY (HKD/MONTH)</span>
           </div>
           <div className="grid grid-cols-2 gap-4 p-4">
             <div>
@@ -256,41 +255,20 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">REQUIRED SKILLS</span>
+            <span
+              className="kicker"
+              style={{ color: form.skills.length >= MAX_POSTING_SKILLS ? "var(--gold)" : "var(--muted)" }}
+            >
+              {form.skills.length}/{MAX_POSTING_SKILLS}
+            </span>
           </div>
-          <div className="space-y-4 p-4">
-            {form.skills.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {form.skills.map((skill) => (
-                  <Badge key={skill} variant="up">
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      aria-label={`Remove ${skill}`}
-                      style={{ marginLeft: 2 }}
-                    >
-                      ✕
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {verticalSkills.map((skill) => {
-                const selected = form.skills.includes(skill.name);
-                return (
-                  <button
-                    type="button"
-                    key={skill.name}
-                    onClick={() => toggleSkill(skill.name)}
-                    className={cn("badge", selected ? "badge-up" : "badge-muted")}
-                  >
-                    {skill.name}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="p-4">
+            <SkillPicker
+              selected={form.skills}
+              onToggle={toggleSkill}
+              industry={form.vertical as VerticalType}
+              max={MAX_POSTING_SKILLS}
+            />
           </div>
         </div>
 

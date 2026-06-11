@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LiveDot } from "./LiveDot";
 import { cn } from "@/lib/utils/cn";
+import { formatSalary } from "@/lib/utils/formatters";
 
 interface TickerItem {
   id: string;
   vertical: string;
   salary_band: string | null;
   role_label: string | null;
+  salary: number | null;
+  delta_pct: number | null;
   created_at: string;
 }
 
@@ -69,12 +72,28 @@ export function MatchTickerTape({ className }: { className?: string }) {
             <span className="mono" style={{ fontSize: 11, color: "var(--text-2)", letterSpacing: "0.06em" }}>
               {item.role_label ?? "ENGINEER"}
             </span>
-            <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-              {item.salary_band ?? `[${item.vertical.toUpperCase()}]`}
+            <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
+              {item.salary != null
+                ? formatSalary(item.salary)
+                : item.salary_band ?? `[${item.vertical.toUpperCase()}]`}
             </span>
-            <span className="mono tnum" style={{ fontSize: 11, color: "var(--up)", fontWeight: 600 }}>
-              ▲ MATCH
-            </span>
+            {item.delta_pct != null ? (
+              <span
+                className="mono tnum"
+                style={{
+                  fontSize: 11,
+                  color: item.delta_pct >= 0 ? "var(--up)" : "var(--down)",
+                  fontWeight: 600,
+                }}
+              >
+                {item.delta_pct >= 0 ? "▲ +" : "▼ "}
+                {Math.abs(item.delta_pct).toFixed(1)}%
+              </span>
+            ) : (
+              <span className="mono tnum" style={{ fontSize: 11, color: "var(--up)", fontWeight: 600 }}>
+                ▲ MATCH
+              </span>
+            )}
           </span>
         ))}
       </div>

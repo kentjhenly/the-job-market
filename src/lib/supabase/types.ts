@@ -284,6 +284,8 @@ export interface Database {
           vertical: Vertical;
           salary_band: string | null;
           role_label: string | null;
+          salary: number | null;
+          delta_pct: number | null;
           match_type: string;
           created_at: string;
         };
@@ -292,6 +294,8 @@ export interface Database {
           vertical: Vertical;
           salary_band?: string | null;
           role_label?: string | null;
+          salary?: number | null;
+          delta_pct?: number | null;
           match_type?: string;
           created_at?: string;
         };
@@ -347,6 +351,7 @@ export interface Database {
           desired_salary_max: number | null;
           skills: string[];
           notice_period_days: number | null;
+          available_from: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -360,6 +365,7 @@ export interface Database {
           desired_salary_max?: number | null;
           skills?: string[];
           notice_period_days?: number | null;
+          available_from?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -371,6 +377,7 @@ export interface Database {
           desired_salary_max?: number | null;
           skills?: string[];
           notice_period_days?: number | null;
+          available_from?: string | null;
           updated_at?: string;
         };
         Relationships: Relationship[];

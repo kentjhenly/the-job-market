@@ -4,14 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Combobox } from "@/components/ui/Combobox";
+import { SkillPicker } from "@/components/ui/SkillPicker";
+import { Calendar } from "@/components/ui/Calendar";
 import { SalaryScatter } from "@/components/charts/SalaryScatter";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatSalaryBand } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, NOTICE_PERIODS, SKILLS, JOB_ROLES, VERTICALS, type VerticalType } from "@/lib/utils/constants";
+import {
+  WORK_MODES,
+  JOB_ROLES,
+  VERTICALS,
+  MAX_POSTING_SKILLS,
+  type VerticalType,
+} from "@/lib/utils/constants";
 import type { Database, WorkMode } from "@/lib/supabase/types";
 
 type JobPosting = Database["public"]["Tables"]["candidate_job_postings"]["Row"];
@@ -19,6 +26,7 @@ type JobPosting = Database["public"]["Tables"]["candidate_job_postings"]["Row"];
 interface ScatterPoint {
   years_exp: number;
   salary: number;
+  source?: string;
 }
 
 interface JobPostingFormProps {
@@ -52,9 +60,10 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
     desired_salary_max:
       initial?.desired_salary_max != null ? (initial.desired_salary_max / 100).toString() : "",
     skills: initial?.skills ?? ([] as string[]),
-    notice_period_days: initial?.notice_period_days ?? (null as number | null),
+    available_from: initial?.available_from ?? (null as string | null),
   });
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [marketPoints, setMarketPoints] = useState<ScatterPoint[]>([]);
@@ -92,9 +101,10 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
           }
           setMarketPoints(
             Array.isArray(d.points)
-              ? d.points.map((p: { years_exp: number; monthly_salary: number }) => ({
+              ? d.points.map((p: { years_exp: number; monthly_salary: number; source?: string }) => ({
                   years_exp: p.years_exp,
                   salary: p.monthly_salary,
+                  source: p.source,
                 }))
               : []
           );
@@ -127,18 +137,31 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
   }
 
   function toggleSkill(skill: string) {
-    setForm((f) => ({
-      ...f,
-      skills: f.skills.includes(skill)
-        ? f.skills.filter((s) => s !== skill)
-        : [...f.skills, skill],
-    }));
+    setForm((f) => {
+      if (f.skills.includes(skill)) {
+        return { ...f, skills: f.skills.filter((s) => s !== skill) };
+      }
+      if (f.skills.length >= MAX_POSTING_SKILLS) return f;
+      return { ...f, skills: [...f.skills, skill] };
+    });
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     // The role input skips native validation while disabled (pre-industry)
     if (!form.title) return;
+
+    // Native `required` covers the inputs/selects; the custom widgets
+    // (badges, skill picker, calendar) are validated here
+    const missing: string[] = [];
+    if (form.work_modes.length === 0) missing.push("WORK MODES");
+    if (form.skills.length === 0) missing.push("SKILLS");
+    if (!form.available_from) missing.push("AVAILABILITY");
+    if (missing.length > 0) {
+      setFormError(`REQUIRED: ${missing.join(" · ")}`);
+      return;
+    }
+    setFormError(null);
     setSaving(true);
 
     const body = {
@@ -152,7 +175,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
         ? Math.round(parseFloat(form.desired_salary_max) * 100)
         : null,
       skills: form.skills,
-      notice_period_days: form.notice_period_days,
+      available_from: form.available_from,
     };
 
     const res = await fetch(
@@ -183,6 +206,19 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
     ? Math.round(parseFloat(form.desired_salary_max) * 100)
     : undefined;
 
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  // Suggest median ± 1σ from the active regression as min/max placeholders
+  const minSuggestion =
+    medianAtExp != null && stdDev != null
+      ? Math.max(0, Math.round((medianAtExp - stdDev) / 100)).toString()
+      : "80000";
+  const maxSuggestion =
+    medianAtExp != null && stdDev != null
+      ? Math.round((medianAtExp + stdDev) / 100).toString()
+      : "120000";
+
   return (
     <div className="view-enter space-y-6">
       <div>
@@ -207,6 +243,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 value={industry}
                 onChange={(e) => changeIndustry(e.target.value as VerticalType | "")}
                 className="field"
+                required
               >
                 <option value="">ALL INDUSTRIES</option>
                 {VERTICALS.map((v) => (
@@ -221,10 +258,11 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
               <Combobox
                 value={form.title}
                 onChange={(title) => setForm((f) => ({ ...f, title }))}
-                options={(industry ? JOB_ROLES.filter((r) => r.vertical === industry) : JOB_ROLES).map(
-                  (r) => ({ value: r.title, group: r.vertical.toUpperCase() })
-                )}
-                placeholder={industry ? "Search roles, e.g. Frontend Engineer" : undefined}
+                options={(industry ? JOB_ROLES.filter((r) => r.vertical === industry) : JOB_ROLES)
+                  .slice()
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
+                placeholder={industry ? "SEARCH ROLES" : undefined}
                 disabled={!industry}
                 required
               />
@@ -243,6 +281,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 value={form.location || "Hong Kong"}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 className="field"
+                required
               >
                 <option value="Hong Kong">HONG KONG</option>
               </select>
@@ -271,7 +310,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">COMPENSATION (HKD/MONTH)</span>
+            <span className="panel-title">SALARY (HKD/MONTH)</span>
           </div>
           <div className="grid grid-cols-2 gap-4 p-4">
             <div>
@@ -281,7 +320,8 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 value={form.desired_salary_min}
                 onChange={(e) => setForm((f) => ({ ...f, desired_salary_min: e.target.value }))}
                 className="field"
-                placeholder="80000"
+                placeholder={minSuggestion}
+                required
               />
             </div>
             <div>
@@ -291,32 +331,34 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 value={form.desired_salary_max}
                 onChange={(e) => setForm((f) => ({ ...f, desired_salary_max: e.target.value }))}
                 className="field"
-                placeholder="120000"
+                placeholder={maxSuggestion}
+                required
               />
             </div>
-            <div>
-              <label className="kicker mb-1.5 block">EXPERIENCE — YEARS</label>
-              <input
-                type="number"
-                min={0}
-                max={50}
-                value={expYears}
-                onChange={(e) => setExpYears(e.target.value)}
-                className="field"
-                placeholder="3"
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">EXPERIENCE — MONTHS</label>
-              <input
-                type="number"
-                min={0}
-                max={11}
-                value={expMonths}
-                onChange={(e) => setExpMonths(e.target.value)}
-                className="field"
-                placeholder="6"
-              />
+            <div className="col-span-2">
+              <label className="kicker mb-1.5 block">EXPERIENCE</label>
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={expYears}
+                  onChange={(e) => setExpYears(e.target.value)}
+                  className="field"
+                  placeholder="YEARS"
+                  required
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={11}
+                  value={expMonths}
+                  onChange={(e) => setExpMonths(e.target.value)}
+                  className="field"
+                  placeholder="MONTHS"
+                  required
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -324,53 +366,21 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">SKILLS</span>
+            <span
+              className="kicker"
+              style={{ color: form.skills.length >= MAX_POSTING_SKILLS ? "var(--gold)" : "var(--muted)" }}
+            >
+              {form.skills.length}/{MAX_POSTING_SKILLS}
+            </span>
           </div>
-          <div className="space-y-4 p-4">
-            {form.skills.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {form.skills.map((skill) => (
-                  <Badge key={skill} variant="up">
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      aria-label={`Remove ${skill}`}
-                      style={{ marginLeft: 2 }}
-                    >
-                      ✕
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {(industry ? VERTICALS.filter((v) => v === industry) : VERTICALS).map((v) => {
-              const verticalSkills = SKILLS.filter((s) => s.vertical === v);
-              const verified = verifiedVerticals.includes(v);
-              return (
-                <div key={v}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="kicker">{v.toUpperCase()}</span>
-                    {verified && <Badge variant="up">✓ VERIFIED</Badge>}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {verticalSkills.map((skill) => {
-                      const selected = form.skills.includes(skill.name);
-                      return (
-                        <button
-                          type="button"
-                          key={skill.name}
-                          onClick={() => toggleSkill(skill.name)}
-                          className={cn("badge", selected ? "badge-up" : "badge-muted")}
-                        >
-                          {skill.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="p-4">
+            <SkillPicker
+              selected={form.skills}
+              onToggle={toggleSkill}
+              industry={industry}
+              verifiedVerticals={verifiedVerticals}
+              max={MAX_POSTING_SKILLS}
+            />
           </div>
         </div>
 
@@ -379,26 +389,29 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
             <span className="panel-title">AVAILABILITY</span>
           </div>
           <div className="p-4">
-            <label className="kicker mb-1.5 block">NOTICE PERIOD</label>
-            <select
-              value={form.notice_period_days ?? ""}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  notice_period_days: e.target.value === "" ? null : parseInt(e.target.value),
-                }))
-              }
-              className="field"
-            >
-              <option value="">SELECT NOTICE PERIOD</option>
-              {NOTICE_PERIODS.map((n) => (
-                <option key={n.value} value={n.value}>
-                  {n.label}
-                </option>
-              ))}
-            </select>
+            <div className="mb-3 flex items-center justify-between">
+              <label className="kicker">AVAILABLE FROM</label>
+              <span className="mono tnum" style={{ fontSize: 12, color: form.available_from ? "var(--up)" : "var(--dim)" }}>
+                {form.available_from
+                  ? form.available_from <= todayISO
+                    ? "IMMEDIATELY"
+                    : form.available_from
+                  : "NOT SET"}
+              </span>
+            </div>
+            <Calendar
+              value={form.available_from}
+              onChange={(date) => setForm((f) => ({ ...f, available_from: date }))}
+              minDate={new Date()}
+            />
           </div>
         </div>
+
+        {formError && (
+          <p className="mono" style={{ fontSize: 11, color: "var(--down)" }}>
+            {formError}
+          </p>
+        )}
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
@@ -467,6 +480,21 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                   MARKET
                 </span>
               </div>
+              {marketPoints.some((p) => p.source === "match") && (
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "var(--up)",
+                    }}
+                  />
+                  <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                    REAL MATCHES
+                  </span>
+                </div>
+              )}
               {candSalaryMin != null && candSalaryMax != null && (
                 <div className="flex items-center gap-2">
                   <span

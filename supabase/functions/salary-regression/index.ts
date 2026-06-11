@@ -125,12 +125,12 @@ Deno.serve(async (req: Request) => {
     attempts.push({ level, byLocation: false });
   }
 
-  let dataPoints: { years_exp: number; monthly_salary: number }[] | null = null;
+  let dataPoints: { years_exp: number; monthly_salary: number; source: string }[] | null = null;
 
   for (const attempt of attempts) {
     let query = supabase
       .from("salary_data_points")
-      .select("years_exp, monthly_salary");
+      .select("years_exp, monthly_salary, source");
 
     if (attempt.level === "role") query = query.eq("role_label", role);
     if (attempt.level === "vertical") query = query.eq("vertical", vertical);
@@ -184,10 +184,16 @@ Deno.serve(async (req: Request) => {
   const candidatePercentile = nearbyCount > 0 ? (belowCount / nearbyCount) * 100 : 50;
 
   // Return the actual observations behind the fit (stride-sampled so the
-  // vertical-level fallback dataset doesn't bloat the payload)
+  // vertical-level fallback dataset doesn't bloat the payload). Real match
+  // outcomes are always included — they're rare and highlighted in the UI.
   const MAX_POINTS = 200;
-  const stride = Math.max(1, Math.ceil(dataPoints.length / MAX_POINTS));
-  const points = dataPoints.filter((_, i) => i % stride === 0);
+  const matchPoints = dataPoints.filter((d) => d.source === "match");
+  const otherPoints = dataPoints.filter((d) => d.source !== "match");
+  const stride = Math.max(
+    1,
+    Math.ceil(otherPoints.length / Math.max(MAX_POINTS - matchPoints.length, 1))
+  );
+  const points = [...otherPoints.filter((_, i) => i % stride === 0), ...matchPoints];
 
   return new Response(
     JSON.stringify({

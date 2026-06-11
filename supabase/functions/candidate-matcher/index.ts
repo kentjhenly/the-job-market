@@ -132,7 +132,10 @@ Deno.serve(async (req: Request) => {
         skills: skillScore(posting.skills, cp.skills),
         experience: experienceScore(posting.years_exp_min, posting.years_exp_max, cand.years_exp_claimed),
         salary: salaryScore(posting.salary_min, posting.salary_max, cp.desired_salary_min, cp.desired_salary_max),
-        location: locationScore(posting.location, posting.work_modes, cp.location, cp.work_modes),
+        // Location is irrelevant when the employer hires remote
+        location: posting.work_modes.includes("remote")
+          ? 1
+          : locationScore(posting.location, posting.work_modes, cp.location, cp.work_modes),
         vertical: verticalScore(posting.vertical, cand.profiles?.vertical ?? null),
         composite: (cand.composite_score ?? 0) / 100,
       };
@@ -163,11 +166,25 @@ Deno.serve(async (req: Request) => {
         match_score,
         breakdown,
       };
-    })
+    });
+
+  // Compatibility percentile: share of all evaluated candidates this one
+  // out-scores for this posting (top = 100, bottom = 0)
+  const n = matches.length;
+  const ranked = matches
+    .map((m) => ({
+      ...m,
+      match_percentile:
+        n > 1
+          ? Math.round(
+              (matches.filter((o) => o.match_score < m.match_score).length / (n - 1)) * 100
+            )
+          : 100,
+    }))
     .sort((a, b) => b.match_score - a.match_score)
     .slice(0, MAX_RESULTS);
 
-  return new Response(JSON.stringify({ matches }), {
+  return new Response(JSON.stringify({ matches: ranked }), {
     headers: { "Content-Type": "application/json" },
   });
 });

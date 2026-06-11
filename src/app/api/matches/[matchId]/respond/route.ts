@@ -83,10 +83,43 @@ export async function POST(
       ? formatSalaryBand(Math.round(match.offered_salary * 0.95), Math.round(match.offered_salary * 1.05))
       : null;
 
+    // % the accepted salary sits above/below the regression median for this
+    // role & experience — best-effort, the ticker works without it
+    let deltaPct: number | null = null;
+    if (match.offered_salary) {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/salary-regression`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              vertical,
+              years_exp: candidate?.years_exp_claimed ?? 0,
+              location: candidate?.location ?? "Hong Kong",
+              role: posting?.title ?? undefined,
+            }),
+          }
+        );
+        const d = await res.json();
+        if (res.ok && typeof d.median_at_exp === "number" && d.median_at_exp > 0) {
+          deltaPct =
+            Math.round(((match.offered_salary - d.median_at_exp) / d.median_at_exp) * 1000) / 10;
+        }
+      } catch {
+        // ignore — delta stays null
+      }
+    }
+
     await supabase.from("match_ticker_events").insert({
       vertical,
       role_label: posting?.title ? posting.title.toUpperCase() : "ENGINEER",
       salary_band: salaryBand,
+      salary: match.offered_salary ?? null,
+      delta_pct: deltaPct,
       match_type: "match",
     });
 
@@ -94,6 +127,7 @@ export async function POST(
     if (match.offered_salary && candidate?.years_exp_claimed != null) {
       await supabase.from("salary_data_points").insert({
         vertical,
+        role_label: posting?.title ?? null,
         years_exp: candidate.years_exp_claimed,
         location: candidate.location,
         remote: posting ? posting.work_modes.includes("remote") : candidate.remote_only,

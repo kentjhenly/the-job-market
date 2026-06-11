@@ -223,6 +223,9 @@ body {
 .field:focus { outline: none; border-color: var(--up); box-shadow: 0 0 0 3px var(--up-dim); }
 .field::placeholder { color: var(--dim); }
 textarea.field { resize: vertical; line-height: 1.6; }
+input[type="number"].field::-webkit-outer-spin-button,
+input[type="number"].field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"].field { -moz-appearance: textfield; appearance: textfield; }
 select.field {
   appearance: none;
   padding-right: 34px;

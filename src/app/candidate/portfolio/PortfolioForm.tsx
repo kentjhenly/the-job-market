@@ -1,16 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { cn } from "@/lib/utils/cn";
-import { SKILLS, VERTICALS } from "@/lib/utils/constants";
+import { SkillPicker } from "@/components/ui/SkillPicker";
 import type { Database } from "@/lib/supabase/types";
 
 type PortfolioProject = Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"];
+
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"];
+
+function fileExt(name: string): string {
+  return name.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function isValidUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol.startsWith("http");
+  } catch {
+    return false;
+  }
+}
+
+function ExtBlock({ ext }: { ext: string }) {
+  return (
+    <div className="flex h-48 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
+      <span className="mono" style={{ fontSize: 20, fontWeight: 600, letterSpacing: "0.2em", color: "var(--muted)" }}>
+        {ext.toUpperCase() || "FILE"}
+      </span>
+    </div>
+  );
+}
 
 interface PortfolioFormProps {
   initial: PortfolioProject | null;
@@ -70,8 +92,51 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     if (res.ok) router.push("/candidate/portfolio");
   }
 
+  const filePreviewUrl = useMemo(
+    () => (file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null),
+    [file]
+  );
+
+  let preview: React.ReactNode;
+  let previewLabel: string;
+  if (file) {
+    previewLabel = file.name;
+    preview = filePreviewUrl ? (
+      // eslint-disable-next-line @next/next/no-img-element -- local object URL
+      <img src={filePreviewUrl} alt={file.name} className="h-48 w-full object-cover" style={{ background: "var(--bg-deep)" }} />
+    ) : (
+      <ExtBlock ext={fileExt(file.name)} />
+    );
+  } else if (isEditing && initial?.file_name && !removeFile) {
+    previewLabel = initial.file_name;
+    preview = IMAGE_EXTS.includes(fileExt(initial.file_name)) ? (
+      // eslint-disable-next-line @next/next/no-img-element -- signed-URL redirect
+      <img src={`/api/portfolio/${initial.id}/file`} alt={initial.file_name} className="h-48 w-full object-cover" style={{ background: "var(--bg-deep)" }} />
+    ) : (
+      <ExtBlock ext={fileExt(initial.file_name)} />
+    );
+  } else if (form.link_url && isValidUrl(form.link_url)) {
+    previewLabel = form.link_url;
+    preview = (
+      // eslint-disable-next-line @next/next/no-img-element -- external screenshot service
+      <img
+        src={`https://s.wordpress.com/mshots/v1/${encodeURIComponent(form.link_url)}?w=840`}
+        alt="Website preview"
+        className="h-48 w-full object-cover"
+        style={{ background: "var(--bg-deep)" }}
+      />
+    );
+  } else {
+    previewLabel = "NO MEDIA";
+    preview = (
+      <div className="flex h-48 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
+        <span className="kicker">NO MEDIA</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="view-enter max-w-2xl space-y-6">
+    <div className="view-enter space-y-6">
       <div>
         <Link href="/candidate/portfolio" className="link-up mono" style={{ fontSize: 11 }}>
           ← BACK TO PORTFOLIO
@@ -81,7 +146,8 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
         </h1>
       </div>
 
-      <form onSubmit={save} className="space-y-6">
+      <form onSubmit={save} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">PROJECT</span>
@@ -183,7 +249,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
               className="field"
             />
             <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-              MAX 10MB · IMAGES, PDFS, ZIPS, ETC.
+              MAX 10MB · IMAGES, PDF, DOCX, PPTX, ZIP, ETC.
             </p>
           </div>
         </div>
@@ -192,50 +258,8 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
           <div className="panel-head">
             <span className="panel-title">SKILLS</span>
           </div>
-          <div className="space-y-4 p-4">
-            {form.skills.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {form.skills.map((skill) => (
-                  <Badge key={skill} variant="up">
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => toggleSkill(skill)}
-                      aria-label={`Remove ${skill}`}
-                      style={{ marginLeft: 2 }}
-                    >
-                      ✕
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {VERTICALS.map((v) => {
-              const verticalSkills = SKILLS.filter((s) => s.vertical === v);
-              return (
-                <div key={v}>
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="kicker">{v.toUpperCase()}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {verticalSkills.map((skill) => {
-                      const selected = form.skills.includes(skill.name);
-                      return (
-                        <button
-                          type="button"
-                          key={skill.name}
-                          onClick={() => toggleSkill(skill.name)}
-                          className={cn("badge", selected ? "badge-up" : "badge-muted")}
-                        >
-                          {skill.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="p-4">
+            <SkillPicker selected={form.skills} onToggle={toggleSkill} />
           </div>
         </div>
 
@@ -251,6 +275,19 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
               DELETE
             </Button>
           )}
+        </div>
+        </div>
+
+        <div className="panel overflow-hidden lg:sticky lg:top-6">
+          <div className="panel-head">
+            <span className="panel-title">PREVIEW</span>
+          </div>
+          {preview}
+          <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+            <p className="mono truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
+              {previewLabel}
+            </p>
+          </div>
         </div>
       </form>
 

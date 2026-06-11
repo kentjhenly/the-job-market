@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { WORK_MODES, NOTICE_PERIODS } from "@/lib/utils/constants";
+import { WORK_MODES } from "@/lib/utils/constants";
 import { formatSalaryBand } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -31,11 +31,18 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
     setDeleteTarget(null);
   }
 
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {postings.map((posting) => {
-          const noticeLabel = NOTICE_PERIODS.find((n) => n.value === posting.notice_period_days)?.label;
+          const availableLabel = posting.available_from
+            ? posting.available_from <= todayISO
+              ? "IMMEDIATELY"
+              : `FROM ${posting.available_from}`
+            : null;
           const visibleSkills = posting.skills.slice(0, 3);
           const extraSkills = posting.skills.length - visibleSkills.length;
 
@@ -47,7 +54,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
                 </p>
                 <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
                   {posting.location ?? "LOCATION NOT SET"}
-                  {noticeLabel ? ` · ${noticeLabel}` : ""}
+                  {availableLabel ? ` · ${availableLabel}` : ""}
                 </p>
               </div>
 

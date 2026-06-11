@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
 
 const MAX_POSTINGS = 10;
 
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
+  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
+    return NextResponse.json(
+      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
+      { status: 400 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("candidate_job_postings")
     .insert({
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
       desired_salary_min: body.desired_salary_min ?? null,
       desired_salary_max: body.desired_salary_max ?? null,
       skills: body.skills ?? [],
-      notice_period_days: body.notice_period_days ?? null,
+      available_from: body.available_from ?? null,
     })
     .select("id")
     .single();

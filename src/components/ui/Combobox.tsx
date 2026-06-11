@@ -59,6 +59,7 @@ export function Combobox({ value, onChange, options, placeholder, className, req
         }}
         placeholder={placeholder}
         className="field disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ textTransform: "uppercase" }}
         autoComplete="off"
         required={required}
         disabled={disabled}
@@ -84,7 +85,7 @@ export function Combobox({ value, onChange, options, placeholder, className, req
                     onClick={() => select(o)}
                     className="block w-full px-3 py-2 text-left transition-colors hover:bg-surface-2"
                   >
-                    <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
+                    <span className="mono" style={{ fontSize: 12, color: "var(--text)", textTransform: "uppercase" }}>
                       {o.value}
                     </span>
                   </button>
