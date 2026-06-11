@@ -5,7 +5,20 @@
 export type UserRole = "candidate" | "employer";
 export type ChallengeType = "multiple_choice" | "coding" | "written";
 export type MatchStatus = "pending" | "accepted" | "declined" | "expired" | "ghosted";
-export type Vertical = "tech" | "finance" | "marketing" | "design" | "ops";
+export type Vertical =
+  | "tech"
+  | "finance"
+  | "marketing"
+  | "design"
+  | "ops"
+  | "legal"
+  | "healthcare"
+  | "education"
+  | "sales"
+  | "hr"
+  | "consulting"
+  | "property"
+  | "media";
 export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
 
