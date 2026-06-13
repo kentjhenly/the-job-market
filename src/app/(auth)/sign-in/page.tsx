@@ -83,7 +83,7 @@ export default function SignInPage() {
       <p className="mono text-center" style={{ fontSize: 12, color: "var(--muted)" }}>
         NEW TO THE MARKET?{" "}
         <Link href="/sign-up" className="link-up">
-          REGISTER
+          SIGN UP
         </Link>
       </p>
     </div>

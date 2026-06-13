@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendMatchAcceptedNotification } from "@/lib/email/send";
-import { formatSalaryBand } from "@/lib/utils/formatters";
+import { FREE_MATCH_ACCEPTS } from "@/lib/utils/constants";
 
 export async function POST(
   request: NextRequest,
@@ -35,12 +35,43 @@ export async function POST(
     return NextResponse.json({ error: "Match is no longer pending" }, { status: 409 });
   }
 
+  // Accepting a pitch spends a candidate credit (first FREE_MATCH_ACCEPTS are free)
+  let candidateCreditUpdate: { credits?: number; free_accepts_used?: number } | null = null;
+
+  if (action === "accept") {
+    const { data: candidate } = await supabase
+      .from("candidates")
+      .select("credits, free_accepts_used")
+      .eq("id", session.user.id)
+      .single();
+
+    if (!candidate) {
+      return NextResponse.json({ error: "Candidate profile not found" }, { status: 404 });
+    }
+
+    const usingFreeTrial = candidate.free_accepts_used < FREE_MATCH_ACCEPTS;
+    if (!usingFreeTrial && candidate.credits < 1) {
+      return NextResponse.json(
+        { error: "Insufficient credits to accept this pitch" },
+        { status: 402 }
+      );
+    }
+
+    candidateCreditUpdate = usingFreeTrial
+      ? { free_accepts_used: candidate.free_accepts_used + 1 }
+      : { credits: candidate.credits - 1 };
+  }
+
   const newStatus = action === "accept" ? "accepted" : "declined";
 
   await supabase
     .from("matches")
     .update({ status: newStatus, responded_at: new Date().toISOString() })
     .eq("id", matchId);
+
+  if (candidateCreditUpdate) {
+    await supabase.from("candidates").update(candidateCreditUpdate).eq("id", session.user.id);
+  }
 
   // Insert reputation event for employer (responded signal)
   await supabase.from("reputation_events").insert({
@@ -79,9 +110,6 @@ export async function POST(
     ]);
 
     const vertical = posting?.vertical ?? "tech";
-    const salaryBand = match.offered_salary
-      ? formatSalaryBand(Math.round(match.offered_salary * 0.95), Math.round(match.offered_salary * 1.05))
-      : null;
 
     // % the accepted salary sits above/below the regression median for this
     // role & experience — best-effort, the ticker works without it
@@ -117,7 +145,6 @@ export async function POST(
     await supabase.from("match_ticker_events").insert({
       vertical,
       role_label: posting?.title ? posting.title.toUpperCase() : "ENGINEER",
-      salary_band: salaryBand,
       salary: match.offered_salary ?? null,
       delta_pct: deltaPct,
       match_type: "match",

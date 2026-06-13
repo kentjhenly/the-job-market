@@ -17,13 +17,11 @@ export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
 
 interface Props {
   initialCandidates: Candidate[];
-  employerCredits: number;
 }
 
-export function FeedClient({ initialCandidates, employerCredits }: Props) {
+export function FeedClient({ initialCandidates }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
   const [selected, setSelected] = useState<Candidate | null>(null);
-  const [credits, setCredits] = useState(employerCredits);
   const [pitchOpen, setPitchOpen] = useState(false);
   const [pitchMsg, setPitchMsg] = useState("");
   const [pitchSalary, setPitchSalary] = useState("");
@@ -53,7 +51,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
   }, [supabase]);
 
   async function sendPitch() {
-    if (!selected || credits < 1) return;
+    if (!selected) return;
     setSending(true);
     setPitchResult(null);
 
@@ -68,7 +66,6 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
     });
 
     if (res.ok) {
-      setCredits((c) => c - 1);
       setPitchResult("success");
       setPitchMsg("");
       setPitchSalary("");
@@ -89,7 +86,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
             RANKED BY COMPOSITE SCORE · LIVE UPDATES
           </p>
         </div>
-        <span className="badge badge-up">CREDITS: {credits}</span>
+        <span className="badge badge-up">PITCHES: FREE</span>
       </div>
 
       <OrderBook candidates={candidates} onSelect={setSelected} selectedId={selected?.id} />
@@ -147,21 +144,15 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
           </div>
 
           <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
-            {credits < 1 ? (
-              <p className="kicker text-center" style={{ color: "var(--down)" }}>
-                NO CREDITS REMAINING
-              </p>
-            ) : (
-              <Button
-                onClick={() => {
-                  setPitchOpen(true);
-                  setPitchResult(null);
-                }}
-                className="w-full"
-              >
-                SEND PITCH →
-              </Button>
-            )}
+            <Button
+              onClick={() => {
+                setPitchOpen(true);
+                setPitchResult(null);
+              }}
+              className="w-full"
+            >
+              SEND PITCH →
+            </Button>
           </div>
         </div>
       )}
@@ -196,7 +187,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
               className="field"
             />
             <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-              1 CREDIT WILL BE DEDUCTED · {credits} REMAINING
+              SENDING A PITCH IS FREE · THE CANDIDATE WILL BE NOTIFIED
             </p>
           </div>
 

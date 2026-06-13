@@ -22,7 +22,7 @@ export default function SignUpPage() {
                   CANDIDATE
                 </h2>
                 <p className="mt-2" style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
-                  Complete skill challenges. Get ranked by ability.
+                  Build a portfolio of real work. Get ranked by ability.
                   <br />
                   Let employers come to you.
                 </p>
@@ -33,7 +33,7 @@ export default function SignUpPage() {
             </div>
             <div className="mt-4 flex gap-2">
               <span className="badge badge-up">FREE TO JOIN</span>
-              <span className="badge badge-muted">PAY ON MATCH</span>
+              <span className="badge badge-muted">3 FREE PITCH ACCEPTS</span>
             </div>
           </div>
         </Link>
@@ -51,7 +51,7 @@ export default function SignUpPage() {
                 <p className="mt-2" style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
                   Browse a ranked feed of verified talent.
                   <br />
-                  Pitch the candidates you want. Pay per match.
+                  Pitching is free. Post roles to reach more candidates.
                 </p>
               </div>
               <span className="mono transition-colors group-hover:text-up" style={{ fontSize: 18, color: "var(--muted)" }}>
@@ -59,8 +59,8 @@ export default function SignUpPage() {
               </span>
             </div>
             <div className="mt-4 flex gap-2">
-              <span className="badge badge-up">FREE TO BROWSE</span>
-              <span className="badge badge-muted">PAY PER PITCH</span>
+              <span className="badge badge-up">PITCHES ARE FREE</span>
+              <span className="badge badge-muted">3 FREE POSTINGS</span>
             </div>
           </div>
         </Link>

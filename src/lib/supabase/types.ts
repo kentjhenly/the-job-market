@@ -21,6 +21,8 @@ export type Vertical =
   | "media";
 export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
+export type OfferStatus = "pending" | "accepted" | "declined";
+export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "file";
 
 type Relationship = {
   foreignKeyName: string;
@@ -75,6 +77,8 @@ export interface Database {
           is_visible: boolean;
           reputation_score: number;
           last_active_at: string;
+          credits: number;
+          free_accepts_used: number;
         };
         Insert: {
           id: string;
@@ -88,6 +92,8 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
+          credits?: number;
+          free_accepts_used?: number;
         };
         Update: {
           composite_score?: number;
@@ -100,6 +106,8 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
+          credits?: number;
+          free_accepts_used?: number;
         };
         Relationships: Relationship[];
       };
@@ -113,6 +121,7 @@ export interface Database {
           credits: number;
           verified: boolean;
           reputation_score: number;
+          free_postings_used: number;
         };
         Insert: {
           id: string;
@@ -123,6 +132,7 @@ export interface Database {
           credits?: number;
           verified?: boolean;
           reputation_score?: number;
+          free_postings_used?: number;
         };
         Update: {
           company_name?: string;
@@ -131,6 +141,7 @@ export interface Database {
           website?: string | null;
           credits?: number;
           reputation_score?: number;
+          free_postings_used?: number;
         };
         Relationships: Relationship[];
       };
@@ -259,6 +270,13 @@ export interface Database {
           responded_at: string | null;
           expires_at: string;
           created_at: string;
+          offer_status: OfferStatus | null;
+          offer_salary: number | null;
+          offer_sent_at: string | null;
+          hired_at: string | null;
+          last_message_at: string | null;
+          candidate_last_read_at: string | null;
+          employer_last_read_at: string;
         };
         Insert: {
           id?: string;
@@ -271,10 +289,24 @@ export interface Database {
           responded_at?: string | null;
           expires_at?: string;
           created_at?: string;
+          offer_status?: OfferStatus | null;
+          offer_salary?: number | null;
+          offer_sent_at?: string | null;
+          hired_at?: string | null;
+          last_message_at?: string | null;
+          candidate_last_read_at?: string | null;
+          employer_last_read_at?: string;
         };
         Update: {
           status?: MatchStatus;
           responded_at?: string | null;
+          offer_status?: OfferStatus | null;
+          offer_salary?: number | null;
+          offer_sent_at?: string | null;
+          hired_at?: string | null;
+          last_message_at?: string | null;
+          candidate_last_read_at?: string | null;
+          employer_last_read_at?: string;
         };
         Relationships: Relationship[];
       };
@@ -478,6 +510,10 @@ export interface Database {
           match_id: string;
           sender_id: string;
           body: string;
+          message_type: MessageType;
+          file_path: string | null;
+          file_name: string | null;
+          file_size: number | null;
           created_at: string;
         };
         Insert: {
@@ -485,9 +521,17 @@ export interface Database {
           match_id: string;
           sender_id: string;
           body: string;
+          message_type?: MessageType;
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
           created_at?: string;
         };
-        Update: Record<string, never>;
+        Update: {
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
+        };
         Relationships: Relationship[];
       };
     };

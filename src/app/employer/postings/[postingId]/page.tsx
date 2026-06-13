@@ -3,6 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { EmployerJobPostingForm } from "../EmployerJobPostingForm";
 import { MatchedCandidatesPanel } from "../MatchedCandidatesPanel";
+import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 
 export default async function EmployerJobPostingPage({
   params,
@@ -17,7 +18,18 @@ export default async function EmployerJobPostingPage({
   const isNew = postingId === "new";
 
   if (isNew) {
-    return <EmployerJobPostingForm initial={null} />;
+    const { data: employer } = await supabase
+      .from("employers")
+      .select("credits, free_postings_used")
+      .eq("id", session.user.id)
+      .single();
+
+    const postingCost = {
+      freeRemaining: Math.max(0, FREE_JOB_POSTINGS - (employer?.free_postings_used ?? 0)),
+      credits: employer?.credits ?? 0,
+    };
+
+    return <EmployerJobPostingForm initial={null} postingCost={postingCost} />;
   }
 
   const { data: posting } = await supabase

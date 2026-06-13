@@ -14,16 +14,5 @@ export default async function EmployerFeedPage() {
     .order("composite_score", { ascending: false })
     .limit(100);
 
-  const { data: employer } = await supabase
-    .from("employers")
-    .select("credits")
-    .eq("id", session.user.id)
-    .single();
-
-  return (
-    <FeedClient
-      initialCandidates={(candidates as Candidate[] | null) ?? []}
-      employerCredits={employer?.credits ?? 0}
-    />
-  );
+  return <FeedClient initialCandidates={(candidates as Candidate[] | null) ?? []} />;
 }

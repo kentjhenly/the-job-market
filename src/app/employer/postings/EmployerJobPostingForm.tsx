@@ -14,11 +14,13 @@ type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Ro
 
 interface EmployerJobPostingFormProps {
   initial: EmployerPosting | null;
+  postingCost?: { freeRemaining: number; credits: number };
 }
 
-export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps) {
+export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPostingFormProps) {
   const router = useRouter();
   const isEditing = !!initial;
+  const blocked = !isEditing && !!postingCost && postingCost.freeRemaining <= 0 && postingCost.credits < 1;
 
   const [form, setForm] = useState({
     title: initial?.title ?? "",
@@ -35,6 +37,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
     status: (initial?.status ?? "open") as PostingStatus,
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -60,6 +63,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError(null);
 
     const body = {
       title: form.title,
@@ -93,6 +97,9 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
         const { id } = await res.json();
         router.push(`/employer/postings/${id}`);
       }
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? "FAILED TO SAVE POSTING");
     }
   }
 
@@ -114,6 +121,27 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           {isEditing ? "EDIT JOB POSTING" : "CREATE JOB POSTING"}
         </h1>
       </div>
+
+      {!isEditing && postingCost && (
+        <div
+          className="panel p-3 text-center"
+          style={{
+            borderColor: blocked
+              ? "color-mix(in oklch, var(--down) 40%, transparent)"
+              : postingCost.freeRemaining > 0
+                ? "color-mix(in oklch, var(--up) 40%, transparent)"
+                : "color-mix(in oklch, var(--gold) 40%, transparent)",
+          }}
+        >
+          <p className={`kicker ${blocked ? "c-down" : postingCost.freeRemaining > 0 ? "c-up" : "c-gold"}`}>
+            {blocked
+              ? "NO CREDITS REMAINING — POSTING A NEW ROLE REQUIRES 1 CREDIT"
+              : postingCost.freeRemaining > 0
+                ? `THIS POSTING IS FREE · ${postingCost.freeRemaining} FREE POSTING${postingCost.freeRemaining === 1 ? "" : "S"} REMAINING`
+                : `THIS POSTING WILL USE 1 CREDIT · ${postingCost.credits} REMAINING AFTER`}
+          </p>
+        </div>
+      )}
 
       <form onSubmit={save} className="space-y-6">
         <div className="panel">
@@ -311,8 +339,14 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           </div>
         </div>
 
+        {error && (
+          <p className="kicker c-down" style={{ fontSize: 11 }}>
+            {error}
+          </p>
+        )}
+
         <div className="flex items-center gap-4">
-          <Button type="submit" loading={saving}>
+          <Button type="submit" loading={saving} disabled={blocked}>
             SAVE POSTING
           </Button>
           <Button type="button" variant="ghost" onClick={() => router.push("/employer/postings")}>

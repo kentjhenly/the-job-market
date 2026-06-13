@@ -81,7 +81,7 @@ export function SalaryCurve({ curve, candYears, candMin, height = 230 }: SalaryC
         </text>
       ))}
       <path d={bandP} fill={`url(#${gradientId})`} />
-      <path d={lineP} fill="none" stroke="var(--up)" strokeWidth="2" />
+      <path d={lineP} className="spark-line" pathLength="1" fill="none" stroke="var(--up)" strokeWidth="2" />
       {candYears != null && (
         <g>
           <line

@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
-import { MatchChat } from "@/components/terminal/MatchChat";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
+import { MatchChat } from "@/components/terminal/MatchChat";
 
 interface Match {
   id: string;
@@ -14,6 +14,8 @@ interface Match {
   offered_salary: number | null;
   expires_at: string;
   created_at: string;
+  last_message_at: string | null;
+  candidate_last_read_at: string | null;
   employers?: { company_name: string; reputation_score: number } | null;
 }
 
@@ -25,22 +27,40 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "7rem 1.6fr 8rem 7rem 8rem";
-const HEADERS = ["STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT"];
+const COLUMNS = "1rem 7rem 1.6fr 8rem 7rem 8rem 5.5rem 1rem";
+const HEADERS = ["", "STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT", "", ""];
 
 function reputationColor(reputation?: number | null) {
   return reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
 }
 
-export function MatchesClient({ matches: initial }: { matches: Match[] }) {
+function isUnread(m: Match) {
+  return (
+    !m.candidate_last_read_at ||
+    new Date(m.last_message_at ?? m.created_at) > new Date(m.candidate_last_read_at)
+  );
+}
+
+interface MatchesClientProps {
+  matches: Match[];
+  freeAcceptsRemaining: number;
+  credits: number;
+}
+
+export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits }: MatchesClientProps) {
   const [matches, setMatches] = useState<Match[]>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const selected = matches.find((m) => m.id === selectedId) ?? null;
+  const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
+  const acceptBlocked = freeAcceptsRemaining <= 0 && credits < 1;
 
   async function respond(matchId: string, action: "accept" | "decline") {
     setLoading((prev) => ({ ...prev, [matchId]: true }));
+    setErrors((prev) => ({ ...prev, [matchId]: "" }));
     const res = await fetch(`/api/matches/${matchId}/respond`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,8 +69,32 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
     if (res.ok) {
       const { status } = await res.json();
       setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status } : m)));
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setErrors((prev) => ({
+        ...prev,
+        [matchId]: json.error ?? "FAILED TO RESPOND",
+      }));
     }
     setLoading((prev) => ({ ...prev, [matchId]: false }));
+  }
+
+  function markRead(m: Match) {
+    const now = new Date().toISOString();
+    setMatches((prev) => prev.map((mm) => (mm.id === m.id ? { ...mm, candidate_last_read_at: now } : mm)));
+    fetch(`/api/matches/${m.id}/read`, { method: "POST" });
+  }
+
+  function openRow(m: Match) {
+    setSelectedId(m.id);
+    setChatMatchId(null);
+    markRead(m);
+  }
+
+  function openChat(m: Match) {
+    setChatMatchId(m.id);
+    setSelectedId(null);
+    markRead(m);
   }
 
   return (
@@ -60,7 +104,11 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
           INCOMING PITCHES
         </h1>
         <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          EMPLOYERS PAY TO CONTACT YOU. EVERY PITCH IS SERIOUS. RANKED BY OFFERED SALARY.
+          PITCHES ARE FREE TO RECEIVE. ACCEPTING ONE TO START A CHAT{" "}
+          {freeAcceptsRemaining > 0
+            ? `USES 1 OF YOUR ${freeAcceptsRemaining} REMAINING FREE ACCEPTS.`
+            : "COSTS 1 MATCH CREDIT."}{" "}
+          RANKED BY OFFERED SALARY.
         </p>
       </div>
 
@@ -69,8 +117,8 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
           className="grid gap-3 px-4 py-2.5"
           style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
         >
-          {HEADERS.map((h) => (
-            <span key={h} className="kicker">
+          {HEADERS.map((h, i) => (
+            <span key={i} className="kicker">
               {h}
             </span>
           ))}
@@ -84,10 +132,11 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
           matches.map((m, idx) => {
             const reputation = m.employers?.reputation_score;
             const sel = m.id === selectedId;
+            const unread = isUnread(m);
             return (
               <div
                 key={m.id}
-                onClick={() => setSelectedId(m.id)}
+                onClick={() => openRow(m)}
                 className="grid cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
                 style={{
                   gridTemplateColumns: COLUMNS,
@@ -96,6 +145,9 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
                   background: sel ? "var(--up-dim)" : "transparent",
                 }}
               >
+                <div className="flex items-center justify-center">
+                  {unread && <span className="live-dot" title="Unread activity" />}
+                </div>
                 <div>
                   <Badge variant={statusVariant[m.status] ?? "muted"}>{m.status.toUpperCase()}</Badge>
                 </div>
@@ -114,6 +166,23 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
                 <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
                   {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
                 </span>
+                <div>
+                  {m.status === "accepted" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openChat(m);
+                      }}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
+                    >
+                      CHAT →
+                    </button>
+                  )}
+                </div>
+                <span className="mono" style={{ fontSize: 14, color: "var(--dim)" }}>
+                  ›
+                </span>
               </div>
             );
           })
@@ -123,7 +192,7 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
       {/* pitch detail slide-over */}
       {selected && (
         <div
-          className="slideover-panel fixed right-0 top-0 bottom-0 z-40 flex w-96 max-w-[90vw] flex-col"
+          className="slideover-panel flex flex-col"
           style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
         >
           <div className="panel-head">
@@ -168,20 +237,66 @@ export function MatchesClient({ matches: initial }: { matches: Match[] }) {
             )}
 
             {selected.status === "accepted" && (
-              <MatchChat matchId={selected.id} counterpartLabel={selected.employers?.company_name ?? "EMPLOYER"} />
+              <Button variant="primary" className="w-full" onClick={() => openChat(selected)}>
+                OPEN CHAT →
+              </Button>
             )}
           </div>
 
           {selected.status === "pending" && (
-            <div className="flex gap-3 p-4" style={{ borderTop: "1px solid var(--border)" }}>
-              <Button onClick={() => respond(selected.id, "accept")} loading={loading[selected.id]} className="flex-1">
-                ACCEPT MATCH
-              </Button>
-              <Button variant="danger" onClick={() => respond(selected.id, "decline")} loading={loading[selected.id]} className="flex-1">
-                DECLINE
-              </Button>
+            <div className="space-y-2 p-4" style={{ borderTop: "1px solid var(--border)" }}>
+              {errors[selected.id] && (
+                <p className="kicker c-down" style={{ fontSize: 11 }}>
+                  {errors[selected.id]}
+                </p>
+              )}
+              <p className="kicker c-muted" style={{ fontSize: 10 }}>
+                {acceptBlocked
+                  ? "NO FREE ACCEPTS OR MATCH CREDITS REMAINING — PURCHASE CREDITS TO ACCEPT"
+                  : freeAcceptsRemaining > 0
+                    ? `ACCEPTING USES 1 OF ${freeAcceptsRemaining} REMAINING FREE ACCEPTS`
+                    : "ACCEPTING USES 1 MATCH CREDIT"}
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => respond(selected.id, "accept")}
+                  loading={loading[selected.id]}
+                  disabled={acceptBlocked}
+                  className="flex-1"
+                >
+                  ACCEPT MATCH
+                </Button>
+                <Button variant="danger" onClick={() => respond(selected.id, "decline")} loading={loading[selected.id]} className="flex-1">
+                  DECLINE
+                </Button>
+              </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* chat slide-over */}
+      {chatMatch && (
+        <div
+          className="slideover-panel flex flex-col"
+          style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
+        >
+          <div className="panel-head">
+            <span className="panel-title">CHAT</span>
+            <button onClick={() => setChatMatchId(null)} className="btn btn-ghost btn-sm">
+              ✕
+            </button>
+          </div>
+          <MatchChat
+            matchId={chatMatch.id}
+            counterpartLabel={chatMatch.employers?.company_name ?? "UNKNOWN COMPANY"}
+            counterpartSubLabel={
+              chatMatch.employers?.reputation_score != null
+                ? `REPUTATION ${chatMatch.employers.reputation_score.toFixed(0)}/100`
+                : undefined
+            }
+            offeredSalary={chatMatch.offered_salary}
+          />
         </div>
       )}
     </div>

@@ -33,8 +33,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages
-  if (sessionToken && (pathname === "/sign-in" || pathname.startsWith("/sign-up"))) {
+  // Redirect authenticated users away from the sign-in page (this is what
+  // makes "SIGN IN" act as "go to my dashboard" when already logged in).
+  // /sign-up* stays reachable while authenticated, so a logged-in user can
+  // register an alternate (e.g. opposite-role) account without being signed
+  // out first — the existing session is only replaced once that signup
+  // succeeds.
+  if (sessionToken && pathname === "/sign-in") {
     const url = request.nextUrl.clone();
     url.pathname = "/candidate/dashboard";
     return NextResponse.redirect(url);

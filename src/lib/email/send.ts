@@ -32,7 +32,7 @@ export async function sendPitchNotification({
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/candidate/matches" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
           VIEW PITCH →
         </a>
-        <p style="color: #444; font-size: 11px; margin-top: 32px;">This pitch expires in 72 hours. Ignoring pitches reduces your employer's reputation score.</p>
+        <p style="color: #444; font-size: 11px; margin-top: 32px;">This pitch expires in 72 hours. Ignoring it will reduce your reputation score.</p>
       </div>
     `,
   });
@@ -91,7 +91,7 @@ export async function sendWelcomeEmail({ to, name, role }: WelcomeEmailParams) {
         </p>
         ${
           role === "candidate"
-            ? `<p style="color: #ededed; font-size: 13px; margin: 0 0 24px;">Start by completing a skill challenge to get your composite score and appear in the employer feed.</p>`
+            ? `<p style="color: #ededed; font-size: 13px; margin: 0 0 24px;">Start by adding a project to your portfolio to get your composite score and appear in the employer feed.</p>`
             : `<p style="color: #ededed; font-size: 13px; margin: 0 0 24px;">Browse the ranked candidate feed and send pitches to candidates that match your needs.</p>`
         }
         <a href="${dashboardUrl}" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">

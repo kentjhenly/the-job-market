@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
+import { formatSalary, formatRelativeTime, formatPercentile, formatScore } from "@/lib/utils/formatters";
 import { MatchChat } from "@/components/terminal/MatchChat";
-import { formatSalary, formatRelativeTime, formatPercentile } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
 type MatchWithCandidate = Database["public"]["Tables"]["matches"]["Row"] & {
@@ -23,17 +24,42 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "7rem 1.6fr 7rem 8rem 8rem";
-const HEADERS = ["STATUS", "CANDIDATE", "SCORE", "OFFERED", "SENT"];
+const COLUMNS = "1rem 7rem 1.6fr 7rem 8rem 8rem 5.5rem 1rem";
+const HEADERS = ["", "STATUS", "CANDIDATE", "SCORE", "OFFERED", "SENT", "", ""];
 
 function candidateLabel(m: MatchWithCandidate) {
   return m.candidates?.profiles?.display_name ?? `CAND-${m.candidate_id?.slice(0, 6).toUpperCase()}`;
 }
 
-export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate[] }) {
+function isUnread(m: MatchWithCandidate) {
+  return new Date(m.last_message_at ?? m.created_at) > new Date(m.employer_last_read_at);
+}
+
+export function EmployerMatchesClient({ matches: initial }: { matches: MatchWithCandidate[] }) {
+  const [matches, setMatches] = useState<MatchWithCandidate[]>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chatMatchId, setChatMatchId] = useState<string | null>(null);
 
   const selected = matches.find((m) => m.id === selectedId) ?? null;
+  const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
+
+  function markRead(m: MatchWithCandidate) {
+    const now = new Date().toISOString();
+    setMatches((prev) => prev.map((mm) => (mm.id === m.id ? { ...mm, employer_last_read_at: now } : mm)));
+    fetch(`/api/matches/${m.id}/read`, { method: "POST" });
+  }
+
+  function openRow(m: MatchWithCandidate) {
+    setSelectedId(m.id);
+    setChatMatchId(null);
+    markRead(m);
+  }
+
+  function openChat(m: MatchWithCandidate) {
+    setChatMatchId(m.id);
+    setSelectedId(null);
+    markRead(m);
+  }
 
   return (
     <div className="view-enter space-y-6">
@@ -51,8 +77,8 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
           className="grid gap-3 px-4 py-2.5"
           style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
         >
-          {HEADERS.map((h) => (
-            <span key={h} className="kicker">
+          {HEADERS.map((h, i) => (
+            <span key={i} className="kicker">
               {h}
             </span>
           ))}
@@ -66,10 +92,11 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
           matches.map((m, idx) => {
             const score = m.candidates?.composite_score;
             const sel = m.id === selectedId;
+            const unread = isUnread(m);
             return (
               <div
                 key={m.id}
-                onClick={() => setSelectedId(m.id)}
+                onClick={() => openRow(m)}
                 className="grid cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
                 style={{
                   gridTemplateColumns: COLUMNS,
@@ -78,6 +105,9 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
                   background: sel ? "var(--up-dim)" : "transparent",
                 }}
               >
+                <div className="flex items-center justify-center">
+                  {unread && <span className="live-dot" title="Unread activity" />}
+                </div>
                 <div>
                   <Badge variant={statusVariant[m.status] ?? "muted"}>{m.status.toUpperCase()}</Badge>
                 </div>
@@ -96,6 +126,23 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
                 <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
                   {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
                 </span>
+                <div>
+                  {m.status === "accepted" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openChat(m);
+                      }}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
+                    >
+                      CHAT →
+                    </button>
+                  )}
+                </div>
+                <span className="mono" style={{ fontSize: 14, color: "var(--dim)" }}>
+                  ›
+                </span>
               </div>
             );
           })
@@ -105,7 +152,7 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
       {/* pitch detail slide-over */}
       {selected && (
         <div
-          className="slideover-panel fixed right-0 top-0 bottom-0 z-40 flex w-96 max-w-[90vw] flex-col"
+          className="slideover-panel flex flex-col"
           style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
         >
           <div className="panel-head">
@@ -148,8 +195,37 @@ export function EmployerMatchesClient({ matches }: { matches: MatchWithCandidate
               </div>
             )}
 
-            {selected.status === "accepted" && <MatchChat matchId={selected.id} counterpartLabel={candidateLabel(selected)} />}
+            {selected.status === "accepted" && (
+              <Button variant="primary" className="w-full" onClick={() => openChat(selected)}>
+                OPEN CHAT →
+              </Button>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* chat slide-over */}
+      {chatMatch && (
+        <div
+          className="slideover-panel flex flex-col"
+          style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
+        >
+          <div className="panel-head">
+            <span className="panel-title">CHAT</span>
+            <button onClick={() => setChatMatchId(null)} className="btn btn-ghost btn-sm">
+              ✕
+            </button>
+          </div>
+          <MatchChat
+            matchId={chatMatch.id}
+            counterpartLabel={candidateLabel(chatMatch)}
+            counterpartSubLabel={
+              chatMatch.candidates?.composite_score != null
+                ? `SCORE ${formatScore(chatMatch.candidates.composite_score)} · ${formatPercentile(chatMatch.candidates.percentile_rank).toUpperCase()}`
+                : undefined
+            }
+            offeredSalary={chatMatch.offered_salary}
+          />
         </div>
       )}
     </div>

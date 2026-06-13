@@ -128,19 +128,30 @@ Deno.serve(async (req: Request) => {
   let dataPoints: { years_exp: number; monthly_salary: number; source: string }[] | null = null;
 
   for (const attempt of attempts) {
-    let query = supabase
-      .from("salary_data_points")
-      .select("years_exp, monthly_salary, source");
+    const base = () => {
+      let query = supabase
+        .from("salary_data_points")
+        .select("years_exp, monthly_salary, source");
 
-    if (attempt.level === "role") query = query.eq("role_label", role);
-    if (attempt.level === "vertical") query = query.eq("vertical", vertical);
-    if (attempt.byLocation) query = query.eq("location", location);
-    if (remote !== undefined) query = query.eq("remote", remote);
+      if (attempt.level === "role") query = query.eq("role_label", role);
+      if (attempt.level === "vertical") query = query.eq("vertical", vertical);
+      if (attempt.byLocation) query = query.eq("location", location);
+      if (remote !== undefined) query = query.eq("remote", remote);
+      return query;
+    };
 
-    // uuid PK order ≈ random order, so the row cap stays an unbiased
-    // sample when the dataset exceeds PostgREST's per-request limit
-    const { data } = await query.order("id").limit(1000);
-    if (data && data.length >= 3) {
+    // Real match outcomes are rare and must always contribute to the fit,
+    // so they're fetched separately — the row cap below would otherwise
+    // sample most of them away once the seed dataset outgrows it.
+    const [{ data: matchData }, { data: seedData }] = await Promise.all([
+      base().eq("source", "match").order("id").limit(500),
+      // uuid PK order ≈ random order, so the row cap stays an unbiased
+      // sample when the dataset exceeds PostgREST's per-request limit
+      base().neq("source", "match").order("id").limit(1000),
+    ]);
+
+    const data = [...(seedData ?? []), ...(matchData ?? [])];
+    if (data.length >= 3) {
       dataPoints = data;
       break;
     }
@@ -184,16 +195,21 @@ Deno.serve(async (req: Request) => {
   const candidatePercentile = nearbyCount > 0 ? (belowCount / nearbyCount) * 100 : 50;
 
   // Return the actual observations behind the fit (stride-sampled so the
-  // vertical-level fallback dataset doesn't bloat the payload). Real match
-  // outcomes are always included — they're rare and highlighted in the UI.
+  // vertical-level fallback dataset doesn't bloat the payload). Match
+  // outcomes are prioritized — included in full up to half the budget so
+  // they can never crowd the seed layer out of the scatter entirely (the
+  // regression fit above always uses every fetched row regardless).
   const MAX_POINTS = 200;
-  const matchPoints = dataPoints.filter((d) => d.source === "match");
-  const otherPoints = dataPoints.filter((d) => d.source !== "match");
+  const matchRaw = dataPoints.filter((d) => d.source === "match");
+  const otherRaw = dataPoints.filter((d) => d.source !== "match");
+  const matchBudget = Math.min(matchRaw.length, Math.floor(MAX_POINTS / 2)) || 1;
+  const matchStride = Math.max(1, Math.ceil(matchRaw.length / matchBudget));
+  const matchPoints = matchRaw.filter((_, i) => i % matchStride === 0);
   const stride = Math.max(
     1,
-    Math.ceil(otherPoints.length / Math.max(MAX_POINTS - matchPoints.length, 1))
+    Math.ceil(otherRaw.length / Math.max(MAX_POINTS - matchPoints.length, 1))
   );
-  const points = [...otherPoints.filter((_, i) => i % stride === 0), ...matchPoints];
+  const points = [...otherRaw.filter((_, i) => i % stride === 0), ...matchPoints];
 
   return new Response(
     JSON.stringify({

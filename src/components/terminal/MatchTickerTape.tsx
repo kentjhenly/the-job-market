@@ -73,9 +73,7 @@ export function MatchTickerTape({ className }: { className?: string }) {
               {item.role_label ?? "ENGINEER"}
             </span>
             <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
-              {item.salary != null
-                ? formatSalary(item.salary)
-                : item.salary_band ?? `[${item.vertical.toUpperCase()}]`}
+              {item.salary != null ? formatSalary(item.salary) : "—"}
             </span>
             {item.delta_pct != null ? (
               <span

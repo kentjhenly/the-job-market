@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
+import { FREE_JOB_POSTINGS, MAX_POSTING_SKILLS } from "@/lib/utils/constants";
 
 export async function GET() {
   const session = await getServerSession();
@@ -38,6 +38,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { data: employer, error: employerError } = await supabase
+    .from("employers")
+    .select("credits, free_postings_used")
+    .eq("id", session.user.id)
+    .single();
+
+  if (employerError || !employer) {
+    return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+  }
+
+  const usingFreeTrial = employer.free_postings_used < FREE_JOB_POSTINGS;
+  if (!usingFreeTrial && employer.credits < 1) {
+    return NextResponse.json(
+      { error: "Insufficient credits to create a job posting" },
+      { status: 402 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("employer_job_postings")
     .insert({
@@ -59,6 +77,15 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await supabase
+    .from("employers")
+    .update(
+      usingFreeTrial
+        ? { free_postings_used: employer.free_postings_used + 1 }
+        : { credits: employer.credits - 1 }
+    )
+    .eq("id", session.user.id);
 
   return NextResponse.json({ id: data.id });
 }

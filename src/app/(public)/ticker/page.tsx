@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatRelativeTime, formatSalary } from "@/lib/utils/formatters";
 import { LiveDot } from "@/components/terminal/LiveDot";
@@ -17,7 +16,11 @@ interface TickerItem {
   delta_pct: number | null;
   match_type: string;
   created_at: string;
+  fresh?: boolean;
 }
+
+const COLUMNS = ["ROLE", "SALARY", "Δ MARKET", "AGE"];
+const GRID_COLS = "1.4fr 1fr 0.7fr 0.6fr";
 
 export default function PublicTickerPage() {
   const [items, setItems] = useState<TickerItem[]>([]);
@@ -39,7 +42,11 @@ export default function PublicTickerPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "match_ticker_events" },
         (payload) => {
-          setItems((prev) => [payload.new as TickerItem, ...prev].slice(0, 100));
+          const fresh = { ...(payload.new as TickerItem), fresh: true };
+          setItems((prev) => [fresh, ...prev].slice(0, 100));
+          setTimeout(() => {
+            setItems((prev) => prev.map((it) => (it.id === fresh.id ? { ...it, fresh: false } : it)));
+          }, 50);
         }
       )
       .subscribe();
@@ -50,70 +57,75 @@ export default function PublicTickerPage() {
   }, [supabase]);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
-      <nav className="flex items-center justify-between border-b border-border px-6 py-4">
-        <Link
-          href="/"
-          className="mono"
-          style={{ color: "var(--up)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}
-        >
-          ← THE JOB MARKET
-        </Link>
-        <LiveDot label="LIVE MATCH FEED" />
-      </nav>
-
-      <main className="mx-auto max-w-3xl p-6">
-        <div className="mb-6">
-          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
-            MATCH TAPE
+    <main className="mx-auto max-w-3xl p-6">
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
+            LIVE MATCH FEED
           </h1>
-          <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-            ANONYMISED RECENT MATCHES · UPDATES IN REAL TIME
+          <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
+            ANONYMISED · HONG KONG TECH · REAL-TIME
           </p>
         </div>
+        <LiveDot label="STREAMING" />
+      </div>
 
-        {items.length === 0 ? (
-          <div className="panel p-12 text-center">
-            <p className="kicker animate-pulse">WAITING FOR MATCH EVENTS...</p>
+      {items.length === 0 ? (
+        <div className="panel p-12 text-center">
+          <p className="kicker animate-pulse">WAITING FOR MATCH EVENTS...</p>
+        </div>
+      ) : (
+        <div className="view-enter panel overflow-hidden">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: GRID_COLS, padding: "11px 18px", borderBottom: "1px solid var(--border-soft)" }}
+          >
+            {COLUMNS.map((h) => (
+              <span key={h} className="kicker">
+                {h}
+              </span>
+            ))}
           </div>
-        ) : (
-          <div className="view-enter space-y-1">
+          <div>
             {items.map((item) => (
-              <div key={item.id} className="panel flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-4">
-                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-                    [{item.vertical.toUpperCase()}]
+              <div
+                key={item.id}
+                className="grid items-center"
+                style={{
+                  gridTemplateColumns: GRID_COLS,
+                  padding: "12px 18px",
+                  borderBottom: "1px solid var(--border-soft)",
+                  background: item.fresh ? "var(--up-dim)" : "transparent",
+                  transition: "background 1.2s ease",
+                }}
+              >
+                <span className="mono" style={{ fontSize: 12.5, color: "var(--text)" }}>
+                  {item.role_label ?? "ENGINEER"}
+                </span>
+                <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {item.salary != null ? formatSalary(item.salary) : "—"}
+                </span>
+                {item.delta_pct != null ? (
+                  <span
+                    className="mono tnum"
+                    style={{ fontSize: 12, color: item.delta_pct >= 0 ? "var(--up)" : "var(--down)", fontWeight: 600 }}
+                  >
+                    {item.delta_pct >= 0 ? "▲ +" : "▼ "}
+                    {Math.abs(item.delta_pct).toFixed(1)}%
                   </span>
-                  <span className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
-                    {item.role_label ?? "ENGINEER"} <span style={{ color: "var(--up)" }}>MATCH</span>
+                ) : (
+                  <span className="mono tnum" style={{ fontSize: 12, color: "var(--up)", fontWeight: 600 }}>
+                    ▲ MATCH
                   </span>
-                  {(item.salary != null || item.salary_band) && (
-                    <span className="mono tnum" style={{ fontSize: 11, color: "var(--gold)" }}>
-                      {item.salary != null ? formatSalary(item.salary) : item.salary_band}
-                    </span>
-                  )}
-                  {item.delta_pct != null && (
-                    <span
-                      className="mono tnum"
-                      style={{
-                        fontSize: 11,
-                        color: item.delta_pct >= 0 ? "var(--up)" : "var(--down)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {item.delta_pct >= 0 ? "▲ +" : "▼ "}
-                      {Math.abs(item.delta_pct).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-                <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
+                )}
+                <span className="mono tnum" style={{ fontSize: 11, color: "var(--dim)" }}>
                   {formatRelativeTime(item.created_at)}
                 </span>
               </div>
             ))}
           </div>
-        )}
-      </main>
-    </div>
+        </div>
+      )}
+    </main>
   );
 }

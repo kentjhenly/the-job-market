@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 import { TopBar } from "@/components/terminal/TopBar";
 import { Sidebar } from "@/components/terminal/Sidebar";
 import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
+import { CommandBar } from "@/components/terminal/CommandBar";
+import { StatusBar } from "@/components/terminal/StatusBar";
+import { CommandHelpModal } from "@/components/terminal/CommandHelpModal";
+import { CommandConsoleProvider } from "@/components/terminal/CommandConsoleContext";
+import { EMPLOYER_COMMANDS, EMPLOYER_FKEYS } from "@/lib/utils/commands";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -31,17 +36,23 @@ export default async function EmployerLayout({
     .single();
 
   return (
-    <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
-      <TopBar
-        homeHref="/employer/dashboard"
-        stat={{ label: "CREDITS", value: String(employer?.credits ?? 0) }}
-      />
-      <MatchTickerTape />
+    <CommandConsoleProvider>
+      <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
+        <TopBar
+          homeHref="/employer/dashboard"
+          stat={{ label: "CREDITS", value: String(employer?.credits ?? 0) }}
+        />
+        <CommandBar commands={EMPLOYER_COMMANDS} />
+        <MatchTickerTape />
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar nav={NAV} role="employer" />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar nav={NAV} role="employer" />
+          <main className="flex-1 overflow-auto p-6">{children}</main>
+        </div>
+
+        <StatusBar fkeys={EMPLOYER_FKEYS} />
       </div>
-    </div>
+      <CommandHelpModal commands={EMPLOYER_COMMANDS} />
+    </CommandConsoleProvider>
   );
 }

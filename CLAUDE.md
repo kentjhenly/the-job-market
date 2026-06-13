@@ -3,7 +3,7 @@
 ## Overview
 Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates build a **portfolio** of projects — files and/or links tagged with skills — instead of submitting a CV. A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
 
-**Revenue:** Transaction fees — employer pays per pitch sent; candidate pays on match accepted.
+**Revenue:** Credits — employers spend 1 credit to create a job posting, candidates spend 1 credit to accept a pitch (sending pitches is always free). Each side gets a 3-action free trial before credits are required — see **Credits & Free Trial** under Key Conventions.
 **Launch vertical:** Tech · Hong Kong.
 
 ---
@@ -43,6 +43,16 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - **All monetary values stored as integer cents** in the database (e.g., HKD 80,000 = `8000000`)
 - **All salary figures are MONTHLY**, per HK market convention (not annual) — `salary_data_points.monthly_salary`, `desired_salary_*`, `offered_salary`, and ticker `salary_band` strings all represent monthly compensation
 - Use `formatSalary()` / `formatSalaryBand()` from `src/lib/utils/formatters.ts` for display
+
+### Credits & Free Trial
+- Browsing the feed and sending pitches is **free** for employers. Two actions cost 1 credit each:
+  - Employers: creating a job posting — `POST /api/employer-postings`, decrements `employers.credits`
+  - Candidates: accepting a pitch — `POST /api/matches/[matchId]/respond` with `action: "accept"`, decrements `candidates.credits`
+- Each side gets a free trial before credits are charged, tracked via counter columns compared against constants in `src/lib/utils/constants.ts`:
+  - `employers.free_postings_used` vs `FREE_JOB_POSTINGS` (3)
+  - `candidates.free_accepts_used` vs `FREE_MATCH_ACCEPTS` (3)
+- `usingFreeTrial = counter < limit`. If `!usingFreeTrial && credits < 1`, the route returns `402` with an error message (surfaced inline in the UI); otherwise the relevant counter or `credits` column is updated after the underlying insert/update succeeds.
+- UI surfaces remaining free actions / balances: `TopBar` stats (employer CREDITS; candidate SCORE + CREDITS), `/employer/postings` header + "+CREATE POSTING" tile, `EmployerJobPostingForm`'s cost banner (disables SAVE when exhausted), `/candidate/dashboard` POSITION SUMMARY ("MATCH CREDITS" row), and `/candidate/matches` header + accept-button note.
 
 ### Design System (src/app/globals.css)
 Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switcher. CSS custom properties on `:root`, mapped into Tailwind v4 `@theme` (CSS-based config, no `tailwind.config.ts`).
@@ -104,13 +114,13 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 | `/candidate/portfolio/[projectId]` | Candidate | Create/edit portfolio project |
 | `/candidate/postings` | Candidate | Job postings grid (up to 10 positions) |
 | `/candidate/postings/[postingId]` | Candidate | Create/edit job posting (incl. market data scatter chart) |
-| `/candidate/matches` | Candidate | Incoming pitches (accept/decline) + chat for accepted matches |
+| `/candidate/matches` | Candidate | Incoming pitches (accept/decline); unread indicators + CHAT → opens an in-app chat slide-over for accepted matches |
 | `/candidate/profile` | Candidate | Profile — settings & biodata (display name, vertical, experience, location, salary) |
 | `/employer/dashboard` | Employer | Overview stats |
 | `/employer/feed` | Employer | Ranked candidate feed (order book layout) |
 | `/employer/postings` | Employer | Job postings grid (create roles, set candidate cap) |
 | `/employer/postings/[postingId]` | Employer | Create/edit posting + ranked matched-candidates panel (pitch directly from a match) |
-| `/employer/matches` | Employer | Sent pitches + match status + chat for accepted matches |
+| `/employer/matches` | Employer | Sent pitches + match status; unread indicators + CHAT → opens an in-app chat slide-over for accepted matches |
 | `/ticker` | Public | Live anonymised match feed (marketing) |
 
 ### Proxy (src/proxy.ts)
@@ -137,22 +147,23 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 | Table | Key columns |
 |---|---|
 | `profiles` | id (FK auth.users), role (candidate/employer), display_name |
-| `candidates` | composite_score, percentile_rank, years_exp_claimed, desired_salary_*, is_visible |
-| `employers` | company_name, credits, reputation_score |
+| `candidates` | composite_score, percentile_rank, years_exp_claimed, desired_salary_*, is_visible, credits, free_accepts_used |
+| `employers` | company_name, credits, free_postings_used, reputation_score |
 | `salary_data_points` | vertical, role_label, years_exp, location, monthly_salary (cents), source |
-| `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr) |
+| `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr), offer_status, offer_salary, offer_sent_at, hired_at, last_message_at, candidate_last_read_at, employer_last_read_at |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
 | `score_history` | candidate_id, composite_score, recorded_at (sparkline data) |
 | `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, available_from (notice_period_days is legacy/unused) |
 | `candidate_portfolio_projects` | candidate_id, title, description, link_url, file_path, file_name, skills |
 | `employer_job_postings` | employer_id, title, description, vertical, years_exp_*, location, work_modes, salary_*, skills, max_candidates (default 5), status |
-| `match_messages` | match_id, sender_id, body, created_at — chat for `accepted` matches only |
+| `match_messages` | match_id, sender_id, body, message_type (text/offer/offer_accepted/offer_declined/file), file_path, file_name, file_size, created_at — chat for `accepted` matches only |
 
 > **Legacy/unused:** `challenges`, `questions`, `challenge_results` — the old skill-challenge system, replaced by `candidate_portfolio_projects`. Tables and RLS policies remain in the DB (not dropped, reversible) but are no longer referenced by any route or Edge Function.
 
 ### Storage
 - `portfolio-files` bucket (private, 10MB limit) — candidate portfolio project uploads, stored at `${candidateId}/${projectId}/${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/portfolio/[projectId]/file`.
+- `match-files` bucket (private, 10MB limit) — chat file attachments for accepted matches, stored at `${matchId}/${messageId}-${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/matches/[matchId]/messages/[messageId]/file`.
 
 ### DB triggers
 - `profile_create_role_row` — after INSERT on `profiles`, auto-creates `candidates` or `employers` row
@@ -208,10 +219,11 @@ If the employer posting's `work_modes` includes `remote`, the location factor is
 ---
 
 ## Anti-Ghosting System
-- Matches expire after 72 hours (`expires_at` default)
-- Accept/decline inserts `reputation_events` row (`event_type: 'responded'`)
-- `GET|POST /api/cron/expire-matches` finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
-- `recommendation-scorer` reads `reputation_events` to adjust reputation signal in composite score
+Two independent timeout rules, both enforced by `GET|POST /api/cron/expire-matches` (`run()` → `{ expired, ghosted_chats }`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
+
+- **Pending pitches** (`expirePendingPitches()`): matches expire after 72 hours (`expires_at` default). Accept/decline inserts a `reputation_events` row (`event_type: 'responded'`). Finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`).
+- **Silent chats** (`expireSilentChats()`): an `accepted` match that hasn't reached a hire (`hired_at IS NULL`) is auto-ghosted if neither party sends a `match_messages` row within `CHAT_GHOST_HOURS` (72, `src/lib/utils/constants.ts`) of the last activity — `last_message_at` if a message has been sent, otherwise `responded_at`. The silent party is whoever did **not** send the most recent message (defaults to the employer if no messages were ever sent, since the employer is expected to open the chat). Sets `status: 'ghosted'` and inserts a `reputation_events` row (`event_type: 'ghosted'`, `weight: -15`) against the silent party.
+- `recommendation-scorer` reads `reputation_events` to adjust the reputation signal in composite score
 
 ---
 
@@ -220,14 +232,20 @@ All salary signals — the ticker, the regression curve, and real outcomes — s
 - `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (97 roles across the 13 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role. Per migrations `0016_real_salary_benchmarks.sql` (original 5 verticals) and `0018_new_vertical_salary_data.sql` (8 white-collar verticals added by `0017_expand_verticals.sql`: legal, healthcare, education, sales, hr, consulting, property, media), each role's seed curve is calibrated to real published HK benchmarks (Morgan McKinley HK Salary Guide 2026, JobsDB employer-disclosed ranges, PayScale/Glassdoor/ERI/Indeed 2025-26, and the C&SD 2025 Annual Earnings and Hours Survey) — entry and 10-year points per role anchor a `base + growth * yrs^0.85` curve with ±10% noise; full citations are in the migration headers.
 - The POSITION panel on `/candidate/postings/[postingId]` (`JobPostingForm.tsx`) has an INDUSTRY select (13 verticals + "ALL INDUSTRIES" default) above a ROLE searchable combobox (`src/components/ui/Combobox.tsx`) populated from `JOB_ROLES` (filtered to the chosen industry, grouped by vertical). The pair drives a market-data cascade sent to `/api/salary`: no industry → overall market regression; industry chosen → that vertical's regression; role chosen → that role's regression. The industry choice also filters the SKILLS panel to that vertical's skills. Changing industry clears the role if it belongs to a different industry's role list. Skills are picked via `SkillPicker` (`src/components/ui/SkillPicker.tsx`: industry-suggested badges + a SEARCH ALL SKILLS input across the full ~413-skill bank), capped at `MAX_POSTING_SKILLS` (10) per posting — enforced in the picker and in all four posting API routes. The employer posting form and the portfolio project form use the same picker (the portfolio form is search-only, uncapped).
 - `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), `salary` = the accepted `matches.offered_salary`, and `delta_pct` = % the accepted salary sits above/below the `salary-regression` median for that role & the candidate's experience (best-effort internal call; null if unavailable). The tape and `/ticker` page render `ROLE · HKD xK · ▲ +x.x%` (green above median, red ▼ below); rows without `delta_pct` fall back to `salary_band`/`▲ MATCH`.
-- The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`role_label` from the employer posting's title, `years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see. `salary-regression` returns `source` per point and never stride-samples match rows away; `SalaryScatter` renders `source: 'match'` observations as larger terminal-green dots (REAL MATCHES legend entry) so real outcomes stand out from seed data.
+- The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`role_label` from the employer posting's title, `years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see. `salary-regression` returns `source` per point and fetches match-sourced rows in a separate uncapped-in-practice query (limit 500) alongside the 1000-row seed sample, so real outcomes always contribute to the fit and are never stride-sampled away; `SalaryScatter` renders `source: 'match'` observations as larger terminal-green dots (REAL MATCHES legend entry) so real outcomes stand out from seed data. Matches accepted before this feedback loop shipped were backfilled by migration `0021_backfill_match_salary_points.sql` (only those with `offered_salary` + candidate `years_exp_claimed` — a regression point needs an x-coordinate).
 
 ---
 
-## Chat (Accepted Matches)
-- `match_messages` (match_id, sender_id, body, created_at) — RLS: participants of the match can read; insert requires `sender_id = auth.uid()` and `matches.status = 'accepted'`
-- `GET|POST /api/matches/[matchId]/messages` — service client, scoped to the match's `employer_id`/`candidate_id`; POST rejected (409) unless the match is `accepted`
-- `MatchChat` (`src/components/terminal/MatchChat.tsx`) — polling-based (5s interval; no Realtime, per the known `auth.uid()` RLS limitation above), rendered inside accepted-match cards on `/candidate/matches` and `/employer/matches`
+## Chat & Hire Offers (Accepted Matches)
+- `match_messages` (match_id, sender_id, body, message_type, file_path, file_name, file_size, created_at) — RLS: participants of the match can read; insert requires `sender_id = auth.uid()` and `matches.status = 'accepted'`. `message_type`: `text` (default) | `offer` | `offer_accepted` | `offer_declined` | `file` — for the offer types, `body` is `JSON.stringify({ offered_salary })`, read back via `parseOfferSalary()`; for `file`, `body` is the original filename and `file_path`/`file_name`/`file_size` describe the `match-files` upload.
+- `GET|POST /api/matches/[matchId]/messages` — service client, scoped to the match's `employer_id`/`candidate_id`; POST rejected (409) unless the match is `accepted`. A `multipart/form-data` POST (`file` field) uploads to the `match-files` bucket and inserts a `message_type: 'file'` row (client-validated against `MAX_CHAT_FILE_SIZE_MB`); a JSON POST inserts a `text` message as before. Both paths stamp `matches.last_message_at = now()` (drives the silent-chat rule above) and the sender's own `candidate_last_read_at`/`employer_last_read_at` via `readColumnFor()` (`src/lib/utils/matchReads.ts`), so senders never see their own activity as unread. GET returns `{ messages, currentUserId, match }`, where `match` includes `status, offer_status, offer_salary, offer_sent_at, hired_at, last_message_at`.
+- `GET /api/matches/[matchId]/messages/[messageId]/file` — participant-scoped; resolves `match_messages.file_path` to a `match-files` signed URL (60s expiry) and redirects, mirroring `/api/portfolio/[projectId]/file`.
+- `POST /api/matches/[matchId]/offer` — hire-offer state machine on `matches.offer_status` (`null → 'pending' → 'accepted' | 'declined'`); each action also stamps the acting user's own read column via `readColumnFor()`:
+  - `action: "send"` (employer; match `accepted`, no offer pending, not yet hired) — sets `offer_status: 'pending'`, `offer_salary`, `offer_sent_at`; inserts a `message_type: 'offer'` message
+  - `action: "accept"` (candidate; `offer_status: 'pending'`) — sets `offer_status: 'accepted'`, `hired_at: now()`; inserts a `message_type: 'offer_accepted'` message; inserts a `reputation_events` row for **each** party (`event_type: 'completed_match'`, `weight: 10`)
+  - `action: "decline"` (candidate; `offer_status: 'pending'`) — sets `offer_status: 'declined'`; inserts a `message_type: 'offer_declined'` message
+- `MatchChat` (`src/components/terminal/MatchChat.tsx`) — polling-based (5s interval; no Realtime, per the known `auth.uid()` RLS limitation above), rendered inside a second `.slideover-panel` (titled `CHAT`) on `/candidate/matches` and `/employer/matches`, alongside the existing `PITCH DETAIL` slide-over. Header strip shows the counterpart's name + score/percentile (employer's view of a candidate) or reputation (candidate's view of an employer), plus the pitch's `offered_salary`. Renders `offer`/`offer_accepted`/`offer_declined` messages as centered system cards and `file` messages as a bordered row with filename, `formatFileSize(file_size)`, and a `DOWNLOAD →` link to the file route above; a 📎 button opens a file picker to send attachments. Shows the employer a "SEND HIRE OFFER" action when eligible. The candidate's accept/decline is a **multi-layer confirm** (an initial review step, then a final step gated behind a required confirmation checkbox) so an offer can't be accepted or declined with a single accidental tap. Non-`accepted` matches render a "CHAT CLOSED" state; a persistent footer reminds both parties of the `CHAT_GHOST_HOURS` reputation penalty for silence.
+- **Chat slide-over & unread tracking**: `/candidate/matches` and `/employer/matches` show a pulsing `.live-dot` on rows with unread activity — `last_message_at` (or `created_at` if no messages) newer than the viewer's `candidate_last_read_at`/`employer_last_read_at` (candidate side treats `NULL` as unread, since `employer_last_read_at` defaults to `now()` at insert but `candidate_last_read_at` starts `NULL`). Both slide-overs share the same `.slideover-panel` position (`right: 0`): `selectedId` state drives `PITCH DETAIL` (opened via row click → `openRow`) and `chatMatchId` state drives `CHAT` (opened via the row's `CHAT →` button or the `PITCH DETAIL` slide-over's `OPEN CHAT →` button → `openChat`, accepted matches only) — each opener clears the other's state so only one slide-over is visible at a time. Both `openRow` and `openChat` call `markRead()`, which stamps the viewer's read column via `POST /api/matches/[matchId]/read` and optimistically mirrors it client-side, clearing the unread dot immediately.
 
 ---
 

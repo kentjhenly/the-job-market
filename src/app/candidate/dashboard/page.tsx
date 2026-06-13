@@ -13,12 +13,14 @@ export default async function DashboardPage() {
     { data: profile },
     { data: projects },
     { data: scoreHistory },
+    { count: totalVisible },
+    { data: recentMatches },
   ] = await Promise.all([
     supabase.from("candidates").select("*").eq("id", session.user.id).single(),
     supabase.from("profiles").select("display_name").eq("id", session.user.id).single(),
     supabase
       .from("candidate_portfolio_projects")
-      .select("id, title, skills, file_path, link_url")
+      .select("id, title, skills, file_path, link_url, created_at")
       .eq("candidate_id", session.user.id),
     supabase
       .from("score_history")
@@ -26,6 +28,13 @@ export default async function DashboardPage() {
       .eq("candidate_id", session.user.id)
       .order("recorded_at", { ascending: false })
       .limit(30),
+    supabase.from("candidates").select("id", { count: "exact", head: true }).eq("is_visible", true),
+    supabase
+      .from("matches")
+      .select("id, status, created_at, employers(company_name)")
+      .eq("candidate_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   return (
@@ -35,6 +44,15 @@ export default async function DashboardPage() {
       profile={profile}
       projects={projects ?? []}
       scoreHistory={scoreHistory ?? []}
+      totalVisible={totalVisible ?? 0}
+      recentMatches={
+        (recentMatches as unknown as {
+          id: string;
+          status: string;
+          created_at: string;
+          employers: { company_name: string } | null;
+        }[]) ?? []
+      }
     />
   );
 }

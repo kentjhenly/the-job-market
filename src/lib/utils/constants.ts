@@ -22,6 +22,17 @@ export const MAX_PORTFOLIO_PROJECTS = 10;
 // LinkedIn job posts cap at 10 skills — same limit per posting here
 export const MAX_POSTING_SKILLS = 10;
 
+// Free-trial allowances before credits are required
+export const FREE_JOB_POSTINGS = 3;
+export const FREE_MATCH_ACCEPTS = 3;
+
+// Accepted matches with no chat activity for this long are auto-ghosted
+export const CHAT_GHOST_HOURS = 72;
+
+// Client-side pre-upload validation for chat file attachments — the
+// match-files bucket enforces the hard 10MB limit server-side
+export const MAX_CHAT_FILE_SIZE_MB = 10;
+
 export const SCORE_TIERS = {
   gold: 90,
   green: 60,

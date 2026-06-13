@@ -62,7 +62,7 @@ export default function EmployerSignUpPage() {
         <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
           EMPLOYER REGISTRATION
         </h1>
-        <p className="kicker mt-1">BROWSE RANKED TALENT. PAY PER MATCH.</p>
+        <p className="kicker mt-1">BROWSE RANKED TALENT. PITCH FOR FREE.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -14,9 +14,16 @@ type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Ro
 interface Props {
   initialPostings: EmployerPosting[];
   activeCounts: Record<string, number>;
+  freePostingsRemaining: number;
+  credits: number;
 }
 
-export function EmployerPostingsGridClient({ initialPostings, activeCounts }: Props) {
+export function EmployerPostingsGridClient({
+  initialPostings,
+  activeCounts,
+  freePostingsRemaining,
+  credits,
+}: Props) {
   const [postings, setPostings] = useState<EmployerPosting[]>(initialPostings);
   const [deleteTarget, setDeleteTarget] = useState<EmployerPosting | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -122,6 +129,9 @@ export function EmployerPostingsGridClient({ initialPostings, activeCounts }: Pr
         >
           <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>
           <span className="kicker">CREATE POSTING</span>
+          <span className="kicker" style={{ color: freePostingsRemaining > 0 ? "var(--up)" : credits > 0 ? "var(--gold)" : "var(--down)" }}>
+            {freePostingsRemaining > 0 ? "FREE" : credits > 0 ? "1 CREDIT" : "NO CREDITS"}
+          </span>
         </Link>
       </div>
 
