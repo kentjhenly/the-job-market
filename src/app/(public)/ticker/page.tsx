@@ -63,9 +63,6 @@ export default function PublicTickerPage() {
           <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
             LIVE MATCH FEED
           </h1>
-          <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-            ANONYMISED · REAL-TIME
-          </p>
         </div>
         <LiveDot label="STREAMING" />
       </div>

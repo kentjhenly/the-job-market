@@ -133,6 +133,8 @@ export interface Database {
           company_size: string | null;
           industry: string | null;
           website: string | null;
+          headquarters: string | null;
+          description: string | null;
           verified: boolean;
           reputation_score: number;
           subscription_tier: SubscriptionTier;
@@ -145,6 +147,8 @@ export interface Database {
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
+          headquarters?: string | null;
+          description?: string | null;
           verified?: boolean;
           reputation_score?: number;
           subscription_tier?: SubscriptionTier;
@@ -156,6 +160,8 @@ export interface Database {
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
+          headquarters?: string | null;
+          description?: string | null;
           reputation_score?: number;
           subscription_tier?: SubscriptionTier;
           subscription_status?: SubscriptionStatus;
@@ -405,6 +411,7 @@ export interface Database {
           notice_period_days: number | null;
           available_from: string | null;
           years_exp: number | null;
+          work_eligible: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -420,6 +427,7 @@ export interface Database {
           notice_period_days?: number | null;
           available_from?: string | null;
           years_exp?: number | null;
+          work_eligible?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -433,6 +441,7 @@ export interface Database {
           notice_period_days?: number | null;
           available_from?: string | null;
           years_exp?: number | null;
+          work_eligible?: boolean | null;
           updated_at?: string;
         };
         Relationships: Relationship[];

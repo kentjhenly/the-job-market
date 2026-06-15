@@ -66,41 +66,25 @@ export default async function LandingPage() {
           <div className="grid-tex" style={{ position: "absolute", inset: "-30px -60px 0", zIndex: 0 }} />
           <div className="relative z-10 grid grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,1fr)]">
             <div>
-              <span className="t-reveal inline-flex items-center gap-2.5">
-                <span
-                  className="mono"
-                  style={{
-                    color: "var(--gold)",
-                    fontSize: 11,
-                    letterSpacing: "0.2em",
-                    border: "1px solid color-mix(in oklch, var(--gold) 40%, transparent)",
-                    background: "var(--gold-dim)",
-                    padding: "4px 10px",
-                    borderRadius: 3,
-                  }}
-                >
-                  HKEX:TALENT
-                </span>
-              </span>
               <h1
                 className="t-reveal"
                 style={{
                   fontFamily: "var(--font-inter), Inter, system-ui, -apple-system, sans-serif",
-                  fontSize: "clamp(34px, 4.8vw, 56px)",
+                  fontSize: "clamp(40px, 6.4vw, 70px)",
                   fontWeight: 700,
                   letterSpacing: "-0.025em",
-                  lineHeight: 1.05,
-                  margin: "20px 0 0",
+                  lineHeight: 1.04,
+                  margin: 0,
                   color: "var(--text)",
                 }}
               >
                 Rational people
                 <br />
-                <span style={{ color: "var(--up)" }}>think at the margin.</span>
+                think at the <span style={{ color: "var(--up)" }}>margin.</span>
               </h1>
               <p
                 className="t-reveal mono"
-                style={{ color: "var(--muted)", fontSize: 13, maxWidth: 440, margin: "20px 0 0", lineHeight: 1.75 }}
+                style={{ color: "var(--muted)", fontSize: 15, maxWidth: 480, margin: "24px 0 0", lineHeight: 1.7 }}
               >
                 The third principle of economics; manifest.
               </p>
@@ -112,9 +96,6 @@ export default async function LandingPage() {
                   SELL LABOR
                 </Link>
               </div>
-              <p className="t-reveal mono" style={{ fontSize: 10.5, color: "var(--dim)", marginTop: 22, letterSpacing: "0.08em" }}>
-                FREE FOR CANDIDATES · EMPLOYER PLANS FROM HKD 150/MO · 72H RESPONSE WINDOW · REPUTATION-ENFORCED
-              </p>
             </div>
 
             <MarketSnapshotPanel initial={snapshot} />

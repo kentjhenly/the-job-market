@@ -17,7 +17,7 @@ export async function GET() {
     supabase
       .from("employers")
       .select(
-        "company_name, company_size, website, subscription_tier, subscription_status, subscription_period_end"
+        "company_name, company_size, industry, website, headquarters, description, subscription_tier, subscription_status, subscription_period_end"
       )
       .eq("id", session.user.id)
       .single(),
@@ -45,7 +45,10 @@ export async function PATCH(request: NextRequest) {
       .update({
         company_name: body.company_name,
         company_size: body.company_size || null,
+        industry: body.industry || null,
         website: body.website || null,
+        headquarters: body.headquarters || null,
+        description: body.description || null,
       })
       .eq("id", session.user.id),
   ]);

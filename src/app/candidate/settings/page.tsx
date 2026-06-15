@@ -10,6 +10,7 @@ import { ChangeEmailForm } from "@/components/terminal/ChangeEmailForm";
 import { NotificationsForm } from "@/components/terminal/NotificationsForm";
 import { DeleteAccountForm } from "@/components/terminal/DeleteAccountForm";
 import { CANDIDATE_FAQ } from "@/lib/utils/faq";
+import { COUNTRIES } from "@/lib/utils/constants";
 
 const SEX_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"];
 
@@ -107,9 +108,6 @@ export default function SettingsPage() {
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           SETTINGS
         </h1>
-        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          PROFILE, NOTIFICATIONS, SECURITY, AND ACCOUNT
-        </p>
       </div>
 
       <SettingsTabs
@@ -186,12 +184,18 @@ export default function SettingsPage() {
 
                 <div>
                   <label className="kicker mb-1.5 block">CITIZENSHIP</label>
-                  <input
+                  <select
                     value={form.citizenship}
                     onChange={(e) => setForm((f) => ({ ...f, citizenship: e.target.value }))}
                     className="field"
-                    placeholder="Hong Kong SAR"
-                  />
+                  >
+                    <option value="">SELECT CITIZENSHIP</option>
+                    {COUNTRIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

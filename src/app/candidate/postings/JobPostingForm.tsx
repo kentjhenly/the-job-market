@@ -17,6 +17,7 @@ import {
   WORK_MODES,
   JOB_ROLES,
   VERTICALS,
+  COUNTRIES,
   MAX_POSTING_SKILLS,
   verticalLabel,
   type VerticalType,
@@ -37,11 +38,18 @@ interface JobPostingFormProps {
   initial: JobPosting | null;
   candYears?: number;
   candLocation?: string;
+  candCitizenship?: string;
   vertical?: VerticalType;
   verifiedVerticals: VerticalType[];
 }
 
-export function JobPostingForm({ initial, candYears, candLocation, verifiedVerticals }: JobPostingFormProps) {
+export function JobPostingForm({
+  initial,
+  candYears,
+  candLocation,
+  candCitizenship,
+  verifiedVerticals,
+}: JobPostingFormProps) {
   const router = useRouter();
   const isEditing = !!initial;
 
@@ -65,6 +73,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
       initial?.desired_salary_max != null ? (initial.desired_salary_max / 100).toString() : "",
     skills: initial?.skills ?? ([] as string[]),
     available_from: initial?.available_from ?? (null as string | null),
+    work_eligible: initial?.work_eligible ?? false,
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -185,6 +194,8 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
       skills: form.skills,
       available_from: form.available_from,
       years_exp: expYears ? parseInt(expYears) : null,
+      work_eligible:
+        candCitizenship && form.location && candCitizenship !== form.location ? form.work_eligible : null,
     };
 
     const res = await fetch(
@@ -287,12 +298,17 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
             <div>
               <label className="kicker mb-1.5 block">LOCATION</label>
               <select
-                value={form.location || "Hong Kong"}
+                value={form.location || ""}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 className="field"
                 required
               >
-                <option value="Hong Kong">HONG KONG</option>
+                <option value="">SELECT LOCATION</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c.toUpperCase()}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -314,6 +330,21 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 })}
               </div>
             </div>
+
+            {candCitizenship && form.location && candCitizenship !== form.location && (
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={form.work_eligible}
+                  onChange={(e) => setForm((f) => ({ ...f, work_eligible: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 accent-up"
+                />
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--text-2)", lineHeight: 1.5 }}>
+                  I am eligible to work in {form.location} (right to work / valid visa). Your citizenship (
+                  {candCitizenship}) differs from this location.
+                </span>
+              </label>
+            )}
           </div>
         </div>
 

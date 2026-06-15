@@ -105,6 +105,14 @@ export default function CandidateSignUpPage() {
           {loading ? "REGISTERING..." : "CREATE CANDIDATE ACCOUNT"}
         </button>
       </form>
+
+      <div className="hr my-6" />
+      <p className="mono text-center" style={{ fontSize: 12, color: "var(--muted)" }}>
+        ALREADY HAVE AN ACCOUNT?{" "}
+        <Link href="/sign-in" className="link-up">
+          SIGN IN
+        </Link>
+      </p>
     </div>
   );
 }

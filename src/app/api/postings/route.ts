@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       skills: body.skills ?? [],
       available_from: body.available_from ?? null,
       years_exp: body.years_exp ?? null,
+      work_eligible: body.work_eligible ?? null,
     })
     .select("id")
     .single();

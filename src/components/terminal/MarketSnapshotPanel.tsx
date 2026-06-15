@@ -95,7 +95,7 @@ export function MarketSnapshotPanel({ initial }: { initial: MarketSnapshot }) {
   return (
     <div className="panel panel-accent no-num" style={{ overflow: "hidden" }}>
       <div className="panel-head">
-        <span className="panel-title">MARKET SNAPSHOT — HK TECH</span>
+        <span className="panel-title">MARKET SNAPSHOT</span>
         <LiveDot label="LIVE" />
       </div>
       <div>

@@ -12,7 +12,7 @@ import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, VERTICALS, MAX_POSTING_SKILLS, verticalLabel, type VerticalType } from "@/lib/utils/constants";
+import { WORK_MODES, VERTICALS, COUNTRIES, MAX_POSTING_SKILLS, verticalLabel, type VerticalType } from "@/lib/utils/constants";
 import type { Database, WorkMode, Vertical, PostingStatus } from "@/lib/supabase/types";
 
 type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Row"];
@@ -465,12 +465,16 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           <div className="space-y-4 p-4">
             <div>
               <label className="kicker mb-1.5 block">LOCATION</label>
-              <input
+              <select
                 value={form.location}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 className="field"
-                placeholder="Hong Kong"
-              />
+              >
+                <option value="">SELECT LOCATION</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c.toUpperCase()}</option>
+                ))}
+              </select>
             </div>
 
             <div>

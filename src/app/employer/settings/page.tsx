@@ -11,7 +11,7 @@ import { DeleteAccountForm } from "@/components/terminal/DeleteAccountForm";
 import { DataRow } from "@/components/terminal/DataRow";
 import Link from "next/link";
 import { EMPLOYER_FAQ } from "@/lib/utils/faq";
-import { COMPANY_SIZES } from "@/lib/utils/constants";
+import { COMPANY_SIZES, COUNTRIES } from "@/lib/utils/constants";
 
 interface Subscription {
   tier: string;
@@ -26,7 +26,10 @@ export default function EmployerSettingsPage() {
     display_name: "",
     company_name: "",
     company_size: "",
+    industry: "",
     website: "",
+    headquarters: "",
+    description: "",
   });
   const [subscription, setSubscription] = useState<Subscription>({
     tier: "none",
@@ -47,7 +50,10 @@ export default function EmployerSettingsPage() {
           display_name: profile?.display_name ?? "",
           company_name: employer?.company_name ?? "",
           company_size: employer?.company_size ?? "",
+          industry: employer?.industry ?? "",
           website: employer?.website ?? "",
+          headquarters: employer?.headquarters ?? "",
+          description: employer?.description ?? "",
         });
         setSubscription({
           tier: employer?.subscription_tier ?? "none",
@@ -70,7 +76,10 @@ export default function EmployerSettingsPage() {
         display_name: form.display_name,
         company_name: form.company_name,
         company_size: form.company_size || null,
+        industry: form.industry || null,
         website: form.website || null,
+        headquarters: form.headquarters || null,
+        description: form.description || null,
       }),
     });
 
@@ -93,9 +102,6 @@ export default function EmployerSettingsPage() {
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           SETTINGS
         </h1>
-        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          PROFILE, PLAN, NOTIFICATIONS, SECURITY, AND ACCOUNT
-        </p>
       </div>
 
       <SettingsTabs
@@ -187,27 +193,64 @@ export default function EmployerSettingsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="kicker mb-1.5 block">COMPANY SIZE</label>
-                  <select
-                    value={form.company_size}
-                    onChange={(e) => setForm((f) => ({ ...f, company_size: e.target.value }))}
-                    className="field"
-                  >
-                    <option value="">SELECT SIZE</option>
-                    {COMPANY_SIZES.map((s) => (
-                      <option key={s} value={s}>{s} EMPLOYEES</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="kicker mb-1.5 block">COMPANY SIZE</label>
+                    <select
+                      value={form.company_size}
+                      onChange={(e) => setForm((f) => ({ ...f, company_size: e.target.value }))}
+                      className="field"
+                    >
+                      <option value="">SELECT SIZE</option>
+                      {COMPANY_SIZES.map((s) => (
+                        <option key={s} value={s}>{s} EMPLOYEES</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="kicker mb-1.5 block">INDUSTRY</label>
+                    <input
+                      value={form.industry}
+                      onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
+                      className="field"
+                      placeholder="Technology"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="kicker mb-1.5 block">WEBSITE</label>
+                    <input
+                      value={form.website}
+                      onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+                      className="field"
+                      placeholder="https://acme.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="kicker mb-1.5 block">HEADQUARTERS</label>
+                    <select
+                      value={form.headquarters}
+                      onChange={(e) => setForm((f) => ({ ...f, headquarters: e.target.value }))}
+                      className="field"
+                    >
+                      <option value="">SELECT LOCATION</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c} value={c}>{c.toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="kicker mb-1.5 block">WEBSITE</label>
-                  <input
-                    value={form.website}
-                    onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+                  <label className="kicker mb-1.5 block">ABOUT</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     className="field"
-                    placeholder="https://acme.com"
+                    rows={4}
+                    placeholder="What your company does. Shown to candidates on your pitches."
                   />
                 </div>
               </div>

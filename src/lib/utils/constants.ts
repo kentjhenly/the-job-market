@@ -41,6 +41,21 @@ export const FREE_JOB_POSTINGS = 3;
 
 export const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-1000", "1000+"];
 
+// Country / territory options for citizenship, posting work location, and
+// company HQ selects. "Hong Kong" (not "Hong Kong SAR") matches existing
+// candidate_job_postings.location seed/data. Sorted A-Z.
+export const COUNTRIES: string[] = [
+  "Australia", "Austria", "Bangladesh", "Belgium", "Brazil", "Cambodia", "Canada",
+  "Chile", "China", "Colombia", "Czechia", "Denmark", "Egypt", "Finland", "France",
+  "Germany", "Greece", "Hong Kong", "Hungary", "India", "Indonesia", "Ireland",
+  "Israel", "Italy", "Japan", "Jordan", "Kenya", "Kuwait", "Laos", "Macau",
+  "Malaysia", "Mexico", "Myanmar", "Nepal", "Netherlands", "New Zealand", "Nigeria",
+  "Norway", "Pakistan", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+  "Russia", "Saudi Arabia", "Singapore", "South Africa", "South Korea", "Spain",
+  "Sri Lanka", "Sweden", "Switzerland", "Taiwan", "Thailand", "Turkey", "Ukraine",
+  "United Arab Emirates", "United Kingdom", "United States", "Vietnam", "Other",
+];
+
 export const SCORE_TIERS = {
   gold: 90,
   green: 60,

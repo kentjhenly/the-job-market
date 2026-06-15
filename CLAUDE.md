@@ -118,14 +118,14 @@ Single hard-coded "terminal green + neutral slate" OKLCH palette — no theme sw
 | `/candidate/portfolio/[projectId]` | Candidate | Create/edit portfolio project |
 | `/candidate/postings` | Candidate | Job postings grid (up to 10 positions) |
 | `/candidate/postings/[postingId]` | Candidate | Create/edit job posting (incl. market data scatter chart) |
-| `/candidate/matches` | Candidate | Incoming pitches (accept/decline); unread indicators + CHAT → opens an in-app chat slide-over for accepted matches. The PITCH DETAIL slide-over has a VERIFY EMPLOYER panel (company name, contact name + email from the employer's `profiles`, company size, website, verified badge) so candidates can confirm the sender's legitimacy before accepting. |
+| `/candidate/matches` | Candidate | Incoming pitches (accept/decline); unread indicators + CHAT → opens an in-app chat slide-over for accepted matches. The PITCH DETAIL slide-over has a VERIFY EMPLOYER panel (company name, contact name + email from the employer's `profiles`, industry, company size, headquarters, website, an ABOUT blurb, and a verified badge) so candidates can confirm the sender's legitimacy before accepting. |
 | `/candidate/settings` | Candidate | Settings — tabbed PROFILE (display name + biodata: date of birth/age, sex, languages, citizenship — role/experience/location/work-mode/salary live per-position in POSTINGS), NOTIFICATIONS (activity-email toggle), SECURITY (change email + password), FAQ, HELP, ACCOUNT (sign out), and DANGER ZONE (delete account) |
 | `/employer/dashboard` | Employer | Overview stats |
 | `/employer/feed` | Employer | Ranked candidate feed (order book layout). Candidates with `is_founder_verified` show a gold `VERIFIED` badge next to their name. |
 | `/employer/postings` | Employer | Job postings grid (create roles, set candidate cap) |
 | `/employer/postings/[postingId]` | Employer | Create/edit posting + ranked matched-candidates panel (pitch directly from a match) |
 | `/employer/matches` | Employer | Sent pitches + match status; unread indicators + CHAT → opens an in-app chat slide-over for accepted matches |
-| `/employer/settings` | Employer | Settings — tabbed PROFILE (contact name, company name/size/website), PLAN (read-only subscription tier/status/renewal + upgrade link), NOTIFICATIONS (activity-email toggle), SECURITY (change email + password), FAQ, HELP, ACCOUNT (sign out), and DANGER ZONE (delete account) |
+| `/employer/settings` | Employer | Settings — tabbed PROFILE (contact name + company profile: name, size, industry, website, headquarters, about), PLAN (read-only subscription tier/status/renewal + upgrade link), NOTIFICATIONS (activity-email toggle), SECURITY (change email + password), FAQ, HELP, ACCOUNT (sign out), and DANGER ZONE (delete account). Company details are entered here, not at sign-up. |
 | `/ticker` | Public | Live anonymised match feed (marketing) |
 | `/admin/concierge` | Internal | Manual matching tool: list `employer_job_postings`, run `candidate-matcher` against any posting, create a pitch on an employer's behalf, and toggle a candidate's `is_founder_verified` flag. Gated by `isAdminEmail()` (`src/lib/auth/admin.ts`, hardcoded email allowlist), 404s for everyone else. No public link. |
 
@@ -154,19 +154,21 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 |---|---|
 | `profiles` | id (FK Better Auth `user`), role (candidate/employer), display_name, email, email_notifications |
 | `candidates` | composite_score, percentile_rank, years_exp_claimed (auto-synced from postings, see below), desired_salary_*, location, is_visible, is_founder_verified, date_of_birth, sex, languages, citizenship (biodata, edited in `/candidate/settings`) |
-| `employers` | company_name, reputation_score, subscription_tier, subscription_status, subscription_period_end |
+| `employers` | company_name, company_size, industry, website, headquarters, description, reputation_score, verified, subscription_tier, subscription_status, subscription_period_end (company profile edited in `/employer/settings`, not at sign-up) |
 | `salary_data_points` | vertical, role_label, years_exp, location, monthly_salary (cents), source, match_id |
 | `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr), offer_status, offer_salary, offer_sent_at, hired_at, last_message_at, candidate_last_read_at, employer_last_read_at |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
 | `score_history` | candidate_id, composite_score, recorded_at (sparkline data) |
-| `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, available_from, years_exp (per-role experience) (notice_period_days is legacy/unused) |
+| `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, available_from, years_exp (per-role experience), work_eligible (right-to-work confirmation when citizenship differs from the posting location; null when N/A) (notice_period_days is legacy/unused) |
 | `candidate_portfolio_projects` | candidate_id, title, description, link_url, file_path, file_name, skills |
 | `employer_job_postings` | employer_id, title, description, vertical, years_exp_*, location, work_modes, salary_*, skills, max_candidates (default 5), status |
 | `match_messages` | match_id, sender_id, body, message_type (text/offer/offer_accepted/offer_declined/file), file_path, file_name, file_size, created_at — chat for `accepted` matches only |
 | `portfolio_feedback` | match_id (unique), employer_id, candidate_id, rating (1-5), created_at — employer's rating of "did the portfolio accurately reflect this candidate's ability", one per match |
 
 > **Candidate profile vs postings:** the `/candidate/settings` PROFILE tab is **biodata only** (display name + `candidates.date_of_birth`/`sex`/`languages`/`citizenship`) — stable attributes that don't vary per role. Role-specific fields (title, **`years_exp`**, location, work modes, salary) live on `candidate_job_postings`. `candidates.years_exp_claimed` is **not user-editable**; it is auto-synced to the candidate's highest posted `years_exp` by `syncCandidateExperience()` (`src/lib/postings/syncCandidateExperience.ts`) on every `POST`/`PATCH`/`DELETE` of `/api/postings`, so the salary regression, dashboard salary curve, `recommendation-scorer`, and match-sourced `salary_data_points` keep reading one canonical value. `candidates.location`/`remote_only` are likewise legacy profile fields no longer edited there (the dashboard derives location/salary/remote from postings). `profiles.vertical` is no longer set via the profile; the candidate's vertical is derived from posting titles via `JOB_ROLES` where needed (e.g. the dashboard in-demand-skills gap).
+
+> **Country selects + work eligibility:** all country/territory fields (candidate citizenship, candidate + employer posting `location`, employer `headquarters`) are `<select>`s populated from `COUNTRIES` (`src/lib/utils/constants.ts`). On the candidate posting form, when the candidate's `citizenship` differs from the posting `location`, a "right to work" checkbox appears and its value is stored in `candidate_job_postings.work_eligible` (left null when citizenship matches the location or is unset).
 
 > **Legacy/unused:** `challenges`, `questions`, `challenge_results` — the old skill-challenge system, replaced by `candidate_portfolio_projects`. Tables and RLS policies remain in the DB (not dropped, reversible) but are no longer referenced by any route or Edge Function.
 

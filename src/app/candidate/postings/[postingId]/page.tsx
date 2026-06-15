@@ -22,7 +22,7 @@ export default async function JobPostingPage({
   const [{ data: candidate }, { data: profile }, { data: projects }] = await Promise.all([
     supabase
       .from("candidates")
-      .select("years_exp_claimed, location")
+      .select("years_exp_claimed, location, citizenship")
       .eq("id", session.user.id)
       .single(),
     supabase.from("profiles").select("vertical").eq("id", session.user.id).single(),
@@ -69,6 +69,7 @@ export default async function JobPostingPage({
         initial={null}
         candYears={candidate?.years_exp_claimed ?? undefined}
         candLocation={candidate?.location ?? undefined}
+        candCitizenship={candidate?.citizenship ?? undefined}
         vertical={profile?.vertical ?? undefined}
         verifiedVerticals={verifiedVerticals}
       />
@@ -89,6 +90,7 @@ export default async function JobPostingPage({
       initial={posting}
       candYears={candidate?.years_exp_claimed ?? undefined}
       candLocation={candidate?.location ?? undefined}
+      candCitizenship={candidate?.citizenship ?? undefined}
       vertical={profile?.vertical ?? undefined}
       verifiedVerticals={verifiedVerticals}
     />

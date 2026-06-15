@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp } from "@/lib/auth/auth-client";
-import { COMPANY_SIZES } from "@/lib/utils/constants";
 
 export default function EmployerSignUpPage() {
   const router = useRouter();
@@ -14,7 +13,6 @@ export default function EmployerSignUpPage() {
     password: "",
     confirmPassword: "",
     companyName: "",
-    companySize: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -94,22 +92,6 @@ export default function EmployerSignUpPage() {
           />
         </div>
 
-        <div>
-          <label className="kicker mb-1.5 block">COMPANY SIZE</label>
-          <select
-            value={form.companySize}
-            onChange={(e) => update("companySize", e.target.value)}
-            className="field"
-          >
-            <option value="">SELECT SIZE</option>
-            {COMPANY_SIZES.map((s) => (
-              <option key={s} value={s}>
-                {s} EMPLOYEES
-              </option>
-            ))}
-          </select>
-        </div>
-
         {[
           { label: "WORK EMAIL", field: "email", type: "email", placeholder: "you@company.com" },
           { label: "PASSWORD", field: "password", type: "password", placeholder: "••••••••" },
@@ -143,6 +125,14 @@ export default function EmployerSignUpPage() {
           {loading ? "REGISTERING..." : "CREATE EMPLOYER ACCOUNT"}
         </button>
       </form>
+
+      <div className="hr my-6" />
+      <p className="mono text-center" style={{ fontSize: 12, color: "var(--muted)" }}>
+        ALREADY HAVE AN ACCOUNT?{" "}
+        <Link href="/sign-in" className="link-up">
+          SIGN IN
+        </Link>
+      </p>
     </div>
   );
 }

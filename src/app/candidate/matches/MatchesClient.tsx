@@ -25,7 +25,10 @@ interface Match {
     company_name: string;
     reputation_score: number;
     company_size?: string | null;
+    industry?: string | null;
     website?: string | null;
+    headquarters?: string | null;
+    description?: string | null;
     verified?: boolean;
     profiles?: { display_name: string; email: string } | null;
   } | null;
@@ -321,13 +324,12 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   <Badge variant="muted">UNVERIFIED</Badge>
                 )}
               </div>
-              <p className="mono mb-2" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
-                Confirm the sender is who they claim before accepting.
-              </p>
               <DataRow label="COMPANY" value={selected.employers?.company_name ?? "—"} />
               <DataRow label="CONTACT" value={selected.employers?.profiles?.display_name ?? "—"} />
               <DataRow label="EMAIL" value={selected.employers?.profiles?.email ?? "—"} />
+              <DataRow label="INDUSTRY" value={selected.employers?.industry ?? "—"} />
               <DataRow label="COMPANY SIZE" value={selected.employers?.company_size ?? "—"} />
+              <DataRow label="HEADQUARTERS" value={selected.employers?.headquarters ?? "—"} />
               <DataRow
                 label="WEBSITE"
                 value={
@@ -346,6 +348,14 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   )
                 }
               />
+              {selected.employers?.description && (
+                <div className="pt-3">
+                  <p className="kicker mb-1">ABOUT</p>
+                  <p className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.7 }}>
+                    {selected.employers.description}
+                  </p>
+                </div>
+              )}
             </div>
 
             {selected.pitch_message && (
