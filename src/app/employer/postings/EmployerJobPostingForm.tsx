@@ -1,26 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Badge } from "@/components/ui/Badge";
 import { SkillPicker } from "@/components/ui/SkillPicker";
+import { SalaryScatter } from "@/components/charts/SalaryScatter";
+import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
+import { DataRow } from "@/components/terminal/DataRow";
+import { formatSalary, formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, VERTICALS, MAX_POSTING_SKILLS, type VerticalType } from "@/lib/utils/constants";
+import { WORK_MODES, VERTICALS, MAX_POSTING_SKILLS, verticalLabel, type VerticalType } from "@/lib/utils/constants";
 import type { Database, WorkMode, Vertical, PostingStatus } from "@/lib/supabase/types";
 
 type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Row"];
 
-interface EmployerJobPostingFormProps {
-  initial: EmployerPosting | null;
-  postingCost?: { freeRemaining: number; credits: number };
+interface ScatterPoint {
+  years_exp: number;
+  salary: number;
+  source?: string;
+  ci_lower?: number;
+  ci_upper?: number;
 }
 
-export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPostingFormProps) {
+interface EmployerJobPostingFormProps {
+  initial: EmployerPosting | null;
+}
+
+// Standard normal CDF (Abramowitz & Stegun 26.2.17) — used to translate the
+// offered range's distance from the regression median (in std devs) into a
+// percentile for the COMPETITIVENESS panel.
+function normalCdf(z: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - p : p;
+}
+
+type CompetitivenessBand = "below" | "at" | "above";
+
+const BAND_CONFIG: Record<CompetitivenessBand, { label: string; variant: "down" | "up" | "gold"; copy: string }> = {
+  below: {
+    label: "BELOW MARKET",
+    variant: "down",
+    copy:
+      "This range sits below the market for this role and experience level. Candidates weighing other offers may look elsewhere — moving it toward the median widens the pool of strong candidates willing to engage.",
+  },
+  at: {
+    label: "AT MARKET",
+    variant: "up",
+    copy:
+      "This range is in line with the market for this role and experience level — competitive enough to attract strong candidates and keep them engaged through the process.",
+  },
+  above: {
+    label: "ABOVE MARKET",
+    variant: "gold",
+    copy:
+      "This range leads the market for this role and experience level. That's a strong signal to candidates and should help you win top talent and close faster.",
+  },
+};
+
+export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps) {
   const router = useRouter();
   const isEditing = !!initial;
-  const blocked = !isEditing && !!postingCost && postingCost.freeRemaining <= 0 && postingCost.credits < 1;
 
   const [form, setForm] = useState({
     title: initial?.title ?? "",
@@ -40,6 +84,78 @@ export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPost
   const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [marketPoints, setMarketPoints] = useState<ScatterPoint[]>([]);
+  const [curvePoints, setCurvePoints] = useState<ScatterPoint[]>([]);
+  const [stdDev, setStdDev] = useState<number | undefined>(undefined);
+  const [medianAtExp, setMedianAtExp] = useState<number | undefined>(undefined);
+
+  const expMinNum = form.years_exp_min ? parseInt(form.years_exp_min) : null;
+  const expMaxNum = form.years_exp_max ? parseInt(form.years_exp_max) : null;
+  const expMid = expMinNum != null && expMaxNum != null ? (expMinNum + expMaxNum) / 2 : expMinNum ?? expMaxNum ?? 0;
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fetch("/api/salary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vertical: form.vertical,
+          years_exp: expMid,
+          location: form.location || "Hong Kong",
+          role: form.title || undefined,
+        }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.error) {
+            setCurvePoints([]);
+            setMarketPoints([]);
+            setStdDev(undefined);
+            setMedianAtExp(undefined);
+            return;
+          }
+          if (Array.isArray(d.curve)) {
+            setCurvePoints(
+              d.curve.map((c: { years_exp: number; predicted_salary: number; ci_lower?: number; ci_upper?: number }) => ({
+                years_exp: c.years_exp,
+                salary: c.predicted_salary,
+                ci_lower: c.ci_lower,
+                ci_upper: c.ci_upper,
+              }))
+            );
+          }
+          setMarketPoints(
+            Array.isArray(d.points)
+              ? d.points.map((p: { years_exp: number; monthly_salary: number; source?: string }) => ({
+                  years_exp: p.years_exp,
+                  salary: p.monthly_salary,
+                  source: p.source,
+                }))
+              : []
+          );
+          setStdDev(typeof d.std_dev === "number" ? d.std_dev : undefined);
+          setMedianAtExp(typeof d.median_at_exp === "number" ? d.median_at_exp : undefined);
+        })
+        .catch(() => null);
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [expMid, form.vertical, form.location, form.title]);
+
+  const salaryMinCents = form.salary_min ? Math.round(parseFloat(form.salary_min) * 100) : undefined;
+  const salaryMaxCents = form.salary_max ? Math.round(parseFloat(form.salary_max) * 100) : undefined;
+  const offerMid =
+    salaryMinCents != null && salaryMaxCents != null
+      ? (salaryMinCents + salaryMaxCents) / 2
+      : salaryMinCents ?? salaryMaxCents;
+
+  let percentile: number | undefined;
+  let band: CompetitivenessBand | undefined;
+  if (offerMid != null && medianAtExp != null) {
+    percentile = stdDev && stdDev > 0 ? normalCdf((offerMid - medianAtExp) / stdDev) * 100 : offerMid >= medianAtExp ? 100 : 0;
+    band = percentile < 40 ? "below" : percentile > 60 ? "above" : "at";
+  }
 
   function toggleWorkMode(mode: WorkMode) {
     setForm((f) => ({
@@ -122,27 +238,6 @@ export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPost
         </h1>
       </div>
 
-      {!isEditing && postingCost && (
-        <div
-          className="panel p-3 text-center"
-          style={{
-            borderColor: blocked
-              ? "color-mix(in oklch, var(--down) 40%, transparent)"
-              : postingCost.freeRemaining > 0
-                ? "color-mix(in oklch, var(--up) 40%, transparent)"
-                : "color-mix(in oklch, var(--gold) 40%, transparent)",
-          }}
-        >
-          <p className={`kicker ${blocked ? "c-down" : postingCost.freeRemaining > 0 ? "c-up" : "c-gold"}`}>
-            {blocked
-              ? "NO CREDITS REMAINING — POSTING A NEW ROLE REQUIRES 1 CREDIT"
-              : postingCost.freeRemaining > 0
-                ? `THIS POSTING IS FREE · ${postingCost.freeRemaining} FREE POSTING${postingCost.freeRemaining === 1 ? "" : "S"} REMAINING`
-                : `THIS POSTING WILL USE 1 CREDIT · ${postingCost.credits} REMAINING AFTER`}
-          </p>
-        </div>
-      )}
-
       <form onSubmit={save} className="space-y-6">
         <div className="panel">
           <div className="panel-head">
@@ -178,7 +273,7 @@ export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPost
               >
                 {VERTICALS.map((v) => (
                   <option key={v} value={v}>
-                    {v.toUpperCase()}
+                    {verticalLabel(v)}
                   </option>
                 ))}
               </select>
@@ -242,6 +337,125 @@ export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPost
               />
             </div>
           </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">COMPETITIVENESS</span>
+            {band && <Badge variant={BAND_CONFIG[band].variant}>{BAND_CONFIG[band].label}</Badge>}
+          </div>
+          <div className="p-4">
+            {offerMid == null ? (
+              <p className="kicker">ENTER A SALARY RANGE TO SEE HOW IT COMPARES TO THE MARKET</p>
+            ) : (
+              <SalaryScatter
+                points={marketPoints}
+                curve={curvePoints}
+                stdDev={stdDev}
+                candYears={expMid}
+                candSalaryMin={salaryMinCents}
+                candSalaryMax={salaryMaxCents}
+                height={220}
+              />
+            )}
+            {offerMid != null && medianAtExp != null && band && (
+              <>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span style={{ width: 14, height: 2, background: "var(--up)" }} />
+                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                      REGRESSION
+                    </span>
+                  </div>
+                  {stdDev != null && (
+                    <div className="flex items-center gap-2">
+                      <span
+                        style={{
+                          width: 14,
+                          height: 8,
+                          background: "color-mix(in oklch, var(--up) 15%, transparent)",
+                        }}
+                      />
+                      <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                        CONFIDENCE BAND
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "var(--muted)",
+                        opacity: 0.6,
+                      }}
+                    />
+                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                      MARKET
+                    </span>
+                  </div>
+                  {marketPoints.some((p) => p.source === "match") && (
+                    <div className="flex items-center gap-2">
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: "var(--up)",
+                        }}
+                      />
+                      <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                        REAL MATCHES
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--gold)",
+                      }}
+                    />
+                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                      YOUR RANGE
+                    </span>
+                  </div>
+                </div>
+                <p className="mono mt-4" style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-2)" }}>
+                  {BAND_CONFIG[band].copy}
+                </p>
+                <SalaryEstimateFootnote />
+              </>
+            )}
+          </div>
+          {offerMid != null && medianAtExp != null && (
+            <div className="px-4 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+              <DataRow
+                label={`MARKET MEDIAN @ ${expMid.toFixed(1).replace(/\.0$/, "")}Y`}
+                value={formatSalary(medianAtExp)}
+                color="up"
+              />
+              <DataRow
+                label="YOUR RANGE"
+                value={
+                  salaryMinCents != null && salaryMaxCents != null
+                    ? formatSalaryBand(salaryMinCents, salaryMaxCents)
+                    : formatSalary(offerMid)
+                }
+                color="gold"
+              />
+              {percentile != null && band && (
+                <DataRow
+                  label="YOUR OFFER SITS AT"
+                  value={formatPercentile(percentile)}
+                  color={band === "below" ? "down" : band === "above" ? "gold" : "up"}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="panel">
@@ -346,7 +560,7 @@ export function EmployerJobPostingForm({ initial, postingCost }: EmployerJobPost
         )}
 
         <div className="flex items-center gap-4">
-          <Button type="submit" loading={saving} disabled={blocked}>
+          <Button type="submit" loading={saving}>
             SAVE POSTING
           </Button>
           <Button type="button" variant="ghost" onClick={() => router.push("/employer/postings")}>

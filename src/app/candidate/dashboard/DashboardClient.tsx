@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/Badge";
 import { ScoreTicker } from "@/components/terminal/ScoreTicker";
 import { DataRow } from "@/components/terminal/DataRow";
@@ -11,8 +10,9 @@ import { LiveDot } from "@/components/terminal/LiveDot";
 import { RadarChart } from "@/components/charts/RadarChart";
 import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { Sparkline } from "@/components/charts/Sparkline";
-import { formatPercentile, formatSalaryBand, formatShortDate } from "@/lib/utils/formatters";
-import { MAX_PORTFOLIO_PROJECTS, FREE_MATCH_ACCEPTS } from "@/lib/utils/constants";
+import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
+import { formatPercentile, formatSalary, formatShortDate } from "@/lib/utils/formatters";
+import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
 type Candidate = Database["public"]["Tables"]["candidates"]["Row"];
@@ -21,10 +21,26 @@ type PortfolioProject = {
   id: string;
   title: string;
   skills: string[];
-  file_path: string | null;
+  has_file: boolean;
   link_url: string | null;
   created_at: string;
 };
+type PostingSummary = {
+  count: number;
+  location: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  remote: boolean;
+};
+type PitchStats = {
+  received: number;
+  pending: number;
+  accepted: number;
+  declined: number;
+  ghosted: number;
+  nextExpiry: string | null;
+};
+type SkillGap = { label: string; count: number };
 type ScorePoint = { composite_score: number; recorded_at: string };
 type RecentMatch = {
   id: string;
@@ -37,10 +53,25 @@ interface Props {
   candidateId: string;
   candidate: Candidate | null;
   profile: Profile | null;
+  postingSummary: PostingSummary;
+  pitchStats: PitchStats;
+  skillGap: SkillGap[];
   projects: PortfolioProject[];
   scoreHistory: ScorePoint[];
   totalVisible: number;
   recentMatches: RecentMatch[];
+}
+
+// Human label for time until a pending pitch's 72h expiry.
+function expiryLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "SOON";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 60) return `${Math.max(1, minutes)}M`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}H`;
+  return `${Math.floor(hours / 24)}D`;
 }
 
 interface SalaryData {
@@ -56,45 +87,79 @@ interface ActivityItem {
   tag?: string;
 }
 
+// Mirrors the signal breakdown returned by /api/candidates/me/score, which in
+// turn mirrors supabase/functions/recommendation-scorer/index.ts.
+interface Signals {
+  portfolio_breadth: number;
+  portfolio_skill_coverage: number;
+  portfolio_completeness: number;
+  portfolio_feedback: number;
+  reputation_score: number;
+  response_rate: number;
+  profile_completeness: number;
+}
+
+const SIGNAL_WEIGHTS: Record<keyof Signals, number> = {
+  portfolio_breadth: 0.2,
+  portfolio_skill_coverage: 0.25,
+  portfolio_completeness: 0.1,
+  portfolio_feedback: 0.1,
+  reputation_score: 0.2,
+  response_rate: 0.1,
+  profile_completeness: 0.05,
+};
+
+// One suggestion per scorer signal, ranked by how much closing the gap to a
+// perfect score (1.0) would move the weighted composite.
+const SIGNAL_SUGGESTIONS: { key: keyof Signals; text: string }[] = [
+  { key: "portfolio_skill_coverage", text: "Add a project covering new skills to widen your skill coverage." },
+  { key: "portfolio_breadth", text: "Add another portfolio project to build out your breadth." },
+  { key: "portfolio_completeness", text: "Attach a file or link and tag skills on every project to lift completeness." },
+  { key: "profile_completeness", text: "Set your experience in Settings and add a position in Postings (role, location, salary)." },
+  { key: "reputation_score", text: "Stay responsive in chats so accepted matches don't go silent and ghost." },
+  { key: "response_rate", text: "Respond to pending pitches promptly to lift your response rate." },
+  { key: "portfolio_feedback", text: "Keep portfolio projects accurate to your real skills, employers rate this after a match." },
+];
+
 const BREADTH_TARGET = 5;
 const SKILL_COVERAGE_TARGET = 10;
 const ACTIVITY_LIMIT = 6;
+const POLL_INTERVAL_MS = 15000;
 
 export function DashboardClient({
   candidateId,
   candidate: initial,
   profile,
+  postingSummary,
+  pitchStats,
+  skillGap,
   projects,
-  scoreHistory,
+  scoreHistory: initialScoreHistory,
   totalVisible,
   recentMatches,
 }: Props) {
   const [candidate, setCandidate] = useState<Candidate | null>(initial);
+  const [scoreHistory, setScoreHistory] = useState<ScorePoint[]>(initialScoreHistory);
+  const [signals, setSignals] = useState<Signals | null>(null);
   const [salaryData, setSalaryData] = useState<SalaryData | null>(null);
-  const supabase = getSupabaseBrowserClient();
 
-  // Realtime: listen for own candidate row updates (score changes)
+  // Fetch + poll for own score updates (Supabase Realtime is inert for Better Auth sessions, see CLAUDE.md)
   useEffect(() => {
-    const channel = supabase
-      .channel(`candidate:${candidateId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "candidates",
-          filter: `id=eq.${candidateId}`,
-        },
-        (payload) => {
-          setCandidate(payload.new as Candidate);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+    const fetchScore = () => {
+      fetch("/api/candidates/me/score")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.candidate) setCandidate(d.candidate);
+          if (d.scoreHistory) setScoreHistory(d.scoreHistory);
+          if (d.signals) setSignals(d.signals);
+        })
+        .catch(() => null);
     };
-  }, [candidateId, supabase]);
+
+    fetchScore();
+    const interval = setInterval(fetchScore, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [candidateId]);
 
   // Fetch salary data
   useEffect(() => {
@@ -104,13 +169,13 @@ export function DashboardClient({
       body: JSON.stringify({
         vertical: "tech",
         years_exp: candidate?.years_exp_claimed ?? 0,
-        location: candidate?.location ?? "Hong Kong",
+        location: postingSummary.location ?? "Hong Kong",
       }),
     })
       .then((r) => r.json())
       .then((d) => !d.error && setSalaryData(d))
       .catch(() => null);
-  }, [candidate?.years_exp_claimed, candidate?.location]);
+  }, [candidate?.years_exp_claimed, postingSummary.location]);
 
   const projectCount = projects.length;
   const distinctSkills = new Set(projects.flatMap((p) => p.skills)).size;
@@ -119,21 +184,13 @@ export function DashboardClient({
   const completeness =
     projectCount > 0
       ? (projects.reduce((sum, p) => {
-          const hasArtifact = p.file_path || p.link_url ? 0.5 : 0;
+          const hasArtifact = p.has_file || p.link_url ? 0.5 : 0;
           const hasSkills = p.skills.length > 0 ? 0.5 : 0;
           return sum + hasArtifact + hasSkills;
         }, 0) /
           projectCount) *
         100
       : 0;
-
-  const radarDims = [
-    { axis: "SKILL COVERAGE", you: skillCoverage, peer: 60 },
-    { axis: "COMPLETENESS", you: completeness, peer: 55 },
-    { axis: "BREADTH", you: breadth, peer: 40 },
-    { axis: "REPUTATION", you: candidate?.reputation_score ?? 100, peer: 80 },
-    { axis: "PROFILE", you: candidate?.years_exp_claimed ? 100 : 50, peer: 70 },
-  ];
 
   const sortedHistory = [...scoreHistory].sort(
     (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
@@ -150,27 +207,48 @@ export function DashboardClient({
     sortedHistory.length >= 2
       ? +(sortedHistory[sortedHistory.length - 1].composite_score - sortedHistory[0].composite_score).toFixed(1)
       : 0;
-  const hi30 = sparklineData.length ? Math.max(...sparklineData) : candidate?.composite_score ?? 0;
-  const lo30 = sparklineData.length ? Math.min(...sparklineData) : candidate?.composite_score ?? 0;
-
-  const freeAcceptsRemaining = Math.max(0, FREE_MATCH_ACCEPTS - (candidate?.free_accepts_used ?? 0));
 
   const percentile = candidate?.percentile_rank ?? 0;
   const rank = totalVisible > 0 ? Math.min(totalVisible, Math.max(1, Math.round(((100 - percentile) / 100) * totalVisible))) : null;
 
-  // NEXT BEST ACTION — derived from the same signals recommendation-scorer weighs
-  let nextAction: string;
-  if (projectCount === 0) {
-    nextAction = "ADD YOUR FIRST PORTFOLIO PROJECT → ESTABLISHES BREADTH, COVERAGE & COMPLETENESS";
-  } else if (distinctSkills < SKILL_COVERAGE_TARGET) {
-    nextAction = "ADD A PROJECT TAGGED WITH NEW SKILLS → IMPROVES SKILL COVERAGE";
-  } else if (projectCount < BREADTH_TARGET) {
-    nextAction = "ADD ANOTHER PORTFOLIO PROJECT → IMPROVES BREADTH";
-  } else if (completeness < 100) {
-    nextAction = "ATTACH A FILE OR LINK TO AN EXISTING PROJECT → IMPROVES COMPLETENESS";
-  } else {
-    nextAction = "PORTFOLIO LOOKS STRONG — KEEP IT UPDATED AS YOU SHIP NEW WORK";
-  }
+  // WAYS TO IMPROVE — ranked by how much closing each signal's gap to a
+  // perfect score would move the weighted composite. Reads the same signal
+  // breakdown recommendation-scorer computes (via /api/candidates/me/score);
+  // falls back to an equivalent locally-derived estimate before that first
+  // poll resolves.
+  const profileCompletenessLocal =
+    [candidate?.years_exp_claimed != null, postingSummary.count > 0].filter(Boolean).length / 2;
+
+  const effectiveSignals: Signals =
+    signals ?? {
+      portfolio_breadth: breadth / 100,
+      portfolio_skill_coverage: skillCoverage / 100,
+      portfolio_completeness: completeness / 100,
+      portfolio_feedback: 0.5,
+      reputation_score: (candidate?.reputation_score ?? 100) / 100,
+      response_rate: 0.5,
+      profile_completeness: profileCompletenessLocal,
+    };
+
+  // Radar mirrors the composite-score signal breakdown (6 axes) so it reflects
+  // exactly what moves the score, not a hand-picked subset.
+  const radarDims = [
+    { axis: "SKILL COVERAGE", you: effectiveSignals.portfolio_skill_coverage * 100 },
+    { axis: "COMPLETENESS", you: effectiveSignals.portfolio_completeness * 100 },
+    { axis: "BREADTH", you: effectiveSignals.portfolio_breadth * 100 },
+    { axis: "FEEDBACK", you: effectiveSignals.portfolio_feedback * 100 },
+    { axis: "REPUTATION", you: effectiveSignals.reputation_score * 100 },
+    { axis: "RESPONSE", you: effectiveSignals.response_rate * 100 },
+  ];
+
+  const improvementSuggestions = SIGNAL_SUGGESTIONS.map((s) => ({
+    text: s.text,
+    gap: (1 - effectiveSignals[s.key]) * SIGNAL_WEIGHTS[s.key],
+  }))
+    .filter((s) => s.gap > 0.002)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 3)
+    .map((s) => s.text);
 
   // ACTIVITY LOG — merged from score history deltas, portfolio additions, and pitches
   const activity: ActivityItem[] = [];
@@ -199,7 +277,7 @@ export function DashboardClient({
             SCORE TERMINAL
           </h1>
           <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-            {(profile?.display_name ?? "CANDIDATE").toUpperCase()} · TECH · {(candidate?.location ?? "HONG KONG").toUpperCase()}
+            {(profile?.display_name ?? "CANDIDATE").toUpperCase()}
           </p>
         </div>
         <Badge variant={candidate?.is_visible ? "up" : "muted"}>
@@ -207,14 +285,38 @@ export function DashboardClient({
         </Badge>
       </div>
 
+      {/* Pending pitches awaiting response — pending pitches expire in 72h and
+          ignoring them dents reputation, so surface them prominently. */}
+      {pitchStats.pending > 0 && (
+        <Link
+          href="/candidate/matches"
+          className="block"
+          style={{
+            border: "1px solid color-mix(in oklch, var(--gold) 40%, transparent)",
+            background: "var(--gold-dim)",
+            borderRadius: "var(--r-lg)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="mono" style={{ fontSize: 12, color: "var(--gold)", letterSpacing: "0.04em" }}>
+              ▲ {pitchStats.pending} PITCH{pitchStats.pending > 1 ? "ES" : ""} AWAITING YOUR RESPONSE
+              {expiryLabel(pitchStats.nextExpiry) ? ` · NEXT EXPIRES IN ${expiryLabel(pitchStats.nextExpiry)}` : ""}
+            </span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em" }}>
+              RESPOND →
+            </span>
+          </div>
+        </Link>
+      )}
+
       {/* Hero: asymmetric score panel + position summary */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
-        <div className="panel panel-accent">
+        <div className="panel panel-accent flex flex-col">
           <div className="panel-head">
             <span className="panel-title">COMPOSITE SCORE — {(profile?.display_name ?? "CANDIDATE").toUpperCase()}</span>
             <LiveDot label="LIVE" />
           </div>
-          <div className="p-4">
+          <div className="flex flex-1 flex-col p-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <ScoreTicker score={candidate?.composite_score ?? 0} size="xl" suffix="/100" />
@@ -232,33 +334,32 @@ export function DashboardClient({
                   <Badge variant="gold">{formatPercentile(percentile)}</Badge>
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-baseline justify-end gap-3">
-                  <span className="kicker">30D HIGH</span>
-                  <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: "var(--up)", minWidth: 60, textAlign: "right" }}>
-                    {hi30.toFixed(1)}
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-end gap-3">
-                  <span className="kicker">30D LOW</span>
-                  <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: "var(--down)", minWidth: 60, textAlign: "right" }}>
-                    {lo30.toFixed(1)}
-                  </span>
-                </div>
-                {rank != null && (
+              {rank != null && (
+                <div className="flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-end gap-3">
                     <span className="kicker">RANK</span>
                     <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", minWidth: 60, textAlign: "right" }}>
                       #{rank} OF {totalVisible}
                     </span>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-1 flex-col">
               {sparklineData.length >= 2 ? (
                 <>
-                  <Sparkline data={sparklineData} w={620} h={110} />
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="kicker">GROWTH TRAJECTORY · 30D</span>
+                    {d30 !== 0 && (
+                      <span
+                        className="mono tnum"
+                        style={{ fontSize: 10.5, fontWeight: 600, color: d30 >= 0 ? "var(--up)" : "var(--down)" }}
+                      >
+                        {d30 >= 0 ? "▲ UP" : "▼ DOWN"} {Math.abs(d30).toFixed(1)} PTS
+                      </span>
+                    )}
+                  </div>
+                  <Sparkline data={sparklineData} w={620} h={110} className="flex-1" />
                   <div className="mt-1.5 flex justify-between">
                     <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
                       {formatShortDate(sortedHistory[0].recorded_at)} · {sortedHistory[0].composite_score.toFixed(0)}
@@ -269,7 +370,7 @@ export function DashboardClient({
                   </div>
                 </>
               ) : (
-                <div className="flex h-24 items-center justify-center">
+                <div className="flex flex-1 items-center justify-center">
                   <p className="kicker">NOT ENOUGH SCORE HISTORY YET</p>
                 </div>
               )}
@@ -282,34 +383,15 @@ export function DashboardClient({
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
           <div className="p-4">
-            <DataRow label="PERCENTILE" value={`${Math.round(percentile)}th`} color="gold" />
             <DataRow label="REPUTATION" value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`} color="up" />
             <DataRow label="PORTFOLIO" value={`${projectCount} / ${MAX_PORTFOLIO_PROJECTS}`} />
             <DataRow
-              label="MATCH CREDITS"
-              value={
-                freeAcceptsRemaining > 0
-                  ? `${candidate?.credits ?? 0} (+${freeAcceptsRemaining} FREE)`
-                  : `${candidate?.credits ?? 0}`
-              }
-              color={freeAcceptsRemaining > 0 || (candidate?.credits ?? 0) > 0 ? "up" : "down"}
+              label="MARKET MEDIAN"
+              value={salaryData?.median_at_exp ? formatSalary(salaryData.median_at_exp) : "—"}
+              color="up"
             />
-            <DataRow
-              label="SALARY FLOOR"
-              value={
-                candidate?.desired_salary_min && candidate?.desired_salary_max
-                  ? formatSalaryBand(candidate.desired_salary_min, candidate.desired_salary_max)
-                  : "NOT SET"
-              }
-            />
-            <DataRow
-              label="MARKET STATUS"
-              value={candidate?.is_visible ? "VISIBLE" : "HIDDEN"}
-              color={candidate?.is_visible ? "up" : undefined}
-            />
-            <Link
-              href="/candidate/portfolio"
-              className="mt-3 block"
+            <div
+              className="mt-3"
               style={{
                 border: "1px solid color-mix(in oklch, var(--gold) 35%, transparent)",
                 background: "var(--gold-dim)",
@@ -318,12 +400,27 @@ export function DashboardClient({
               }}
             >
               <p className="mono" style={{ fontSize: 10, color: "var(--gold)", letterSpacing: "0.16em" }}>
-                NEXT BEST ACTION
+                WAYS TO IMPROVE
               </p>
-              <p className="mono mt-1.5" style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.55 }}>
-                {nextAction}
-              </p>
-            </Link>
+              {improvementSuggestions.length > 0 ? (
+                <ul className="mt-1.5 space-y-1.5">
+                  {improvementSuggestions.map((text, i) => (
+                    <li
+                      key={i}
+                      className="mono flex gap-2"
+                      style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.5 }}
+                    >
+                      <span style={{ color: "var(--gold)" }}>{i + 1}.</span>
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mono mt-1.5" style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.55 }}>
+                  Your profile is in great shape. Keep shipping new portfolio work to stay ahead.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -334,7 +431,7 @@ export function DashboardClient({
           <div className="panel-head">
             <span className="panel-title">SKILL RADAR</span>
             <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-              YOU vs PEER AVG
+              YOUR SIGNALS
             </span>
           </div>
           <div className="p-4">
@@ -353,20 +450,22 @@ export function DashboardClient({
                 <SalaryCurve
                   curve={salaryData.curve}
                   candYears={candidate?.years_exp_claimed ?? undefined}
-                  candMin={candidate?.desired_salary_min ?? undefined}
+                  candMin={postingSummary.salaryMin ?? undefined}
                   height={210}
                 />
                 <p className="mono mt-1.5 text-center" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                  <span style={{ color: "var(--up)" }}>―</span> MARKET REGRESSION &nbsp;&nbsp;
-                  <span style={{ color: "var(--gold)" }}>┊</span> YOUR FLOOR @ {candidate?.years_exp_claimed ?? 0}Y
+                  <span style={{ color: "var(--up)", marginRight: 4 }}>―</span>MARKET REGRESSION &nbsp;&nbsp;
+                  <span style={{ color: "color-mix(in oklch, var(--up) 30%, transparent)", marginRight: 4 }}>▮</span>CONFIDENCE BAND &nbsp;&nbsp;
+                  <span style={{ color: "var(--gold)", marginRight: 4 }}>┊</span>YOUR FLOOR @ {candidate?.years_exp_claimed ?? 0}Y
                 </p>
+                <SalaryEstimateFootnote />
               </>
             ) : (
               <div className="flex h-52 items-center justify-center">
                 <p className="kicker">
                   {candidate?.years_exp_claimed
                     ? "LOADING MARKET DATA..."
-                    : "SET EXPERIENCE IN PROFILE TO SEE SALARY CURVE"}
+                    : "ADD A POSTING WITH EXPERIENCE TO SEE SALARY CURVE"}
                 </p>
               </div>
             )}
@@ -374,60 +473,105 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* Activity log + profile */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
+      {/* Pitch pipeline + in-demand skills */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">ACTIVITY LOG</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-              RECENT
-            </span>
+            <span className="panel-title">PITCH PIPELINE</span>
+            <Link href="/candidate/matches" className="link-up mono" style={{ fontSize: 11 }}>
+              VIEW ALL
+            </Link>
           </div>
-          {recentActivity.length > 0 ? (
-            <div>
-              {recentActivity.map((a, i) => (
-                <div
-                  key={i}
-                  className="grid items-center gap-3.5 px-4 py-2.5"
-                  style={{
-                    gridTemplateColumns: "4.5rem 1fr auto",
-                    borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border-soft)" : "none",
-                  }}
-                >
-                  <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                    {formatShortDate(a.date)}
-                  </span>
-                  <span className="mono" style={{ fontSize: 11.5, color: "var(--text-2)" }}>
-                    {a.label}
-                  </span>
-                  {a.delta != null ? <Delta value={a.delta} /> : <span className="badge badge-muted">{a.tag}</span>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-20 items-center justify-center">
-              <p className="kicker">NO RECENT ACTIVITY</p>
-            </div>
-          )}
+          <div className="px-4">
+            <DataRow label="RECEIVED" value={pitchStats.received} />
+            <DataRow
+              label="PENDING"
+              value={pitchStats.pending}
+              color={pitchStats.pending > 0 ? "gold" : undefined}
+            />
+            <DataRow
+              label="ACCEPTED"
+              value={pitchStats.accepted}
+              color={pitchStats.accepted > 0 ? "up" : undefined}
+            />
+            <DataRow label="DECLINED" value={pitchStats.declined} />
+            <DataRow
+              label="RESPONSE RATE"
+              value={pitchStats.received > 0 ? `${Math.round(effectiveSignals.response_rate * 100)}%` : "—"}
+              color={pitchStats.received > 0 ? "up" : undefined}
+            />
+          </div>
         </div>
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">PROFILE</span>
-            <Link href="/candidate/profile" className="link-up mono" style={{ fontSize: 11 }}>
-              EDIT
-            </Link>
+            <span className="panel-title">IN-DEMAND SKILLS</span>
+            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
+              GAPS IN YOUR PORTFOLIO
+            </span>
           </div>
-          <div className="px-4">
-            <DataRow
-              label="EXPERIENCE"
-              value={candidate?.years_exp_claimed != null ? `${candidate.years_exp_claimed} YRS` : "NOT SET"}
-            />
-            <DataRow label="LOCATION" value={candidate?.location ?? "NOT SET"} />
-            <DataRow label="VERTICAL" value="TECH" />
-            <DataRow label="REMOTE ONLY" value={candidate?.remote_only ? "YES" : "NO"} color={candidate?.remote_only ? "up" : undefined} />
+          <div className="p-4">
+            {skillGap.length > 0 ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {skillGap.map((s) => (
+                    <span
+                      key={s.label}
+                      className="badge badge-muted"
+                      title={`${s.count} open role${s.count > 1 ? "s" : ""} want this skill`}
+                    >
+                      {s.label} · {s.count}
+                    </span>
+                  ))}
+                </div>
+                <p className="mono mt-3" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
+                  Skills open roles are hiring for that your portfolio doesn&apos;t tag yet. Add a project covering
+                  these to climb the feed.
+                </p>
+              </>
+            ) : (
+              <div className="flex h-20 items-center justify-center px-4">
+                <p className="kicker text-center">YOUR PORTFOLIO COVERS THE TOP IN-DEMAND SKILLS</p>
+              </div>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Activity log */}
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">ACTIVITY LOG</span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
+            RECENT
+          </span>
+        </div>
+        {recentActivity.length > 0 ? (
+          <div>
+            {recentActivity.map((a, i) => (
+              <div
+                key={i}
+                className="grid items-center gap-3.5 px-4 py-2.5"
+                style={{
+                  gridTemplateColumns: "4.5rem 1fr auto",
+                  borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border-soft)" : "none",
+                }}
+              >
+                <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                  {formatShortDate(a.date)}
+                </span>
+                <span className="mono" style={{ fontSize: 11.5, color: "var(--text-2)" }}>
+                  {a.label}
+                </span>
+                {a.delta != null ? <Delta value={a.delta} /> : <span className="badge badge-muted">{a.tag}</span>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-20 items-center justify-center">
+            <p className="kicker">NO RECENT ACTIVITY</p>
+          </div>
+        )}
       </div>
     </div>
   );

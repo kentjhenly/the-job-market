@@ -15,6 +15,7 @@ const NAV = [
   { href: "/employer/feed", label: "FEED" },
   { href: "/employer/postings", label: "POSTINGS" },
   { href: "/employer/matches", label: "SENT PITCHES" },
+  { href: "/employer/settings", label: "SETTINGS" },
 ];
 
 export default async function EmployerLayout({
@@ -28,10 +29,15 @@ export default async function EmployerLayout({
   const role = (session.user as { role?: string }).role;
   if (role !== "employer") redirect("/candidate/dashboard");
 
+  // SHELVED while running locally — employer email verification gate. Do not
+  // delete; re-enable (with the emailVerification config in src/lib/auth/auth.ts)
+  // for production.
+  // if (!session.user.emailVerified) redirect("/verify-email");
+
   const supabase = getSupabaseServiceClient();
   const { data: employer } = await supabase
     .from("employers")
-    .select("credits")
+    .select("subscription_tier")
     .eq("id", session.user.id)
     .single();
 
@@ -40,7 +46,7 @@ export default async function EmployerLayout({
       <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
         <TopBar
           homeHref="/employer/dashboard"
-          stat={{ label: "CREDITS", value: String(employer?.credits ?? 0) }}
+          stat={{ label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase() }}
         />
         <CommandBar commands={EMPLOYER_COMMANDS} />
         <MatchTickerTape />

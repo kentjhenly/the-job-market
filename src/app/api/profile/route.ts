@@ -11,12 +11,12 @@ export async function GET() {
   const [{ data: profile }, { data: candidate }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, vertical")
+      .select("display_name")
       .eq("id", session.user.id)
       .single(),
     supabase
       .from("candidates")
-      .select("years_exp_claimed, location, remote_only, desired_salary_min, desired_salary_max")
+      .select("date_of_birth, sex, languages, citizenship")
       .eq("id", session.user.id)
       .single(),
   ]);
@@ -36,17 +36,15 @@ export async function PATCH(request: NextRequest) {
       .from("profiles")
       .update({
         display_name: body.display_name,
-        vertical: body.vertical || null,
       })
       .eq("id", session.user.id),
     supabase
       .from("candidates")
       .update({
-        years_exp_claimed: body.years_exp_claimed,
-        location: body.location,
-        remote_only: body.remote_only,
-        desired_salary_min: body.desired_salary_min,
-        desired_salary_max: body.desired_salary_max,
+        date_of_birth: body.date_of_birth || null,
+        sex: body.sex || null,
+        languages: Array.isArray(body.languages) ? body.languages : [],
+        citizenship: body.citizenship || null,
       })
       .eq("id", session.user.id),
   ]);

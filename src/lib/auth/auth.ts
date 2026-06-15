@@ -1,10 +1,24 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
-import { sendWelcomeEmail } from "@/lib/email/send";
+import {
+  sendEmailChangeVerification,
+  // sendVerificationEmail, // SHELVED with the emailVerification block below — re-enable for production
+  sendWelcomeEmail,
+} from "@/lib/email/send";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL!,
-});
+// Reuse one pool across hot reloads — Turbopack re-evaluates this module on
+// every change, and a fresh Pool each time leaks connections until the Supabase
+// session-mode pooler hits its client cap (EMAXCONNSESSION). `max` is kept below
+// that cap so the migration script and other clients still have headroom.
+const globalForPool = globalThis as unknown as { __betterAuthPool?: Pool };
+const pool =
+  globalForPool.__betterAuthPool ??
+  new Pool({
+    connectionString: process.env.DATABASE_URL!,
+    max: 10,
+    idleTimeoutMillis: 30_000,
+  });
+if (process.env.NODE_ENV !== "production") globalForPool.__betterAuthPool = pool;
 
 export const auth = betterAuth({
   database: pool,
@@ -12,6 +26,21 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+  // SHELVED while running locally — employer email verification. Do not delete;
+  // re-enable (and uncomment the sendVerificationEmail import + the EmployerLayout
+  // redirect in src/app/employer/layout.tsx) for production.
+  // emailVerification: {
+  //   sendVerificationEmail: async ({ user, url }) => {
+  //     const { role, display_name, name, email } = user as typeof user & {
+  //       role?: string;
+  //       display_name?: string;
+  //     };
+  //     if (role !== "employer") return;
+  //     await sendVerificationEmail({ to: email, name: display_name ?? name, url });
+  //   },
+  //   sendOnSignUp: true,
+  //   autoSignInAfterVerification: true,
+  // },
   user: {
     additionalFields: {
       role: {
@@ -23,6 +52,46 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         input: true,
+      },
+    },
+    changeEmail: {
+      enabled: true,
+      // For a verified address, Better Auth sends this approval link to the
+      // CURRENT email before switching. Candidates are never verified, so their
+      // change applies immediately and this never fires for them.
+      sendChangeEmailVerification: async ({
+        user,
+        newEmail,
+        url,
+      }: {
+        user: { email: string; name: string; display_name?: string };
+        newEmail: string;
+        url: string;
+      }) => {
+        await sendEmailChangeVerification({
+          to: user.email,
+          name: user.display_name ?? user.name,
+          newEmail,
+          url,
+        });
+      },
+    },
+    deleteUser: {
+      enabled: true,
+      // RESTRICT FKs on matches (-> candidates/employers), reputation_events
+      // .actor_id, and salary_data_points.match_id would block the cascade from
+      // user -> profiles -> candidates/employers, so clear them first. Salary
+      // observations and other parties' reputation history are preserved by
+      // nulling the link rather than deleting the rows.
+      beforeDelete: async (user) => {
+        const id = user.id;
+        await pool.query(
+          `update salary_data_points set match_id = null
+             where match_id in (select id from matches where candidate_id = $1 or employer_id = $1)`,
+          [id]
+        );
+        await pool.query(`delete from matches where candidate_id = $1 or employer_id = $1`, [id]);
+        await pool.query(`update reputation_events set actor_id = null where actor_id = $1`, [id]);
       },
     },
   },
@@ -46,6 +115,12 @@ export const auth = betterAuth({
             name: display_name ?? name,
             role: role as "candidate" | "employer",
           }).catch((err) => console.error("sendWelcomeEmail failed:", err));
+        },
+      },
+      update: {
+        // Keep profiles.email in sync when Better Auth updates the user's email.
+        after: async (user) => {
+          await pool.query(`update profiles set email = $2 where id = $1`, [user.id, user.email]);
         },
       },
     },

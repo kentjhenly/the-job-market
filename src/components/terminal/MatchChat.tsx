@@ -78,6 +78,11 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
   const [confirmSending, setConfirmSending] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
+  // Portfolio-accuracy rating (employer)
+  const [portfolioFeedback, setPortfolioFeedback] = useState<{ rating: number } | null | undefined>(undefined);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -231,6 +236,37 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
   const canSendOffer = isActive && isEmployer && !match?.hired_at && match?.offer_status !== "pending";
   const canRespondToOffer = isActive && isCandidate && match?.offer_status === "pending";
 
+  useEffect(() => {
+    if (!isEmployer || !isActive) return;
+    let cancelled = false;
+    fetch(`/api/matches/${matchId}/portfolio-feedback`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json) setPortfolioFeedback(json.feedback);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, isEmployer, isActive]);
+
+  async function submitPortfolioFeedback(rating: number) {
+    setFeedbackSubmitting(true);
+    setFeedbackError(null);
+    const res = await fetch(`/api/matches/${matchId}/portfolio-feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating }),
+    });
+    if (res.ok) {
+      const { feedback } = await res.json();
+      setPortfolioFeedback(feedback);
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setFeedbackError(json.error ?? "FAILED TO SUBMIT RATING");
+    }
+    setFeedbackSubmitting(false);
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Header strip */}
@@ -261,6 +297,39 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
           ) : null}
         </div>
       </div>
+
+      {/* Portfolio-accuracy rating (employer only) */}
+      {isEmployer && isActive && portfolioFeedback !== undefined && (
+        <div
+          className="shrink-0 px-4 py-2.5"
+          style={{ borderBottom: "1px solid var(--border-soft)", background: "var(--surface)" }}
+        >
+          {portfolioFeedback ? (
+            <p className="kicker c-muted">PORTFOLIO RATING SUBMITTED · {portfolioFeedback.rating}/5</p>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <p className="kicker c-muted">
+                DID THE PORTFOLIO ACCURATELY REFLECT THIS CANDIDATE&apos;S ABILITY?
+              </p>
+              <div className="flex shrink-0 gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={feedbackSubmitting}
+                    onClick={() => submitPortfolioFeedback(n)}
+                    className="btn btn-ghost btn-sm"
+                    style={{ minWidth: 28 }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {feedbackError && <p className="kicker c-down mt-1">{feedbackError}</p>}
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-4">
@@ -446,7 +515,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
               className="btn btn-ghost btn-sm shrink-0"
               title="Attach file"
             >
-              📎
+              +
             </button>
             <input
               value={draft}

@@ -4,6 +4,8 @@ interface ScatterPoint {
   years_exp: number;
   salary: number;
   source?: string;
+  ci_lower?: number;
+  ci_upper?: number;
 }
 
 interface SalaryScatterProps {
@@ -43,10 +45,14 @@ export function SalaryScatter({
   }
 
   const band = hasCurve && stdDev ? stdDev : 0;
+  // Prefer the regression's own confidence interval (ci_lower/ci_upper) for the
+  // shaded band; fall back to a symmetric ±1 std-dev band when CI bounds aren't present.
+  const ciLow = (p: ScatterPoint) => p.ci_lower ?? p.salary - band;
+  const ciHigh = (p: ScatterPoint) => p.ci_upper ?? p.salary + band;
   const allX = [...points.map((p) => p.years_exp), ...(curve ?? []).map((p) => p.years_exp)];
   const allY = [
     ...points.map((p) => p.salary),
-    ...(curve ?? []).flatMap((p) => [p.salary - band, p.salary + band]),
+    ...(curve ?? []).flatMap((p) => [ciLow(p), ciHigh(p)]),
   ];
   const xmin = Math.min(...allX, candYears ?? Infinity);
   const xmax = Math.max(...allX, candYears ?? -Infinity);
@@ -63,13 +69,14 @@ export function SalaryScatter({
     lineP = sorted
       .map((p, i) => `${i === 0 ? "M" : "L"}${X(p.years_exp).toFixed(1)},${Y(p.salary).toFixed(1)}`)
       .join(" ");
-    if (band > 0) {
+    const hasBand = band > 0 || sorted.some((p) => p.ci_lower != null && p.ci_upper != null);
+    if (hasBand) {
       const upper = sorted.map(
-        (p, i) => `${i === 0 ? "M" : "L"}${X(p.years_exp).toFixed(1)},${Y(p.salary + band).toFixed(1)}`
+        (p, i) => `${i === 0 ? "M" : "L"}${X(p.years_exp).toFixed(1)},${Y(ciHigh(p)).toFixed(1)}`
       );
       const lower = [...sorted]
         .reverse()
-        .map((p) => `L${X(p.years_exp).toFixed(1)},${Y(p.salary - band).toFixed(1)}`);
+        .map((p) => `L${X(p.years_exp).toFixed(1)},${Y(ciLow(p)).toFixed(1)}`);
       bandP = [...upper, ...lower, "Z"].join(" ");
     }
   } else {

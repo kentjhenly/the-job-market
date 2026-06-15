@@ -3,21 +3,39 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
 import { MatchChat } from "@/components/terminal/MatchChat";
+import type { OfferStatus } from "@/lib/supabase/types";
 
 interface Match {
   id: string;
   status: string;
   pitch_message: string | null;
   offered_salary: number | null;
+  offer_status: OfferStatus | null;
+  offer_salary: number | null;
+  hired_at: string | null;
   expires_at: string;
   created_at: string;
   last_message_at: string | null;
   candidate_last_read_at: string | null;
-  employers?: { company_name: string; reputation_score: number } | null;
+  employers?: {
+    company_name: string;
+    reputation_score: number;
+    company_size?: string | null;
+    website?: string | null;
+    verified?: boolean;
+    profiles?: { display_name: string; email: string } | null;
+  } | null;
 }
+
+function normalizeUrl(url: string) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+type ConfirmStep = "none" | "review" | "final";
 
 const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   accepted: "up",
@@ -27,8 +45,8 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1rem 7rem 1.6fr 8rem 7rem 8rem 5.5rem 1rem";
-const HEADERS = ["", "STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT", "", ""];
+const COLUMNS = "1rem 7rem 1.6fr 7rem 6rem 6.5rem 4.5rem 5.5rem 1rem";
+const HEADERS = ["", "STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT", "OFFER", "", ""];
 
 function reputationColor(reputation?: number | null) {
   return reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
@@ -43,20 +61,23 @@ function isUnread(m: Match) {
 
 interface MatchesClientProps {
   matches: Match[];
-  freeAcceptsRemaining: number;
-  credits: number;
 }
 
-export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits }: MatchesClientProps) {
+export function MatchesClient({ matches: initial }: MatchesClientProps) {
   const [matches, setMatches] = useState<Match[]>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [offerConfirm, setOfferConfirm] = useState<{ matchId: string; action: "accept" | "decline" } | null>(null);
+  const [confirmStep, setConfirmStep] = useState<ConfirmStep>("none");
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const [confirmSending, setConfirmSending] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const selected = matches.find((m) => m.id === selectedId) ?? null;
   const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
-  const acceptBlocked = freeAcceptsRemaining <= 0 && credits < 1;
+  const confirmMatch = matches.find((m) => m.id === offerConfirm?.matchId) ?? null;
 
   async function respond(matchId: string, action: "accept" | "decline") {
     setLoading((prev) => ({ ...prev, [matchId]: true }));
@@ -97,6 +118,46 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
     markRead(m);
   }
 
+  function startOfferConfirm(m: Match, action: "accept" | "decline") {
+    setOfferConfirm({ matchId: m.id, action });
+    setConfirmStep("review");
+    setConfirmChecked(false);
+    setConfirmError(null);
+  }
+
+  function closeOfferConfirm() {
+    setOfferConfirm(null);
+    setConfirmStep("none");
+    setConfirmChecked(false);
+    setConfirmError(null);
+  }
+
+  async function submitOfferConfirm() {
+    if (!offerConfirm) return;
+    setConfirmSending(true);
+    setConfirmError(null);
+    const res = await fetch(`/api/matches/${offerConfirm.matchId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: offerConfirm.action }),
+    });
+    if (res.ok) {
+      const { offer_status } = await res.json();
+      setMatches((prev) =>
+        prev.map((mm) =>
+          mm.id === offerConfirm.matchId
+            ? { ...mm, offer_status, hired_at: offerConfirm.action === "accept" ? new Date().toISOString() : mm.hired_at }
+            : mm
+        )
+      );
+      closeOfferConfirm();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setConfirmError(json.error ?? "FAILED TO SUBMIT RESPONSE");
+    }
+    setConfirmSending(false);
+  }
+
   return (
     <div className="view-enter space-y-6">
       <div>
@@ -104,11 +165,7 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
           INCOMING PITCHES
         </h1>
         <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          PITCHES ARE FREE TO RECEIVE. ACCEPTING ONE TO START A CHAT{" "}
-          {freeAcceptsRemaining > 0
-            ? `USES 1 OF YOUR ${freeAcceptsRemaining} REMAINING FREE ACCEPTS.`
-            : "COSTS 1 MATCH CREDIT."}{" "}
-          RANKED BY OFFERED SALARY.
+          PITCHES ARE FREE TO RECEIVE. ACCEPTING ONE STARTS A CHAT. SORTED BY MOST RECENT ACTIVITY.
         </p>
       </div>
 
@@ -166,6 +223,34 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
                 <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
                   {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
                 </span>
+                <div className="flex items-center gap-1">
+                  {m.status === "accepted" && m.offer_status === "pending" && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startOfferConfirm(m, "accept");
+                        }}
+                        className="btn btn-primary"
+                        style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
+                        title="Accept hire offer"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startOfferConfirm(m, "decline");
+                        }}
+                        className="btn btn-danger"
+                        style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
+                        title="Decline hire offer"
+                      >
+                        ✗
+                      </button>
+                    </>
+                  )}
+                </div>
                 <div>
                   {m.status === "accepted" && (
                     <button
@@ -227,6 +312,42 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
               )}
             </div>
 
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="kicker">VERIFY EMPLOYER</span>
+                {selected.employers?.verified ? (
+                  <Badge variant="up">VERIFIED</Badge>
+                ) : (
+                  <Badge variant="muted">UNVERIFIED</Badge>
+                )}
+              </div>
+              <p className="mono mb-2" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
+                Confirm the sender is who they claim before accepting.
+              </p>
+              <DataRow label="COMPANY" value={selected.employers?.company_name ?? "—"} />
+              <DataRow label="CONTACT" value={selected.employers?.profiles?.display_name ?? "—"} />
+              <DataRow label="EMAIL" value={selected.employers?.profiles?.email ?? "—"} />
+              <DataRow label="COMPANY SIZE" value={selected.employers?.company_size ?? "—"} />
+              <DataRow
+                label="WEBSITE"
+                value={
+                  selected.employers?.website ? (
+                    <a
+                      href={normalizeUrl(selected.employers.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="link-up"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {selected.employers.website}
+                    </a>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            </div>
+
             {selected.pitch_message && (
               <div>
                 <p className="kicker mb-2">PITCH MESSAGE</p>
@@ -250,18 +371,10 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
                   {errors[selected.id]}
                 </p>
               )}
-              <p className="kicker c-muted" style={{ fontSize: 10 }}>
-                {acceptBlocked
-                  ? "NO FREE ACCEPTS OR MATCH CREDITS REMAINING — PURCHASE CREDITS TO ACCEPT"
-                  : freeAcceptsRemaining > 0
-                    ? `ACCEPTING USES 1 OF ${freeAcceptsRemaining} REMAINING FREE ACCEPTS`
-                    : "ACCEPTING USES 1 MATCH CREDIT"}
-              </p>
               <div className="flex gap-3">
                 <Button
                   onClick={() => respond(selected.id, "accept")}
                   loading={loading[selected.id]}
-                  disabled={acceptBlocked}
                   className="flex-1"
                 >
                   ACCEPT MATCH
@@ -299,6 +412,79 @@ export function MatchesClient({ matches: initial, freeAcceptsRemaining, credits 
           />
         </div>
       )}
+
+      {/* hire offer accept/decline confirm */}
+      <Modal
+        open={confirmStep !== "none"}
+        onClose={closeOfferConfirm}
+        title={offerConfirm?.action === "accept" ? "CONFIRM ACCEPT OFFER" : "CONFIRM DECLINE OFFER"}
+      >
+        {confirmStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+              {offerConfirm?.action === "accept"
+                ? `You're about to ACCEPT this hire offer${
+                    confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
+                  } from ${confirmMatch?.employers?.company_name ?? "this employer"}.`
+                : `You're about to DECLINE this hire offer${
+                    confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
+                  } from ${confirmMatch?.employers?.company_name ?? "this employer"}.`}
+            </p>
+            <p className="kicker c-muted">
+              {offerConfirm?.action === "accept"
+                ? "ACCEPTING WILL MARK YOU AS HIRED FOR THIS MATCH."
+                : "DECLINING ENDS THIS MATCH. IT CANNOT BE RE-PITCHED."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closeOfferConfirm}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {confirmStep === "final" && (
+          <div className="space-y-3">
+            <p
+              className="kicker"
+              style={{ color: offerConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}
+            >
+              FINAL STEP. THIS CANNOT BE UNDONE
+            </p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={confirmChecked}
+                onChange={(e) => setConfirmChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                I understand this {offerConfirm?.action === "accept" ? "accepts" : "declines"} the offer
+                {confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} and
+                cannot be changed afterwards.
+              </span>
+            </label>
+            {confirmError && <p className="kicker c-down">{confirmError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setConfirmStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant={offerConfirm?.action === "accept" ? "primary" : "danger"}
+                size="sm"
+                disabled={!confirmChecked}
+                loading={confirmSending}
+                onClick={submitOfferConfirm}
+              >
+                {offerConfirm?.action === "accept" ? "CONFIRM ACCEPT" : "CONFIRM DECLINE"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils/cn";
 import { formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { ScoreBar } from "@/components/charts/ScoreBar";
 import { DepthBar } from "@/components/charts/DepthBar";
+import { Badge } from "@/components/ui/Badge";
 import type { Database } from "@/lib/supabase/types";
 
 type CandidateRow = Database["public"]["Tables"]["candidates"]["Row"] & {
@@ -81,8 +82,11 @@ function OrderBookRow({
       </span>
 
       <div className="min-w-0">
-        <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
-          {candidate.profiles?.display_name ?? `CAND-${candidate.id.slice(0, 6).toUpperCase()}`}
+        <p className="mono flex items-center gap-1.5 truncate" style={{ fontSize: 13, color: "var(--text)" }}>
+          <span className="truncate">
+            {candidate.profiles?.display_name ?? `CAND-${candidate.id.slice(0, 6).toUpperCase()}`}
+          </span>
+          {candidate.is_founder_verified && <Badge variant="gold">VERIFIED</Badge>}
         </p>
         <div className="mt-1.5">
           <ScoreBar score={candidate.composite_score} />

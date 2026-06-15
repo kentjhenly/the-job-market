@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp } from "@/lib/auth/auth-client";
-
-const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-1000", "1000+"];
+import { COMPANY_SIZES } from "@/lib/utils/constants";
 
 export default function EmployerSignUpPage() {
   const router = useRouter();
@@ -13,6 +12,7 @@ export default function EmployerSignUpPage() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     companyName: "",
     companySize: "",
   });
@@ -27,6 +27,10 @@ export default function EmployerSignUpPage() {
     e.preventDefault();
     setError("");
 
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
     if (form.password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
@@ -41,6 +45,7 @@ export default function EmployerSignUpPage() {
       // @ts-expect-error — Better Auth additionalFields
       role: "employer",
       display_name: form.companyName,
+      callbackURL: "/employer/dashboard",
     });
 
     if (result.error) {
@@ -62,10 +67,21 @@ export default function EmployerSignUpPage() {
         <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
           EMPLOYER REGISTRATION
         </h1>
-        <p className="kicker mt-1">BROWSE RANKED TALENT. PITCH FOR FREE.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="kicker mb-1.5 block">FULL NAME</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => update("name", e.target.value)}
+            required
+            className="field"
+            placeholder="Jane Smith"
+          />
+        </div>
+
         <div>
           <label className="kicker mb-1.5 block">COMPANY NAME</label>
           <input
@@ -95,9 +111,9 @@ export default function EmployerSignUpPage() {
         </div>
 
         {[
-          { label: "YOUR NAME", field: "name", type: "text", placeholder: "Jane Smith" },
           { label: "WORK EMAIL", field: "email", type: "email", placeholder: "you@company.com" },
           { label: "PASSWORD", field: "password", type: "password", placeholder: "••••••••" },
+          { label: "CONFIRM PASSWORD", field: "confirmPassword", type: "password", placeholder: "••••••••" },
         ].map(({ label, field, type, placeholder }) => (
           <div key={field}>
             <label className="kicker mb-1.5 block">{label}</label>

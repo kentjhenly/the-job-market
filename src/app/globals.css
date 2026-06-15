@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 /* ============================================================
-   THE JOB MARKET — warm-dark terminal design system
+   THE JOB MARKET — neutral-dark terminal design system
    Bloomberg / IBKR / index-board DNA, calmed down.
    ============================================================ */
 
 :root {
-  /* --- warm-dark slate canvas --- */
-  --bg: oklch(0.165 0.006 70);
-  --bg-deep: oklch(0.135 0.006 70);
-  --surface: oklch(0.205 0.006 70);
-  --surface-2: oklch(0.245 0.007 70);
-  --surface-3: oklch(0.285 0.008 72);
-  --border: oklch(0.305 0.008 72);
-  --border-soft: oklch(0.255 0.007 72);
-  --border-strong: oklch(0.4 0.01 74);
+  /* --- neutral-dark slate canvas --- */
+  --bg: oklch(0.165 0 0);
+  --bg-deep: oklch(0.135 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-2: oklch(0.245 0 0);
+  --surface-3: oklch(0.285 0 0);
+  --border: oklch(0.305 0 0);
+  --border-soft: oklch(0.255 0 0);
+  --border-strong: oklch(0.4 0 0);
 
   /* --- warm whites / muted text --- */
   --text: oklch(0.93 0.008 80);
@@ -31,8 +31,8 @@
   --gold-dim: color-mix(in oklch, var(--gold) 15%, transparent);
   --info: oklch(0.72 0.085 235);
 
-  --shadow-panel: 0 1px 0 oklch(0.4 0.01 74 / 0.18) inset, 0 2px 12px oklch(0.1 0 0 / 0.4);
-  --shadow-pop: 0 18px 50px oklch(0.08 0 0 / 0.6), 0 2px 0 oklch(0.45 0.01 74 / 0.12) inset;
+  --shadow-panel: 0 1px 0 oklch(0.4 0 0 / 0.18) inset, 0 2px 12px oklch(0.1 0 0 / 0.4);
+  --shadow-pop: 0 18px 50px oklch(0.08 0 0 / 0.6), 0 2px 0 oklch(0.45 0 0 / 0.12) inset;
 
   --r: 4px;
   --r-lg: 7px;
@@ -67,8 +67,8 @@
   --color-green: var(--up);
   --color-danger: var(--down);
 
-  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-DEFAULT: var(--r);
   --radius-lg: var(--r-lg);
@@ -420,8 +420,8 @@ html.anim-on .t-reveal:nth-child(5) { animation-delay: .41s; }
 /* subtle grid texture for hero */
 .grid-tex {
   background-image:
-    linear-gradient(to right, oklch(0.3 0.008 72 / 0.18) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(0.3 0.008 72 / 0.18) 1px, transparent 1px);
+    linear-gradient(to right, oklch(0.3 0 0 / 0.18) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.3 0 0 / 0.18) 1px, transparent 1px);
   background-size: 46px 46px;
   -webkit-mask-image: radial-gradient(ellipse 80% 75% at 50% 35%, #000 30%, transparent 78%);
   mask-image: radial-gradient(ellipse 80% 75% at 50% 35%, #000 30%, transparent 78%);

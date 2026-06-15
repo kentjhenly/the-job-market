@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { OrderBook } from "@/components/terminal/OrderBook";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +18,8 @@ interface Props {
   initialCandidates: Candidate[];
 }
 
+const POLL_INTERVAL_MS = 15000;
+
 export function FeedClient({ initialCandidates }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
   const [selected, setSelected] = useState<Candidate | null>(null);
@@ -27,28 +28,24 @@ export function FeedClient({ initialCandidates }: Props) {
   const [pitchSalary, setPitchSalary] = useState("");
   const [sending, setSending] = useState(false);
   const [pitchResult, setPitchResult] = useState<"success" | "error" | null>(null);
-  const supabase = getSupabaseBrowserClient();
 
-  // Realtime: subscribe to candidate updates (score changes reorder feed)
+  // Poll for score updates to reorder the feed (Supabase Realtime is inert for Better Auth sessions, see CLAUDE.md)
   useEffect(() => {
-    const channel = supabase
-      .channel("candidates-feed")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "candidates" },
-        (payload) => {
-          setCandidates((prev) => {
-            const updated = prev.map((c) =>
-              c.id === payload.new.id ? { ...c, ...(payload.new as Candidate) } : c
-            );
-            return [...updated].sort((a, b) => b.composite_score - a.composite_score);
-          });
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      fetch("/api/candidates/feed")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.candidates) return;
+          setCandidates(d.candidates as Candidate[]);
+          setSelected((prev) =>
+            prev ? (d.candidates as Candidate[]).find((c) => c.id === prev.id) ?? prev : prev
+          );
+        })
+        .catch(() => null);
+    }, POLL_INTERVAL_MS);
 
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase]);
+    return () => clearInterval(interval);
+  }, []);
 
   async function sendPitch() {
     if (!selected) return;

@@ -1,6 +1,7 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { EmployerMatchesClient } from "./EmployerMatchesClient";
+import { sortByLastActivity } from "@/lib/utils/matchActivity";
 import type { Database } from "@/lib/supabase/types";
 
 type MatchWithCandidate = Database["public"]["Tables"]["matches"]["Row"] & {
@@ -20,8 +21,7 @@ export default async function EmployerMatchesPage() {
     .from("matches")
     .select("*, candidates(composite_score, percentile_rank, profiles(display_name))")
     .eq("employer_id", session.user.id)
-    .order("offered_salary", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
-  return <EmployerMatchesClient matches={(data as MatchWithCandidate[] | null) ?? []} />;
+  return <EmployerMatchesClient matches={sortByLastActivity((data as MatchWithCandidate[] | null) ?? [])} />;
 }

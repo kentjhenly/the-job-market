@@ -8,7 +8,10 @@ import { Modal } from "@/components/ui/Modal";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
-type PortfolioProject = Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"];
+type PortfolioProject = Omit<
+  Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"],
+  "file_path"
+>;
 
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"];
 
@@ -27,7 +30,7 @@ function linkHostname(url: string): string {
 function Thumbnail({ project }: { project: PortfolioProject }) {
   const ext = project.file_name ? fileExt(project.file_name) : "";
 
-  if (project.file_path && IMAGE_EXTS.includes(ext)) {
+  if (IMAGE_EXTS.includes(ext)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- signed-URL redirect, not a static asset
       <img
@@ -39,7 +42,7 @@ function Thumbnail({ project }: { project: PortfolioProject }) {
     );
   }
 
-  if (project.file_path && ext) {
+  if (ext) {
     return (
       <div className="flex h-24 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
         <span

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { DataRow } from "@/components/terminal/DataRow";
 import { StatCard } from "@/components/terminal/StatCard";
 import { formatSalary } from "@/lib/utils/formatters";
-import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 
 export default async function EmployerDashboardPage() {
   const session = await getServerSession();
@@ -27,7 +26,7 @@ export default async function EmployerDashboardPage() {
 
   const pendingCount = matches?.filter((m) => m.status === "pending").length ?? 0;
   const acceptedCount = matches?.filter((m) => m.status === "accepted").length ?? 0;
-  const freePostingsRemaining = Math.max(0, FREE_JOB_POSTINGS - (employer?.free_postings_used ?? 0));
+  const subscriptionActive = employer?.subscription_status === "active";
 
   return (
     <div className="view-enter max-w-3xl space-y-6">
@@ -42,17 +41,22 @@ export default async function EmployerDashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="CREDITS"
+          label="SUBSCRIPTION"
           footer={
-            <Link href="/employer/postings" className="link-up mono" style={{ fontSize: 11 }}>
-              {freePostingsRemaining > 0
-                ? `${freePostingsRemaining} FREE POSTING${freePostingsRemaining === 1 ? "" : "S"} LEFT`
-                : "1 CREDIT PER POSTING →"}
-            </Link>
+            subscriptionActive ? (
+              <span className="mono" style={{ fontSize: 11, color: "var(--up)" }}>ACTIVE</span>
+            ) : (
+              <Link href="/employer/feed" className="link-up mono" style={{ fontSize: 11 }}>
+                UPGRADE →
+              </Link>
+            )
           }
         >
-          <span className="mono tnum" style={{ fontSize: 40, fontWeight: 700, color: "var(--up)", lineHeight: 1 }}>
-            {employer?.credits ?? 0}
+          <span
+            className="mono tnum"
+            style={{ fontSize: 28, fontWeight: 700, color: subscriptionActive ? "var(--up)" : "var(--down)", lineHeight: 1 }}
+          >
+            {(employer?.subscription_tier ?? "none").toUpperCase()}
           </span>
         </StatCard>
 

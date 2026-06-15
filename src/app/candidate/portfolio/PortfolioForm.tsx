@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { SkillPicker } from "@/components/ui/SkillPicker";
 import type { Database } from "@/lib/supabase/types";
 
-type PortfolioProject = Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"];
+type PortfolioProject = Omit<
+  Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"],
+  "file_path"
+>;
 
 const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"];
 
@@ -48,6 +52,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     link_url: initial?.link_url ?? "",
     skills: initial?.skills ?? ([] as string[]),
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -178,7 +183,8 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">LINK</span>
+            <span className="panel-title">PROJECT LINK</span>
+            <Badge variant="up">RECOMMENDED</Badge>
           </div>
           <div className="p-4">
             <label className="kicker mb-1.5 block">EXTERNAL URL</label>
@@ -189,14 +195,23 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
               placeholder="https://github.com/you/project"
               type="url"
             />
+            <p className="mono mt-2" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
+              Link to a live demo, repo, or hosted write-up. Employers can open it directly, it stays under
+              your control, and updates automatically as you keep working on it.
+            </p>
           </div>
         </div>
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">FILE</span>
+            <span className="panel-title">FILE UPLOAD</span>
+            <Badge variant="muted">OPTIONAL</Badge>
           </div>
           <div className="space-y-3 p-4">
+            <p className="mono" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
+              Only needed if this project isn&apos;t hosted anywhere. Uploaded files are stored privately and
+              are only ever shared with employers via a short-lived signed link.
+            </p>
             {isEditing && initial.file_name && !removeFile && !file && (
               <div className="flex items-center justify-between">
                 <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
@@ -242,12 +257,21 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
 
             <input
               type="file"
+              ref={fileInputRef}
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
                 setRemoveFile(false);
               }}
-              className="field"
+              className="hidden"
             />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="field text-left"
+              style={{ color: file ? "var(--text)" : "var(--dim)" }}
+            >
+              {file ? file.name : "CHOOSE FILE"}
+            </button>
             <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               MAX 10MB · IMAGES, PDF, DOCX, PPTX, ZIP, ETC.
             </p>

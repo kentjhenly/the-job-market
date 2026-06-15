@@ -1,11 +1,26 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { FeedClient, type Candidate } from "./FeedClient";
+import { UpgradePanel } from "./UpgradePanel";
 
 export default async function EmployerFeedPage() {
   const session = await getServerSession();
   if (!session) return null;
   const supabase = getSupabaseServiceClient();
+
+  const { data: employer } = await supabase
+    .from("employers")
+    .select("subscription_tier, subscription_status")
+    .eq("id", session.user.id)
+    .single();
+
+  // TODO(stripe): subscription_status is manually-settable until billing is
+  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
+  // should keep employers.subscription_status/subscription_tier/
+  // subscription_period_end in sync going forward.
+  if (employer?.subscription_status !== "active") {
+    return <UpgradePanel tier={employer?.subscription_tier ?? "none"} status={employer?.subscription_status ?? "canceled"} />;
+  }
 
   const { data: candidates } = await supabase
     .from("candidates")

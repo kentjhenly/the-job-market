@@ -64,7 +64,7 @@ export default function PublicTickerPage() {
             LIVE MATCH FEED
           </h1>
           <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-            ANONYMISED · HONG KONG TECH · REAL-TIME
+            ANONYMISED · REAL-TIME
           </p>
         </div>
         <LiveDot label="STREAMING" />

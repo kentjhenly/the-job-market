@@ -17,14 +17,16 @@ export const VERTICALS = [
 ] as const;
 export type VerticalType = (typeof VERTICALS)[number];
 
+// Display label for a vertical, uppercased except "ops" which spells out
+// as "OPERATIONS" (the stored value stays "ops" to match seed data).
+export function verticalLabel(vertical: VerticalType): string {
+  return vertical === "ops" ? "OPERATIONS" : vertical.toUpperCase();
+}
+
 export const MAX_PORTFOLIO_PROJECTS = 10;
 
 // LinkedIn job posts cap at 10 skills — same limit per posting here
 export const MAX_POSTING_SKILLS = 10;
-
-// Free-trial allowances before credits are required
-export const FREE_JOB_POSTINGS = 3;
-export const FREE_MATCH_ACCEPTS = 3;
 
 // Accepted matches with no chat activity for this long are auto-ghosted
 export const CHAT_GHOST_HOURS = 72;
@@ -32,6 +34,12 @@ export const CHAT_GHOST_HOURS = 72;
 // Client-side pre-upload validation for chat file attachments — the
 // match-files bucket enforces the hard 10MB limit server-side
 export const MAX_CHAT_FILE_SIZE_MB = 10;
+
+// Employers can create this many job postings without an active subscription;
+// beyond this, POST /api/employer-postings requires subscription_status = 'active'
+export const FREE_JOB_POSTINGS = 3;
+
+export const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-1000", "1000+"];
 
 export const SCORE_TIERS = {
   gold: 90,

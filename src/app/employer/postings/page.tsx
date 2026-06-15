@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { EmployerPostingsGridClient } from "./EmployerPostingsGridClient";
@@ -21,10 +22,13 @@ export default async function EmployerPostingsPage() {
       .not("posting_id", "is", null),
     supabase
       .from("employers")
-      .select("credits, free_postings_used")
+      .select("subscription_status")
       .eq("id", session.user.id)
       .single(),
   ]);
+
+  const postingCount = postings?.length ?? 0;
+  const subscriptionActive = employer?.subscription_status === "active";
 
   const activeCounts: Record<string, number> = {};
   for (const m of matches ?? []) {
@@ -34,12 +38,9 @@ export default async function EmployerPostingsPage() {
     }
   }
 
-  const freePostingsRemaining = Math.max(0, FREE_JOB_POSTINGS - (employer?.free_postings_used ?? 0));
-  const credits = employer?.credits ?? 0;
-
   return (
     <div className="view-enter space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
             POSTINGS
@@ -48,26 +49,24 @@ export default async function EmployerPostingsPage() {
             OPEN ROLES · MATCHED AGAINST CANDIDATE POSTINGS
           </p>
         </div>
-        <p className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
-          {freePostingsRemaining > 0 ? (
-            <>
-              FREE POSTINGS: <span className="c-up">{freePostingsRemaining}</span> /{" "}
-              {FREE_JOB_POSTINGS} LEFT
-            </>
-          ) : (
-            <>
-              CREDITS: <span className={credits > 0 ? "c-gold" : "c-down"}>{credits}</span> ·
-              1 CREDIT PER POSTING
-            </>
-          )}
-        </p>
+        {!subscriptionActive && (
+          <div className="text-right">
+            <p className="kicker">FREE TRIAL</p>
+            <p
+              className="mono tnum mt-0.5"
+              style={{ fontSize: 14, color: postingCount >= FREE_JOB_POSTINGS ? "var(--down)" : "var(--up)" }}
+            >
+              {Math.min(postingCount, FREE_JOB_POSTINGS)} / {FREE_JOB_POSTINGS} POSTINGS USED
+            </p>
+            {postingCount >= FREE_JOB_POSTINGS && (
+              <Link href="/employer/feed" className="link-up mono" style={{ fontSize: 11 }}>
+                SUBSCRIBE FOR UNLIMITED →
+              </Link>
+            )}
+          </div>
+        )}
       </div>
-      <EmployerPostingsGridClient
-        initialPostings={postings ?? []}
-        activeCounts={activeCounts}
-        freePostingsRemaining={freePostingsRemaining}
-        credits={credits}
-      />
+      <EmployerPostingsGridClient initialPostings={postings ?? []} activeCounts={activeCounts} />
     </div>
   );
 }

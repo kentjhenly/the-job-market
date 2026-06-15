@@ -10,7 +10,7 @@ export const CANDIDATE_COMMANDS: CommandDef[] = [
   { cmd: "PORT", desc: "Portfolio projects", href: "/candidate/portfolio" },
   { cmd: "POST", desc: "Job postings", href: "/candidate/postings" },
   { cmd: "PITCH", desc: "Incoming pitches", href: "/candidate/matches" },
-  { cmd: "PROF", desc: "Profile & settings", href: "/candidate/profile" },
+  { cmd: "SET", desc: "Settings & profile", href: "/candidate/settings" },
   { cmd: "MKT", desc: "Live match feed", href: "/ticker" },
   { cmd: "HELP", desc: "Command reference", action: "help" },
 ];
@@ -32,6 +32,7 @@ export const EMPLOYER_COMMANDS: CommandDef[] = [
   { cmd: "SENT", desc: "Sent pitches", href: "/employer/matches" },
   { cmd: "MKT", desc: "Live match feed", href: "/ticker" },
   { cmd: "HELP", desc: "Command reference", action: "help" },
+  { cmd: "SET", desc: "Settings & company", href: "/employer/settings" },
 ];
 
 export const EMPLOYER_FKEYS: [string, CommandDef][] = [
@@ -40,6 +41,7 @@ export const EMPLOYER_FKEYS: [string, CommandDef][] = [
   ["F3", EMPLOYER_COMMANDS[1]],
   ["F4", EMPLOYER_COMMANDS[2]],
   ["F6", EMPLOYER_COMMANDS[3]],
+  ["F7", EMPLOYER_COMMANDS[6]],
   ["F9", EMPLOYER_COMMANDS[4]],
 ];
 

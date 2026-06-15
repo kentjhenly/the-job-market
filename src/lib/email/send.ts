@@ -66,6 +66,67 @@ export async function sendMatchAcceptedNotification({
   });
 }
 
+interface VerificationEmailParams {
+  to: string;
+  name: string;
+  url: string;
+}
+
+export async function sendVerificationEmail({ to, name, url }: VerificationEmailParams) {
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Verify your email for The Job Market`,
+    html: `
+      <div style="font-family: monospace; background: #0a0a0a; color: #ededed; padding: 32px; max-width: 480px;">
+        <p style="color: #00ff41; font-size: 12px; letter-spacing: 4px; margin: 0 0 16px;">THE JOB MARKET</p>
+        <h2 style="color: #ffffff; font-size: 18px; margin: 0 0 8px;">VERIFY YOUR WORK EMAIL</h2>
+        <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">
+          Hi <strong style="color: #fff;">${name}</strong>, confirm this address to activate your employer account and start browsing the candidate feed.
+        </p>
+        <a href="${url}" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+          VERIFY EMAIL →
+        </a>
+        <p style="color: #444; font-size: 11px; margin-top: 32px;">This link expires in 1 hour. If you didn't create this account, you can ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
+interface EmailChangeVerificationParams {
+  to: string;
+  name: string;
+  newEmail: string;
+  url: string;
+}
+
+export async function sendEmailChangeVerification({
+  to,
+  name,
+  newEmail,
+  url,
+}: EmailChangeVerificationParams) {
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Confirm your email change — The Job Market`,
+    html: `
+      <div style="font-family: monospace; background: #0a0a0a; color: #ededed; padding: 32px; max-width: 480px;">
+        <p style="color: #00ff41; font-size: 12px; letter-spacing: 4px; margin: 0 0 16px;">THE JOB MARKET</p>
+        <h2 style="color: #ffffff; font-size: 18px; margin: 0 0 8px;">CONFIRM EMAIL CHANGE</h2>
+        <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">
+          Hi <strong style="color: #fff;">${name}</strong>, confirm you want to change your sign-in email to
+          <strong style="color: #fff;">${newEmail}</strong>.
+        </p>
+        <a href="${url}" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+          CONFIRM CHANGE →
+        </a>
+        <p style="color: #444; font-size: 11px; margin-top: 32px;">If you didn't request this, you can safely ignore this email and your address will stay the same.</p>
+      </div>
+    `,
+  });
+}
+
 interface WelcomeEmailParams {
   to: string;
   name: string;

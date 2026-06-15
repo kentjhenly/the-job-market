@@ -9,14 +9,14 @@ import { ScrollReveal } from "@/components/ui/ScrollReveal";
 const BOARD = [
   { label: "RANKING SIGNAL", value: "SKILL SCORE", desc: "NOT YOUR CV" },
   { label: "SALARY MODEL", value: "REGRESSION", desc: "MARKET-ANCHORED" },
-  { label: "PRICING", value: "FREE TRIAL", desc: "3 FREE, THEN CREDITS" },
+  { label: "PRICING", value: "SUBSCRIPTION", desc: "FROM HKD 150/MO" },
   { label: "BIAS REDUCTION", value: "ALGORITHMIC", desc: "SCORE, NOT BACKGROUND" },
 ];
 
 const FEATURES = [
   {
     title: "RANKED BY SKILL",
-    desc: "Build a portfolio of real work. Get ranked by demonstrated ability — no CV, no guesswork.",
+    desc: "Build a portfolio of real work. Get ranked by demonstrated ability, no CV, no guesswork.",
   },
   {
     title: "MARKET SALARY ENGINE",
@@ -24,15 +24,15 @@ const FEATURES = [
   },
   {
     title: "NO BLACK BOX",
-    desc: "Your composite score and salary estimate are weighted, documented formulas — not a hidden model. The dashboard breaks every factor down against your peers and tells you what to improve next.",
+    desc: "Your composite score and salary estimate are weighted, documented formulas, not a hidden model. The dashboard breaks every factor down against your peers and tells you what to improve next.",
   },
   {
-    title: "PITCHES ARE FREE",
-    desc: "Employers browse a ranked feed and pitch for free. Posting roles and accepting pitches use credits — your first 3 of each are on us.",
+    title: "FREE FOR CANDIDATES",
+    desc: "Building a portfolio, getting pitched, and accepting offers cost candidates nothing. Employers get 3 free job postings, then subscribe from HKD 150/month for feed access, pitches, and unlimited postings.",
   },
   {
     title: "ANTI-GHOSTING BY DESIGN",
-    desc: "Silence has a cost on both sides — unanswered pitches, chats, and offers dock reputation and limit future access.",
+    desc: "Silence has a cost on both sides: unanswered pitches, chats, and offers dock reputation and limit future access.",
   },
 ];
 
@@ -81,11 +81,11 @@ export default async function LandingPage() {
                 >
                   HKEX:TALENT
                 </span>
-                <span className="kicker">HONG KONG TECH · BETA</span>
               </span>
               <h1
                 className="t-reveal"
                 style={{
+                  fontFamily: "var(--font-inter), Inter, system-ui, -apple-system, sans-serif",
                   fontSize: "clamp(34px, 4.8vw, 56px)",
                   fontWeight: 700,
                   letterSpacing: "-0.025em",
@@ -113,7 +113,7 @@ export default async function LandingPage() {
                 </Link>
               </div>
               <p className="t-reveal mono" style={{ fontSize: 10.5, color: "var(--dim)", marginTop: 22, letterSpacing: "0.08em" }}>
-                3 FREE POSTINGS & ACCEPTS · 72H RESPONSE WINDOW · REPUTATION-ENFORCED
+                FREE FOR CANDIDATES · EMPLOYER PLANS FROM HKD 150/MO · 72H RESPONSE WINDOW · REPUTATION-ENFORCED
               </p>
             </div>
 
@@ -208,9 +208,6 @@ export default async function LandingPage() {
       <footer className="flex items-center justify-between border-t border-border px-6 py-4">
         <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
           © {new Date().getFullYear()} THE JOB MARKET
-        </span>
-        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-          HONG KONG · TECH VERTICAL ONLY IN BETA
         </span>
       </footer>
     </>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { FREE_JOB_POSTINGS, MAX_POSTING_SKILLS } from "@/lib/utils/constants";
+import { MAX_POSTING_SKILLS, FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 
 export async function GET() {
   const session = await getServerSession();
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   const { data: employer, error: employerError } = await supabase
     .from("employers")
-    .select("credits, free_postings_used")
+    .select("subscription_status")
     .eq("id", session.user.id)
     .single();
 
@@ -48,12 +48,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
   }
 
-  const usingFreeTrial = employer.free_postings_used < FREE_JOB_POSTINGS;
-  if (!usingFreeTrial && employer.credits < 1) {
-    return NextResponse.json(
-      { error: "Insufficient credits to create a job posting" },
-      { status: 402 }
-    );
+  // First FREE_JOB_POSTINGS postings are a free trial, regardless of
+  // subscription status. Beyond that, an active subscription is required for
+  // unlimited postings.
+  // TODO(stripe): subscription_status is manually-settable until billing is
+  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
+  // should keep employers.subscription_status/subscription_tier/
+  // subscription_period_end in sync going forward.
+  if (employer.subscription_status !== "active") {
+    const { count: postingCount } = await supabase
+      .from("employer_job_postings")
+      .select("id", { count: "exact", head: true })
+      .eq("employer_id", session.user.id);
+
+    if ((postingCount ?? 0) >= FREE_JOB_POSTINGS) {
+      return NextResponse.json(
+        {
+          error: `Free trial limit reached (${FREE_JOB_POSTINGS} job postings). An active subscription is required for unlimited postings.`,
+        },
+        { status: 402 }
+      );
+    }
   }
 
   const { data, error } = await supabase
@@ -77,15 +92,6 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await supabase
-    .from("employers")
-    .update(
-      usingFreeTrial
-        ? { free_postings_used: employer.free_postings_used + 1 }
-        : { credits: employer.credits - 1 }
-    )
-    .eq("id", session.user.id);
 
   return NextResponse.json({ id: data.id });
 }

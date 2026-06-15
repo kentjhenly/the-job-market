@@ -33,7 +33,7 @@ export default function SignUpPage() {
             </div>
             <div className="mt-4 flex gap-2">
               <span className="badge badge-up">FREE TO JOIN</span>
-              <span className="badge badge-muted">3 FREE PITCH ACCEPTS</span>
+              <span className="badge badge-up">FREE PITCH ACCEPTS</span>
             </div>
           </div>
         </Link>
@@ -49,9 +49,9 @@ export default function SignUpPage() {
                   EMPLOYER
                 </h2>
                 <p className="mt-2" style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
-                  Browse a ranked feed of verified talent.
+                  Subscribe to browse the ranked feed and pitch candidates.
                   <br />
-                  Pitching is free. Post roles to reach more candidates.
+                  Your first 3 job postings are free.
                 </p>
               </div>
               <span className="mono transition-colors group-hover:text-up" style={{ fontSize: 18, color: "var(--muted)" }}>
@@ -59,8 +59,8 @@ export default function SignUpPage() {
               </span>
             </div>
             <div className="mt-4 flex gap-2">
-              <span className="badge badge-up">PITCHES ARE FREE</span>
-              <span className="badge badge-muted">3 FREE POSTINGS</span>
+              <span className="badge badge-up">3 FREE JOB POSTINGS</span>
+              <span className="badge badge-up">PLANS FROM HKD 150/MO</span>
             </div>
           </div>
         </Link>

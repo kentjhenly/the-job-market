@@ -47,7 +47,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
           const extraSkills = posting.skills.length - visibleSkills.length;
 
           return (
-            <div key={posting.id} className="panel flex min-h-[200px] flex-col gap-3 p-4">
+            <div key={posting.id} className="panel flex min-h-[220px] flex-col gap-3 p-4">
               <div>
                 <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                   {posting.title}
@@ -104,7 +104,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
         {postings.length < MAX_POSTINGS && (
           <Link
             href="/candidate/postings/new"
-            className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+            className="flex min-h-[220px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
             style={{
               border: "1px dashed var(--border-strong)",
               borderRadius: "var(--r-lg)",

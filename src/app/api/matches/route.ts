@@ -21,12 +21,23 @@ export async function POST(request: NextRequest) {
 
   const { data: employer } = await supabase
     .from("employers")
-    .select("company_name")
+    .select("company_name, subscription_status")
     .eq("id", session.user.id)
     .single();
 
   if (!employer) {
     return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+  }
+
+  // TODO(stripe): subscription_status is manually-settable until billing is
+  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
+  // should keep employers.subscription_status/subscription_tier/
+  // subscription_period_end in sync going forward.
+  if (employer.subscription_status !== "active") {
+    return NextResponse.json(
+      { error: "An active subscription is required to send pitches" },
+      { status: 402 }
+    );
   }
 
   // If pitching from a posting, enforce its candidate capacity
@@ -85,11 +96,11 @@ export async function POST(request: NextRequest) {
   // Notify candidate of the new pitch (best-effort, don't block the response)
   const { data: candidateProfile } = await supabase
     .from("profiles")
-    .select("email")
+    .select("email, email_notifications")
     .eq("id", candidate_id)
     .single();
 
-  if (candidateProfile) {
+  if (candidateProfile && candidateProfile.email_notifications !== false) {
     sendPitchNotification({
       to: candidateProfile.email,
       companyName: employer.company_name,

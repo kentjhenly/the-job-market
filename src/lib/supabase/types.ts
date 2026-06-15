@@ -23,6 +23,8 @@ export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
 export type OfferStatus = "pending" | "accepted" | "declined";
 export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "file";
+export type SubscriptionTier = "none" | "starter" | "pro";
+export type SubscriptionStatus = "active" | "past_due" | "canceled";
 
 type Relationship = {
   foreignKeyName: string;
@@ -43,6 +45,7 @@ export interface Database {
           email: string;
           vertical: Vertical | null;
           avatar_url: string | null;
+          email_notifications: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -53,6 +56,7 @@ export interface Database {
           email: string;
           vertical?: Vertical | null;
           avatar_url?: string | null;
+          email_notifications?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -60,6 +64,8 @@ export interface Database {
           display_name?: string;
           vertical?: Vertical | null;
           avatar_url?: string | null;
+          email_notifications?: boolean;
+          email?: string;
           updated_at?: string;
         };
         Relationships: Relationship[];
@@ -77,8 +83,11 @@ export interface Database {
           is_visible: boolean;
           reputation_score: number;
           last_active_at: string;
-          credits: number;
-          free_accepts_used: number;
+          is_founder_verified: boolean;
+          date_of_birth: string | null;
+          sex: string | null;
+          languages: string[];
+          citizenship: string | null;
         };
         Insert: {
           id: string;
@@ -92,8 +101,11 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
-          credits?: number;
-          free_accepts_used?: number;
+          is_founder_verified?: boolean;
+          date_of_birth?: string | null;
+          sex?: string | null;
+          languages?: string[];
+          citizenship?: string | null;
         };
         Update: {
           composite_score?: number;
@@ -106,8 +118,11 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
-          credits?: number;
-          free_accepts_used?: number;
+          date_of_birth?: string | null;
+          sex?: string | null;
+          languages?: string[];
+          citizenship?: string | null;
+          is_founder_verified?: boolean;
         };
         Relationships: Relationship[];
       };
@@ -118,10 +133,11 @@ export interface Database {
           company_size: string | null;
           industry: string | null;
           website: string | null;
-          credits: number;
           verified: boolean;
           reputation_score: number;
-          free_postings_used: number;
+          subscription_tier: SubscriptionTier;
+          subscription_status: SubscriptionStatus;
+          subscription_period_end: string | null;
         };
         Insert: {
           id: string;
@@ -129,19 +145,21 @@ export interface Database {
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
-          credits?: number;
           verified?: boolean;
           reputation_score?: number;
-          free_postings_used?: number;
+          subscription_tier?: SubscriptionTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_period_end?: string | null;
         };
         Update: {
           company_name?: string;
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
-          credits?: number;
           reputation_score?: number;
-          free_postings_used?: number;
+          subscription_tier?: SubscriptionTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_period_end?: string | null;
         };
         Relationships: Relationship[];
       };
@@ -242,6 +260,7 @@ export interface Database {
           remote: boolean;
           monthly_salary: number;
           source: string;
+          match_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -253,6 +272,7 @@ export interface Database {
           remote?: boolean;
           monthly_salary: number;
           source?: string;
+          match_id?: string | null;
           created_at?: string;
         };
         Update: Record<string, never>;
@@ -384,6 +404,7 @@ export interface Database {
           skills: string[];
           notice_period_days: number | null;
           available_from: string | null;
+          years_exp: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -398,6 +419,7 @@ export interface Database {
           skills?: string[];
           notice_period_days?: number | null;
           available_from?: string | null;
+          years_exp?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -410,6 +432,7 @@ export interface Database {
           skills?: string[];
           notice_period_days?: number | null;
           available_from?: string | null;
+          years_exp?: number | null;
           updated_at?: string;
         };
         Relationships: Relationship[];
@@ -532,6 +555,26 @@ export interface Database {
           file_name?: string | null;
           file_size?: number | null;
         };
+        Relationships: Relationship[];
+      };
+      portfolio_feedback: {
+        Row: {
+          id: string;
+          match_id: string;
+          employer_id: string;
+          candidate_id: string;
+          rating: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          employer_id: string;
+          candidate_id: string;
+          rating: number;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
         Relationships: Relationship[];
       };
     };

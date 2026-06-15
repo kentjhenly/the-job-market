@@ -9,6 +9,7 @@ import { Combobox } from "@/components/ui/Combobox";
 import { SkillPicker } from "@/components/ui/SkillPicker";
 import { Calendar } from "@/components/ui/Calendar";
 import { SalaryScatter } from "@/components/charts/SalaryScatter";
+import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatSalaryBand } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
@@ -17,6 +18,7 @@ import {
   JOB_ROLES,
   VERTICALS,
   MAX_POSTING_SKILLS,
+  verticalLabel,
   type VerticalType,
 } from "@/lib/utils/constants";
 import type { Database, WorkMode } from "@/lib/supabase/types";
@@ -27,6 +29,8 @@ interface ScatterPoint {
   years_exp: number;
   salary: number;
   source?: string;
+  ci_lower?: number;
+  ci_upper?: number;
 }
 
 interface JobPostingFormProps {
@@ -70,7 +74,9 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
   const [curvePoints, setCurvePoints] = useState<ScatterPoint[]>([]);
   const [stdDev, setStdDev] = useState<number | undefined>(undefined);
   const [medianAtExp, setMedianAtExp] = useState<number | undefined>(undefined);
-  const [expYears, setExpYears] = useState(candYears != null ? candYears.toString() : "");
+  const [expYears, setExpYears] = useState(
+    initial?.years_exp != null ? initial.years_exp.toString() : candYears != null ? candYears.toString() : ""
+  );
   const [expMonths, setExpMonths] = useState("");
 
   const expTotal =
@@ -93,9 +99,11 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
           if (d.error) return;
           if (Array.isArray(d.curve)) {
             setCurvePoints(
-              d.curve.map((c: { years_exp: number; predicted_salary: number }) => ({
+              d.curve.map((c: { years_exp: number; predicted_salary: number; ci_lower?: number; ci_upper?: number }) => ({
                 years_exp: c.years_exp,
                 salary: c.predicted_salary,
+                ci_lower: c.ci_lower,
+                ci_upper: c.ci_upper,
               }))
             );
           }
@@ -176,6 +184,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
         : null,
       skills: form.skills,
       available_from: form.available_from,
+      years_exp: expYears ? parseInt(expYears) : null,
     };
 
     const res = await fetch(
@@ -248,7 +257,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 <option value="">ALL INDUSTRIES</option>
                 {VERTICALS.map((v) => (
                   <option key={v} value={v}>
-                    {v.toUpperCase()}
+                    {verticalLabel(v)}
                   </option>
                 ))}
               </select>
@@ -462,7 +471,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                     }}
                   />
                   <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                    ±1σ
+                    CONFIDENCE BAND
                   </span>
                 </div>
               )}
@@ -511,6 +520,7 @@ export function JobPostingForm({ initial, candYears, candLocation, verifiedVerti
                 </div>
               )}
             </div>
+            <SalaryEstimateFootnote />
           </div>
           {curvePoints.length > 0 && (
             <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border-soft)" }}>
