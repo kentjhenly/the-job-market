@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
+import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import { PortfolioGridClient } from "./PortfolioGridClient";
 
 export default async function PortfolioPage() {
@@ -14,15 +15,18 @@ export default async function PortfolioPage() {
     .eq("candidate_id", session.user.id)
     .order("created_at", { ascending: true });
 
+  const count = projects?.length ?? 0;
+  const countClass = count >= MAX_PORTFOLIO_PROJECTS ? "badge-up" : count >= 5 ? "badge-gold" : "badge-down";
+
   return (
     <div className="view-enter space-y-6">
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           PORTFOLIO
         </h1>
-        <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
-          PROJECTS THAT PROVE YOUR SKILLS — UP TO 10
-        </p>
+        <span className={`badge tnum ${countClass}`}>
+          {count}/{MAX_PORTFOLIO_PROJECTS}
+        </span>
       </div>
 
       <PortfolioGridClient initialProjects={projects ?? []} />

@@ -7,4 +7,4 @@
 -- the location, or citizenship is unset).
 
 alter table candidate_job_postings
-  add column work_eligible boolean;
+  add column if not exists work_eligible boolean;

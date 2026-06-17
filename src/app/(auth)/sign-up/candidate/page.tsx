@@ -67,16 +67,11 @@ export default function CandidateSignUpPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {[
-          { label: "FULL NAME", field: "name", type: "text", placeholder: "Jane Smith" },
-          { label: "EMAIL", field: "email", type: "email", placeholder: "you@example.com" },
-          { label: "PASSWORD", field: "password", type: "password", placeholder: "••••••••" },
-          {
-            label: "CONFIRM PASSWORD",
-            field: "confirmPassword",
-            type: "password",
-            placeholder: "••••••••",
-          },
-        ].map(({ label, field, type, placeholder }) => (
+          { label: "FULL NAME", field: "name", type: "text" },
+          { label: "EMAIL", field: "email", type: "email" },
+          { label: "PASSWORD", field: "password", type: "password" },
+          { label: "CONFIRM PASSWORD", field: "confirmPassword", type: "password" },
+        ].map(({ label, field, type }) => (
           <div key={field}>
             <label className="kicker mb-1.5 block">{label}</label>
             <input
@@ -85,7 +80,6 @@ export default function CandidateSignUpPage() {
               onChange={(e) => update(field, e.target.value)}
               required
               className="field"
-              placeholder={placeholder}
             />
           </div>
         ))}

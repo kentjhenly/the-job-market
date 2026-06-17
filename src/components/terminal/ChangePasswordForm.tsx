@@ -55,7 +55,6 @@ export function ChangePasswordForm() {
             onChange={(e) => setForm((f) => ({ ...f, current: e.target.value }))}
             required
             className="field"
-            placeholder="••••••••"
           />
         </div>
         <div>
@@ -66,7 +65,6 @@ export function ChangePasswordForm() {
             onChange={(e) => setForm((f) => ({ ...f, next: e.target.value }))}
             required
             className="field"
-            placeholder="••••••••"
           />
         </div>
         <div>
@@ -77,7 +75,6 @@ export function ChangePasswordForm() {
             onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
             required
             className="field"
-            placeholder="••••••••"
           />
         </div>
 
@@ -97,10 +94,6 @@ export function ChangePasswordForm() {
             </span>
           )}
         </div>
-
-        <p className="mono" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
-          Updating your password signs out all other sessions.
-        </p>
       </div>
     </form>
   );

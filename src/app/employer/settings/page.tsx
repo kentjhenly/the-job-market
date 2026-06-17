@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import { Button } from "@/components/ui/Button";
 import { SettingsTabs } from "@/components/terminal/SettingsTabs";
+import { Combobox } from "@/components/ui/Combobox";
 import { ChangePasswordForm } from "@/components/terminal/ChangePasswordForm";
 import { ChangeEmailForm } from "@/components/terminal/ChangeEmailForm";
 import { NotificationsForm } from "@/components/terminal/NotificationsForm";
@@ -11,7 +12,7 @@ import { DeleteAccountForm } from "@/components/terminal/DeleteAccountForm";
 import { DataRow } from "@/components/terminal/DataRow";
 import Link from "next/link";
 import { EMPLOYER_FAQ } from "@/lib/utils/faq";
-import { COMPANY_SIZES, COUNTRIES } from "@/lib/utils/constants";
+import { COMPANY_SIZES, COUNTRIES, VERTICALS, verticalLabel } from "@/lib/utils/constants";
 
 interface Subscription {
   tier: string;
@@ -140,12 +141,6 @@ export default function EmployerSettingsPage() {
                     }
                   />
                 </div>
-                <div className="p-4">
-                  <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.6 }}>
-                    An active subscription unlocks the ranked candidate feed, sending pitches, and unlimited job
-                    postings beyond your first 3.
-                  </p>
-                </div>
               </div>
             ),
           },
@@ -165,11 +160,11 @@ export default function EmployerSettingsPage() {
           <form onSubmit={save} className="space-y-6">
             <div className="panel">
               <div className="panel-head">
-                <span className="panel-title">CONTACT</span>
+                <span className="panel-title">EMPLOYER</span>
               </div>
               <div className="space-y-4 p-4">
                 <div>
-                  <label className="kicker mb-1.5 block">CONTACT NAME</label>
+                  <label className="kicker mb-1.5 block">EMPLOYER NAME</label>
                   <input
                     value={form.display_name}
                     onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
@@ -196,24 +191,20 @@ export default function EmployerSettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="kicker mb-1.5 block">COMPANY SIZE</label>
-                    <select
+                    <Combobox
                       value={form.company_size}
-                      onChange={(e) => setForm((f) => ({ ...f, company_size: e.target.value }))}
-                      className="field"
-                    >
-                      <option value="">SELECT SIZE</option>
-                      {COMPANY_SIZES.map((s) => (
-                        <option key={s} value={s}>{s} EMPLOYEES</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setForm((f) => ({ ...f, company_size: v }))}
+                      options={COMPANY_SIZES.map((s) => ({ value: s, label: `${s} EMPLOYEES` }))}
+                      placeholder="SELECT"
+                    />
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">INDUSTRY</label>
-                    <input
+                    <Combobox
                       value={form.industry}
-                      onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-                      className="field"
-                      placeholder="Technology"
+                      onChange={(v) => setForm((f) => ({ ...f, industry: v }))}
+                      options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
+                      placeholder="SELECT"
                     />
                   </div>
                 </div>
@@ -225,21 +216,16 @@ export default function EmployerSettingsPage() {
                       value={form.website}
                       onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
                       className="field"
-                      placeholder="https://acme.com"
                     />
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">HEADQUARTERS</label>
-                    <select
+                    <Combobox
                       value={form.headquarters}
-                      onChange={(e) => setForm((f) => ({ ...f, headquarters: e.target.value }))}
-                      className="field"
-                    >
-                      <option value="">SELECT LOCATION</option>
-                      {COUNTRIES.map((c) => (
-                        <option key={c} value={c}>{c.toUpperCase()}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setForm((f) => ({ ...f, headquarters: v }))}
+                      options={COUNTRIES.map((c) => ({ value: c }))}
+                      placeholder="SELECT"
+                    />
                   </div>
                 </div>
 
@@ -250,7 +236,6 @@ export default function EmployerSettingsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     className="field"
                     rows={4}
-                    placeholder="What your company does. Shown to candidates on your pitches."
                   />
                 </div>
               </div>

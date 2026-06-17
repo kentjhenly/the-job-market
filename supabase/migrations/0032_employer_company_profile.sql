@@ -6,5 +6,5 @@
 -- (industry / company_size / website already exist on employers.)
 
 alter table employers
-  add column headquarters text,
-  add column description text;
+  add column if not exists headquarters text,
+  add column if not exists description text;

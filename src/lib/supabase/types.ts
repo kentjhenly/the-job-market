@@ -88,6 +88,11 @@ export interface Database {
           sex: string | null;
           languages: string[];
           citizenship: string | null;
+          current_salary: number | null;
+          exp_months: number | null;
+          current_job_location: string | null;
+          current_job_vertical: string | null;
+          current_job_role: string | null;
         };
         Insert: {
           id: string;
@@ -106,6 +111,11 @@ export interface Database {
           sex?: string | null;
           languages?: string[];
           citizenship?: string | null;
+          current_salary?: number | null;
+          exp_months?: number | null;
+          current_job_location?: string | null;
+          current_job_vertical?: string | null;
+          current_job_role?: string | null;
         };
         Update: {
           composite_score?: number;
@@ -122,6 +132,11 @@ export interface Database {
           sex?: string | null;
           languages?: string[];
           citizenship?: string | null;
+          current_salary?: number | null;
+          exp_months?: number | null;
+          current_job_location?: string | null;
+          current_job_vertical?: string | null;
+          current_job_role?: string | null;
           is_founder_verified?: boolean;
         };
         Relationships: Relationship[];

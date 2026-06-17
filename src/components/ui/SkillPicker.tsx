@@ -5,6 +5,27 @@ import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
 import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
+// Fuzzy rank: lower is better, null = no match. Direct substrings rank first
+// (by position), then subsequence matches (query chars in order, gaps allowed).
+function fuzzyRank(name: string, q: string): number | null {
+  const lower = name.toLowerCase();
+  const idx = lower.indexOf(q);
+  if (idx !== -1) return idx;
+  let qi = 0;
+  let firstIdx = -1;
+  let lastIdx = -1;
+  let gaps = 0;
+  for (let i = 0; i < lower.length && qi < q.length; i++) {
+    if (lower[i] === q[qi]) {
+      if (firstIdx === -1) firstIdx = i;
+      if (lastIdx !== -1) gaps += i - lastIdx - 1;
+      lastIdx = i;
+      qi++;
+    }
+  }
+  return qi === q.length ? 1000 + firstIdx + gaps : null;
+}
+
 interface SkillPickerProps {
   selected: string[];
   onToggle: (skill: string) => void;
@@ -28,9 +49,12 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
 
   const trimmed = query.trim().toLowerCase();
   const results = trimmed
-    ? SKILLS.filter((s) => s.name.toLowerCase().includes(trimmed) && !selected.includes(s.name))
-        .sort((a, b) => a.name.localeCompare(b.name))
+    ? SKILLS.filter((s) => !selected.includes(s.name))
+        .map((s) => ({ s, rank: fuzzyRank(s.name, trimmed) }))
+        .filter((x): x is { s: (typeof SKILLS)[number]; rank: number } => x.rank != null)
+        .sort((a, b) => a.rank - b.rank || a.s.name.localeCompare(b.s.name))
         .slice(0, 24)
+        .map((x) => x.s)
     : [];
 
   return (
@@ -87,7 +111,6 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="field"
-          placeholder="SEARCH SKILLS"
         />
         {results.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">

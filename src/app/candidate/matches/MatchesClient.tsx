@@ -167,9 +167,6 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           INCOMING PITCHES
         </h1>
-        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          PITCHES ARE FREE TO RECEIVE. ACCEPTING ONE STARTS A CHAT. SORTED BY MOST RECENT ACTIVITY.
-        </p>
       </div>
 
       <div className="panel overflow-hidden">

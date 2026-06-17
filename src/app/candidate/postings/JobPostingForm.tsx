@@ -65,7 +65,7 @@ export function JobPostingForm({
 
   const [form, setForm] = useState({
     title: initial?.title ?? "",
-    location: initial?.location ?? "Hong Kong",
+    location: initial?.location ?? candLocation ?? "",
     work_modes: initial?.work_modes ?? ([] as WorkMode[]),
     desired_salary_min:
       initial?.desired_salary_min != null ? (initial.desired_salary_min / 100).toString() : "",
@@ -254,62 +254,18 @@ export function JobPostingForm({
         <div className="space-y-6">
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">POSITION</span>
-          </div>
-          <div className="space-y-4 p-4">
-            <div>
-              <label className="kicker mb-1.5 block">INDUSTRY</label>
-              <select
-                value={industry}
-                onChange={(e) => changeIndustry(e.target.value as VerticalType | "")}
-                className="field"
-                required
-              >
-                <option value="">ALL INDUSTRIES</option>
-                {VERTICALS.map((v) => (
-                  <option key={v} value={v}>
-                    {verticalLabel(v)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">ROLE</label>
-              <Combobox
-                value={form.title}
-                onChange={(title) => setForm((f) => ({ ...f, title }))}
-                options={(industry ? JOB_ROLES.filter((r) => r.vertical === industry) : JOB_ROLES)
-                  .slice()
-                  .sort((a, b) => a.title.localeCompare(b.title))
-                  .map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
-                placeholder={industry ? "SEARCH ROLES" : undefined}
-                disabled={!industry}
-                required
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
             <span className="panel-title">LOCATION & WORK MODE</span>
           </div>
           <div className="space-y-4 p-4">
             <div>
               <label className="kicker mb-1.5 block">LOCATION</label>
-              <select
+              <Combobox
                 value={form.location || ""}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                className="field"
+                onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+                options={COUNTRIES.map((c) => ({ value: c }))}
+                placeholder="SELECT"
                 required
-              >
-                <option value="">SELECT LOCATION</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -350,7 +306,71 @@ export function JobPostingForm({
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">SALARY (HKD/MONTH)</span>
+            <span className="panel-title">POSITION</span>
+          </div>
+          <div className="space-y-4 p-4">
+            <div>
+              <label className="kicker mb-1.5 block">INDUSTRY</label>
+              <Combobox
+                value={industry}
+                onChange={(v) => changeIndustry(v as VerticalType | "")}
+                options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
+                placeholder="SELECT"
+                required
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">ROLE</label>
+              <Combobox
+                value={form.title}
+                onChange={(title) => setForm((f) => ({ ...f, title }))}
+                options={(industry ? JOB_ROLES.filter((r) => r.vertical === industry) : JOB_ROLES)
+                  .slice()
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
+                placeholder={industry ? "SEARCH ROLES" : undefined}
+                disabled={!industry}
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">EXPERIENCE</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 p-4">
+            <div>
+              <label className="kicker mb-1.5 block">YEARS</label>
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={expYears}
+                onChange={(e) => setExpYears(e.target.value)}
+                className="field"
+                required
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">MONTHS</label>
+              <input
+                type="number"
+                min={0}
+                max={11}
+                value={expMonths}
+                onChange={(e) => setExpMonths(e.target.value)}
+                className="field"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">EXPECTED SALARY (HKD/MONTH)</span>
           </div>
           <div className="grid grid-cols-2 gap-4 p-4">
             <div>
@@ -374,31 +394,6 @@ export function JobPostingForm({
                 placeholder={maxSuggestion}
                 required
               />
-            </div>
-            <div className="col-span-2">
-              <label className="kicker mb-1.5 block">EXPERIENCE</label>
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={expYears}
-                  onChange={(e) => setExpYears(e.target.value)}
-                  className="field"
-                  placeholder="YEARS"
-                  required
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={11}
-                  value={expMonths}
-                  onChange={(e) => setExpMonths(e.target.value)}
-                  className="field"
-                  placeholder="MONTHS"
-                  required
-                />
-              </div>
             </div>
           </div>
         </div>

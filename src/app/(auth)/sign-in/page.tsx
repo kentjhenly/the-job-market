@@ -35,7 +35,6 @@ export default function SignInPage() {
         <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
           ACCESS TERMINAL
         </h1>
-        <p className="kicker mt-1">AUTHENTICATE TO CONTINUE</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -47,7 +46,6 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="field"
-            placeholder="you@company.com"
           />
         </div>
 
@@ -59,7 +57,6 @@ export default function SignInPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             className="field"
-            placeholder="••••••••"
           />
         </div>
 

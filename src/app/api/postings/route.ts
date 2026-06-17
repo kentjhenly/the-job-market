@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
-import { syncCandidateExperience } from "@/lib/postings/syncCandidateExperience";
 
 const MAX_POSTINGS = 10;
 
@@ -64,8 +63,6 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  await syncCandidateExperience(supabase, session.user.id);
 
   return NextResponse.json({ id: data.id });
 }

@@ -55,6 +55,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -164,7 +165,6 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 className="field"
-                placeholder="E-commerce checkout redesign"
                 required
               />
             </div>
@@ -175,7 +175,6 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 className="field"
                 rows={4}
-                placeholder="What you built, your role, the outcome..."
               />
             </div>
           </div>
@@ -192,13 +191,8 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
               value={form.link_url}
               onChange={(e) => setForm((f) => ({ ...f, link_url: e.target.value }))}
               className="field"
-              placeholder="https://github.com/you/project"
               type="url"
             />
-            <p className="mono mt-2" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
-              Link to a live demo, repo, or hosted write-up. Employers can open it directly, it stays under
-              your control, and updates automatically as you keep working on it.
-            </p>
           </div>
         </div>
 
@@ -208,10 +202,6 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
             <Badge variant="muted">OPTIONAL</Badge>
           </div>
           <div className="space-y-3 p-4">
-            <p className="mono" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
-              Only needed if this project isn&apos;t hosted anywhere. Uploaded files are stored privately and
-              are only ever shared with employers via a short-lived signed link.
-            </p>
             {isEditing && initial.file_name && !removeFile && !file && (
               <div className="flex items-center justify-between">
                 <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
@@ -264,14 +254,38 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
               }}
               className="hidden"
             />
-            <button
-              type="button"
+            <div
               onClick={() => fileInputRef.current?.click()}
-              className="field text-left"
-              style={{ color: file ? "var(--text)" : "var(--dim)" }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const dropped = e.dataTransfer.files?.[0];
+                if (dropped) {
+                  setFile(dropped);
+                  setRemoveFile(false);
+                }
+              }}
+              className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md py-8 text-center transition-colors"
+              style={{
+                border: `1px dashed ${dragOver ? "var(--up)" : "var(--border-strong)"}`,
+                background: dragOver ? "var(--up-dim)" : "var(--surface-2)",
+              }}
             >
-              {file ? file.name : "CHOOSE FILE"}
-            </button>
+              <span className="mono" style={{ fontSize: 24, lineHeight: 1, color: dragOver ? "var(--up)" : "var(--muted)" }}>
+                +
+              </span>
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", letterSpacing: "0.08em" }}>
+                {file ? file.name : "ADD FILE"}
+              </span>
+              <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                {file ? "CLICK OR DROP TO REPLACE" : "DROP FILES HERE OR CLICK TO BROWSE"}
+              </span>
+            </div>
             <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               MAX 10MB · IMAGES, PDF, DOCX, PPTX, ZIP, ETC.
             </p>

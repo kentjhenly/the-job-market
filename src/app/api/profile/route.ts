@@ -16,7 +16,9 @@ export async function GET() {
       .single(),
     supabase
       .from("candidates")
-      .select("date_of_birth, sex, languages, citizenship")
+      .select(
+        "date_of_birth, sex, languages, citizenship, location, years_exp_claimed, exp_months, current_salary, current_job_location, current_job_vertical, current_job_role"
+      )
       .eq("id", session.user.id)
       .single(),
   ]);
@@ -45,6 +47,13 @@ export async function PATCH(request: NextRequest) {
         sex: body.sex || null,
         languages: Array.isArray(body.languages) ? body.languages : [],
         citizenship: body.citizenship || null,
+        location: body.location || null,
+        years_exp_claimed: body.years_exp_claimed ?? null,
+        exp_months: body.exp_months ?? null,
+        current_salary: body.current_salary ?? null,
+        current_job_location: body.current_job_location || null,
+        current_job_vertical: body.current_job_vertical || null,
+        current_job_role: body.current_job_role || null,
       })
       .eq("id", session.user.id),
   ]);

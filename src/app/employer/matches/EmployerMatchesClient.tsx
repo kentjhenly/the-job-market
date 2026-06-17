@@ -65,11 +65,8 @@ export function EmployerMatchesClient({ matches: initial }: { matches: MatchWith
     <div className="view-enter space-y-6">
       <div>
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
-          SENT PITCHES
+          PITCHES
         </h1>
-        <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-          TRACK YOUR OUTREACH AND MATCH STATUS. SORTED BY MOST RECENT ACTIVITY.
-        </p>
       </div>
 
       <div className="panel overflow-hidden">
