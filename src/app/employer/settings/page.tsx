@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import { Button } from "@/components/ui/Button";
 import { SettingsTabs } from "@/components/terminal/SettingsTabs";
+import { Combobox } from "@/components/ui/Combobox";
 import { ChangePasswordForm } from "@/components/terminal/ChangePasswordForm";
 import { ChangeEmailForm } from "@/components/terminal/ChangeEmailForm";
 import { NotificationsForm } from "@/components/terminal/NotificationsForm";
@@ -196,16 +197,12 @@ export default function EmployerSettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="kicker mb-1.5 block">COMPANY SIZE</label>
-                    <select
+                    <Combobox
                       value={form.company_size}
-                      onChange={(e) => setForm((f) => ({ ...f, company_size: e.target.value }))}
-                      className="field"
-                    >
-                      <option value="">SELECT SIZE</option>
-                      {COMPANY_SIZES.map((s) => (
-                        <option key={s} value={s}>{s} EMPLOYEES</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setForm((f) => ({ ...f, company_size: v }))}
+                      options={COMPANY_SIZES.map((s) => ({ value: s, label: `${s} EMPLOYEES` }))}
+                      placeholder="SELECT"
+                    />
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">INDUSTRY</label>
@@ -230,16 +227,12 @@ export default function EmployerSettingsPage() {
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">HEADQUARTERS</label>
-                    <select
+                    <Combobox
                       value={form.headquarters}
-                      onChange={(e) => setForm((f) => ({ ...f, headquarters: e.target.value }))}
-                      className="field"
-                    >
-                      <option value="">SELECT LOCATION</option>
-                      {COUNTRIES.map((c) => (
-                        <option key={c} value={c}>{c.toUpperCase()}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setForm((f) => ({ ...f, headquarters: v }))}
+                      options={COUNTRIES.map((c) => ({ value: c }))}
+                      placeholder="SELECT"
+                    />
                   </div>
                 </div>
 

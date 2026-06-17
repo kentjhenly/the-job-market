@@ -129,7 +129,6 @@ const POLL_INTERVAL_MS = 15000;
 export function DashboardClient({
   candidateId,
   candidate: initial,
-  profile,
   postingSummary,
   pitchStats,
   skillGap,
@@ -167,15 +166,23 @@ export function DashboardClient({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        vertical: "tech",
-        years_exp: candidate?.years_exp_claimed ?? 0,
-        location: postingSummary.location ?? "Hong Kong",
+        vertical: candidate?.current_job_vertical ?? "tech",
+        role: candidate?.current_job_role ?? undefined,
+        years_exp: (candidate?.years_exp_claimed ?? 0) + (candidate?.exp_months ?? 0) / 12,
+        location: candidate?.current_job_location ?? candidate?.location ?? "Hong Kong",
       }),
     })
       .then((r) => r.json())
       .then((d) => !d.error && setSalaryData(d))
       .catch(() => null);
-  }, [candidate?.years_exp_claimed, postingSummary.location]);
+  }, [
+    candidate?.years_exp_claimed,
+    candidate?.exp_months,
+    candidate?.current_job_vertical,
+    candidate?.current_job_role,
+    candidate?.current_job_location,
+    candidate?.location,
+  ]);
 
   const projectCount = projects.length;
   const distinctSkills = new Set(projects.flatMap((p) => p.skills)).size;
@@ -233,12 +240,36 @@ export function DashboardClient({
   // Radar mirrors the composite-score signal breakdown (6 axes) so it reflects
   // exactly what moves the score, not a hand-picked subset.
   const radarDims = [
-    { axis: "SKILL COVERAGE", you: effectiveSignals.portfolio_skill_coverage * 100 },
-    { axis: "COMPLETENESS", you: effectiveSignals.portfolio_completeness * 100 },
-    { axis: "BREADTH", you: effectiveSignals.portfolio_breadth * 100 },
-    { axis: "FEEDBACK", you: effectiveSignals.portfolio_feedback * 100 },
-    { axis: "REPUTATION", you: effectiveSignals.reputation_score * 100 },
-    { axis: "RESPONSE", you: effectiveSignals.response_rate * 100 },
+    {
+      axis: "SKILL COVERAGE",
+      you: effectiveSignals.portfolio_skill_coverage * 100,
+      desc: "Distinct skills tagged across your portfolio. Add projects that cover new skills to widen it.",
+    },
+    {
+      axis: "COMPLETENESS",
+      you: effectiveSignals.portfolio_completeness * 100,
+      desc: "Share of projects with a file or link and tagged skills. Attach artifacts and tag skills on every project.",
+    },
+    {
+      axis: "BREADTH",
+      you: effectiveSignals.portfolio_breadth * 100,
+      desc: "How many portfolio projects you have. Add more projects to build out your breadth.",
+    },
+    {
+      axis: "FEEDBACK",
+      you: effectiveSignals.portfolio_feedback * 100,
+      desc: "Employers' ratings of how well your portfolio reflects your real ability, gathered after matches.",
+    },
+    {
+      axis: "REPUTATION",
+      you: effectiveSignals.reputation_score * 100,
+      desc: "Reliability from completed matches and avoiding ghosting. Respond and follow through to keep it high.",
+    },
+    {
+      axis: "RESPONSE",
+      you: effectiveSignals.response_rate * 100,
+      desc: "How promptly you respond to pending pitches before they expire. Reply within the 72h window.",
+    },
   ];
 
   const improvementSuggestions = SIGNAL_SUGGESTIONS.map((s) => ({
@@ -276,13 +307,7 @@ export function DashboardClient({
           <h1 className="mono" style={{ color: "var(--text)", fontSize: 14, letterSpacing: "0.16em" }}>
             SCORE TERMINAL
           </h1>
-          <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-            {(profile?.display_name ?? "CANDIDATE").toUpperCase()}
-          </p>
         </div>
-        <Badge variant={candidate?.is_visible ? "up" : "muted"}>
-          {candidate?.is_visible ? "VISIBLE TO EMPLOYERS" : "HIDDEN"}
-        </Badge>
       </div>
 
       {/* Pending pitches awaiting response — pending pitches expire in 72h and
@@ -313,7 +338,7 @@ export function DashboardClient({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
         <div className="panel panel-accent flex flex-col">
           <div className="panel-head">
-            <span className="panel-title">COMPOSITE SCORE — {(profile?.display_name ?? "CANDIDATE").toUpperCase()}</span>
+            <span className="panel-title">COMPOSITE SCORE</span>
             <LiveDot label="LIVE" />
           </div>
           <div className="flex flex-1 flex-col p-4">
@@ -378,11 +403,26 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel flex flex-col">
+          <div className="panel-head">
+            <span className="panel-title">SKILL RADAR</span>
+            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
+              YOUR SIGNALS
+            </span>
+          </div>
+          <div className="flex flex-1 items-center justify-center p-4">
+            <RadarChart dims={radarDims} />
+          </div>
+        </div>
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
-          <div className="p-4">
+          <div className="flex flex-1 flex-col p-4">
             <DataRow label="REPUTATION" value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`} color="up" />
             <DataRow label="PORTFOLIO" value={`${projectCount} / ${MAX_PORTFOLIO_PROJECTS}`} />
             <DataRow
@@ -391,7 +431,7 @@ export function DashboardClient({
               color="up"
             />
             <div
-              className="mt-3"
+              className="mt-3 flex flex-1 flex-col"
               style={{
                 border: "1px solid color-mix(in oklch, var(--gold) 35%, transparent)",
                 background: "var(--gold-dim)",
@@ -423,21 +463,6 @@ export function DashboardClient({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">SKILL RADAR</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-              YOUR SIGNALS
-            </span>
-          </div>
-          <div className="p-4">
-            <RadarChart dims={radarDims} />
-          </div>
-        </div>
 
         <div className="panel">
           <div className="panel-head">
@@ -450,13 +475,13 @@ export function DashboardClient({
                 <SalaryCurve
                   curve={salaryData.curve}
                   candYears={candidate?.years_exp_claimed ?? undefined}
-                  candMin={postingSummary.salaryMin ?? undefined}
+                  candMin={candidate?.current_salary ?? undefined}
                   height={210}
                 />
                 <p className="mono mt-1.5 text-center" style={{ fontSize: 10.5, color: "var(--dim)" }}>
                   <span style={{ color: "var(--up)", marginRight: 4 }}>―</span>MARKET REGRESSION &nbsp;&nbsp;
                   <span style={{ color: "color-mix(in oklch, var(--up) 30%, transparent)", marginRight: 4 }}>▮</span>CONFIDENCE BAND &nbsp;&nbsp;
-                  <span style={{ color: "var(--gold)", marginRight: 4 }}>┊</span>YOUR FLOOR @ {candidate?.years_exp_claimed ?? 0}Y
+                  <span style={{ color: "var(--gold)", marginRight: 4 }}>┊</span>YOUR SALARY @ {candidate?.years_exp_claimed ?? 0}Y
                 </p>
                 <SalaryEstimateFootnote />
               </>
@@ -465,7 +490,7 @@ export function DashboardClient({
                 <p className="kicker">
                   {candidate?.years_exp_claimed
                     ? "LOADING MARKET DATA..."
-                    : "ADD A POSTING WITH EXPERIENCE TO SEE SALARY CURVE"}
+                    : "SET YOUR EXPERIENCE IN SETTINGS TO SEE SALARY CURVE"}
                 </p>
               </div>
             )}
@@ -503,14 +528,14 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">IN-DEMAND SKILLS</span>
             <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
               GAPS IN YOUR PORTFOLIO
             </span>
           </div>
-          <div className="p-4">
+          <div className="flex flex-1 flex-col justify-center p-4">
             {skillGap.length > 0 ? (
               <>
                 <div className="flex flex-wrap gap-2">

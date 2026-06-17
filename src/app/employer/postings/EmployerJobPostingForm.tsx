@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { SkillPicker } from "@/components/ui/SkillPicker";
+import { Combobox } from "@/components/ui/Combobox";
 import { SalaryScatter } from "@/components/charts/SalaryScatter";
 import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
 import { DataRow } from "@/components/terminal/DataRow";
@@ -266,17 +267,12 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
             </div>
             <div>
               <label className="kicker mb-1.5 block">VERTICAL</label>
-              <select
+              <Combobox
                 value={form.vertical}
-                onChange={(e) => setForm((f) => ({ ...f, vertical: e.target.value as Vertical }))}
-                className="field"
-              >
-                {VERTICALS.map((v) => (
-                  <option key={v} value={v}>
-                    {verticalLabel(v)}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, vertical: v as Vertical }))}
+                options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
+                placeholder="SELECT"
+              />
             </div>
           </div>
         </div>
@@ -465,16 +461,12 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           <div className="space-y-4 p-4">
             <div>
               <label className="kicker mb-1.5 block">LOCATION</label>
-              <select
+              <Combobox
                 value={form.location}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                className="field"
-              >
-                <option value="">SELECT LOCATION</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>{c.toUpperCase()}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+                options={COUNTRIES.map((c) => ({ value: c }))}
+                placeholder="SELECT"
+              />
             </div>
 
             <div>

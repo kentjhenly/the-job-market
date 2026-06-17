@@ -16,13 +16,11 @@ export default async function PostingsPage() {
 
   return (
     <div className="view-enter space-y-6">
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           POSTINGS
         </h1>
-        <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
-          JOB POSTINGS YOU&apos;RE OPEN TO — UP TO 10
-        </p>
+        <span className="badge badge-up tnum">{(postings?.length ?? 0)}/10</span>
       </div>
 
       <PostingsGridClient initialPostings={postings ?? []} />

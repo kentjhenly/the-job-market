@@ -56,6 +56,37 @@ export const COUNTRIES: string[] = [
   "United Arab Emirates", "United Kingdom", "United States", "Vietnam", "Other",
 ];
 
+// Currency code per country (for the candidate's current-salary input, which
+// adapts to their country of residence). Defaults to HKD for unmapped/Other.
+const COUNTRY_CURRENCY: Record<string, string> = {
+  Australia: "AUD", Austria: "EUR", Bangladesh: "BDT", Belgium: "EUR", Brazil: "BRL",
+  Cambodia: "KHR", Canada: "CAD", Chile: "CLP", China: "CNY", Colombia: "COP",
+  Czechia: "CZK", Denmark: "DKK", Egypt: "EGP", Finland: "EUR", France: "EUR",
+  Germany: "EUR", Greece: "EUR", "Hong Kong": "HKD", Hungary: "HUF", India: "INR",
+  Indonesia: "IDR", Ireland: "EUR", Israel: "ILS", Italy: "EUR", Japan: "JPY",
+  Jordan: "JOD", Kenya: "KES", Kuwait: "KWD", Laos: "LAK", Macau: "MOP",
+  Malaysia: "MYR", Mexico: "MXN", Myanmar: "MMK", Nepal: "NPR", Netherlands: "EUR",
+  "New Zealand": "NZD", Nigeria: "NGN", Norway: "NOK", Pakistan: "PKR",
+  Philippines: "PHP", Poland: "PLN", Portugal: "EUR", Qatar: "QAR", Romania: "RON",
+  Russia: "RUB", "Saudi Arabia": "SAR", Singapore: "SGD", "South Africa": "ZAR",
+  "South Korea": "KRW", Spain: "EUR", "Sri Lanka": "LKR", Sweden: "SEK",
+  Switzerland: "CHF", Taiwan: "TWD", Thailand: "THB", Turkey: "TRY", Ukraine: "UAH",
+  "United Arab Emirates": "AED", "United Kingdom": "GBP", "United States": "USD",
+  Vietnam: "VND",
+};
+
+export function currencyForCountry(country: string | null | undefined): string {
+  return (country && COUNTRY_CURRENCY[country]) || "HKD";
+}
+
+// Language options for the candidate biodata languages picker.
+export const LANGUAGES: string[] = [
+  "Arabic", "Bengali", "Cantonese", "Dutch", "English", "Filipino", "French",
+  "German", "Hindi", "Indonesian", "Italian", "Japanese", "Khmer", "Korean",
+  "Malay", "Mandarin", "Nepali", "Portuguese", "Punjabi", "Russian", "Spanish",
+  "Tamil", "Thai", "Urdu", "Vietnamese",
+];
+
 export const SCORE_TIERS = {
   gold: 90,
   green: 60,

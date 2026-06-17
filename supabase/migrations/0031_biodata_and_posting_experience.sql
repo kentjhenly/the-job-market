@@ -8,10 +8,10 @@
 -- reading a single canonical value.
 
 alter table candidates
-  add column date_of_birth date,
-  add column sex text,
-  add column languages text[] not null default '{}',
-  add column citizenship text;
+  add column if not exists date_of_birth date,
+  add column if not exists sex text,
+  add column if not exists languages text[] not null default '{}',
+  add column if not exists citizenship text;
 
 alter table candidate_job_postings
-  add column years_exp smallint;
+  add column if not exists years_exp smallint;

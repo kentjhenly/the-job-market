@@ -86,6 +86,14 @@ body {
   color: var(--text);
 }
 
+/* Always show the vertical scrollbar so centered content (e.g. the auth logo)
+   doesn't shift horizontally when a page's height toggles the scrollbar.
+   overflow-y: scroll is more reliable cross-browser than scrollbar-gutter. */
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

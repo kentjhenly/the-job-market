@@ -47,7 +47,6 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             className="field"
-            placeholder="you@company.com"
           />
         </div>
 
@@ -59,7 +58,6 @@ export default function SignInPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             className="field"
-            placeholder="••••••••"
           />
         </div>
 

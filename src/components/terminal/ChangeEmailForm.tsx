@@ -65,7 +65,6 @@ export function ChangeEmailForm({ settingsHref }: { settingsHref: string }) {
             onChange={(e) => setNewEmail(e.target.value)}
             required
             className="field"
-            placeholder="you@example.com"
           />
         </div>
 

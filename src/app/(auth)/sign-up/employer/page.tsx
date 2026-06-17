@@ -76,7 +76,6 @@ export default function EmployerSignUpPage() {
             onChange={(e) => update("name", e.target.value)}
             required
             className="field"
-            placeholder="Jane Smith"
           />
         </div>
 
@@ -88,15 +87,14 @@ export default function EmployerSignUpPage() {
             onChange={(e) => update("companyName", e.target.value)}
             required
             className="field"
-            placeholder="Acme Corp"
           />
         </div>
 
         {[
-          { label: "WORK EMAIL", field: "email", type: "email", placeholder: "you@company.com" },
-          { label: "PASSWORD", field: "password", type: "password", placeholder: "••••••••" },
-          { label: "CONFIRM PASSWORD", field: "confirmPassword", type: "password", placeholder: "••••••••" },
-        ].map(({ label, field, type, placeholder }) => (
+          { label: "WORK EMAIL", field: "email", type: "email" },
+          { label: "PASSWORD", field: "password", type: "password" },
+          { label: "CONFIRM PASSWORD", field: "confirmPassword", type: "password" },
+        ].map(({ label, field, type }) => (
           <div key={field}>
             <label className="kicker mb-1.5 block">{label}</label>
             <input
@@ -105,7 +103,6 @@ export default function EmployerSignUpPage() {
               onChange={(e) => update(field, e.target.value)}
               required
               className="field"
-              placeholder={placeholder}
             />
           </div>
         ))}
