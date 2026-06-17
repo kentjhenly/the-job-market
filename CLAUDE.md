@@ -1,9 +1,9 @@
 # The Job Market — CLAUDE.md
 
 ## Overview
-Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates build a **portfolio** of projects — files and/or links tagged with skills — instead of submitting a CV. A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: warm-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a warm slate canvas, OKLCH).
+Talent marketplace that inverts hiring: employers browse a **ranked feed** of candidates sorted by composite skill score. Candidates build a **portfolio** of projects — files and/or links tagged with skills — instead of submitting a CV. A **salary regression engine** gives both sides a neutral market-anchored compensation reference. Visual identity: neutral-dark trading-terminal aesthetic (desaturated terminal green / muted clay red / gold accents on a neutral slate canvas, OKLCH).
 
-**Revenue:** Transaction fees — employer pays per pitch sent; candidate pays on match accepted.
+**Revenue:** Employer subscriptions. Employers need an active subscription (`employers.subscription_status = 'active'`, tier `starter` or `pro`) to browse the candidate feed and send pitches. Job postings are free for an employer's first 3 postings; beyond that, an active subscription is required for unlimited postings. Sending and accepting pitches are both free for candidates. See **Employer Subscriptions** under Key Conventions.
 **Launch vertical:** Tech · Hong Kong.
 
 ---
@@ -38,14 +38,27 @@ Talent marketplace that inverts hiring: employers browse a **ranked feed** of ca
 - `getServerSession()` from `src/lib/auth/session.ts` for server-side session access
 - `useSession()` from `src/hooks/useSession.ts` for client-side session (wraps Better Auth)
 - Role stored on `profiles.role` (enum: candidate | employer)
+- **Employer email verification** — ⚠️ **currently SHELVED for local dev** (commented out, not deleted): the `emailVerification` config in `src/lib/auth/auth.ts`, its `sendVerificationEmail` import, and the `EmployerLayout` redirect gate in `src/app/employer/layout.tsx` are all commented out, so employers are not required to verify while running locally. The `/verify-email` page + resend button remain in the codebase but are unreachable until the gate is re-enabled. Re-enable all three for production. The intended behavior when enabled (`src/lib/auth/auth.ts`'s `emailVerification` config): `sendOnSignUp: true` + `autoSignInAfterVerification: true`, with `requireEmailVerification` left `false` (gating happens at the layout level, not at sign-in). `sendVerificationEmail` is called for every new user on sign-up but no-ops unless `role === "employer"`, so candidates never receive a verification email and see no behavior change. For employers, it calls `sendVerificationEmail()` (`src/lib/email/send.ts`) with Better Auth's verification link. `EmployerLayout` (`src/app/employer/layout.tsx`) redirects to `/verify-email` whenever `session.user.emailVerified` is `false`; `/verify-email` (`src/app/(auth)/verify-email/page.tsx`) shows a "check your inbox" message and a resend button that `POST`s `/api/auth/send-verification-email` (Better Auth's built-in endpoint, handled by `src/app/api/auth/[...all]/route.ts`). `/sign-up/employer` passes `callbackURL: "/employer/dashboard"` so the emailed verification link lands the employer back in their dashboard once verified.
+- **Change password / email / delete account** (Settings → SECURITY and DANGER ZONE tabs, both roles, via the `authClient` from `src/lib/auth/auth-client.ts`):
+  - **Change password** — `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })` (`ChangePasswordForm`). Available because `emailAndPassword` is enabled.
+  - **Change email** — `user.changeEmail.enabled: true` in `auth.ts` with `sendChangeEmailVerification` → `sendEmailChangeVerification()`. For a **verified** address (employers) Better Auth emails an approval link to the *current* inbox before switching; for an **unverified** one (candidates) the change applies immediately. `ChangeEmailForm` branches its success message on `session.user.emailVerified`. `databaseHooks.user.update.after` syncs `profiles.email` to the new `user.email`.
+  - **Delete account** — `user.deleteUser.enabled: true` with a `beforeDelete` hook. Deletion cascades `user → profiles → candidates/employers` and their dependents, but `matches` (→candidates/employers), `reputation_events.actor_id`, and `salary_data_points.match_id` are `RESTRICT`, so `beforeDelete` first nulls `salary_data_points.match_id` for the user's matches (preserving the observation), deletes the user's `matches` (cascading `match_messages`/`portfolio_feedback`), and nulls `reputation_events.actor_id` (preserving other parties' history). `DeleteAccountForm` requires the password plus a confirmation checkbox, then `authClient.deleteUser({ password })` and redirects home. Orphaned `portfolio-files`/`match-files` storage objects are not cleaned up (TODO).
 
 ### Money
 - **All monetary values stored as integer cents** in the database (e.g., HKD 80,000 = `8000000`)
 - **All salary figures are MONTHLY**, per HK market convention (not annual) — `salary_data_points.monthly_salary`, `desired_salary_*`, `offered_salary`, and ticker `salary_band` strings all represent monthly compensation
 - Use `formatSalary()` / `formatSalaryBand()` from `src/lib/utils/formatters.ts` for display
 
+### Employer Subscriptions
+- `/employer/feed` and sending a pitch (`POST /api/matches`) require an active employer subscription: `employers.subscription_tier` (`none | starter | pro`), `employers.subscription_status` (`active | past_due | canceled`), `employers.subscription_period_end` (added in `0025_employer_subscriptions.sql`).
+- If `subscription_status !== 'active'`, `POST /api/matches` returns `402`, and `/employer/feed` renders `UpgradePanel` instead of `FeedClient`.
+- Creating a job posting (`POST /api/employer-postings`) is free for an employer's first `FREE_JOB_POSTINGS` postings (3, `src/lib/utils/constants.ts`), regardless of subscription status, counted live from `employer_job_postings` row count (no separate counter column). The `FREE_JOB_POSTINGS`+1th posting onward returns `402` unless `subscription_status === 'active'`; with an active subscription, postings are unlimited. `/employer/postings` shows a FREE TRIAL indicator (`X / 3 POSTINGS USED`) linking to `/employer/feed` to subscribe once the limit is reached.
+- No payment provider is integrated yet, these columns are manually-settable for now. TODO(stripe): a webhook for `customer.subscription.*` events should keep them in sync, see the TODO comments in `src/app/api/matches/route.ts`, `src/app/api/employer-postings/route.ts`, and `src/app/employer/feed/page.tsx`.
+- UI surfaces the current tier: `TopBar` employer PLAN stat, `/employer/dashboard`'s SUBSCRIPTION tile (links to `/employer/feed` to upgrade when inactive).
+- Accepting a pitch (`POST /api/matches/[matchId]/respond` with `action: "accept"`) is free for candidates, no credit charge — the old `candidates.credits`/`free_accepts_used` and `employers.credits`/`free_postings_used` columns were dropped in `0026_drop_legacy_credits.sql`.
+
 ### Design System (src/app/globals.css)
-Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switcher. CSS custom properties on `:root`, mapped into Tailwind v4 `@theme` (CSS-based config, no `tailwind.config.ts`).
+Single hard-coded "terminal green + neutral slate" OKLCH palette — no theme switcher. CSS custom properties on `:root`, mapped into Tailwind v4 `@theme` (CSS-based config, no `tailwind.config.ts`).
 
 **Color tokens** (`--var` → Tailwind utility):
 | `--var` | Tailwind utility | Use |
@@ -82,11 +95,11 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 - `.link-up`, `.hr`, `.navitem`/`.active`/`.ni-dot`, `.tabbar`/`.tab`/`.active`
 - All animations respect `prefers-reduced-motion`
 
-**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `SalaryScatter`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart. `SalaryScatter` (linear regression over per-position market data) is used in the job posting form's MARKET DATA panel, fed from the `/api/salary` regression curve (curve points mapped to `{years_exp, salary}`); the request includes `role: form.title`, so the curve reflects the job role selected in the TITLE / JOB ROLE combobox (see `JOB_ROLES` below) when seed data exists for it, falling back to the vertical-level curve otherwise. Shows an "AWAITING MARKET DATA" empty state if fewer than 2 points are returned.
+**Charts** — custom inline SVG in `src/components/charts/`: `Sparkline`, `RadarChart`, `SalaryCurve`, `SalaryScatter`, `DepthBar`, `ScoreBar`. Use these SVG components for any new chart. `SalaryScatter` is used in the job posting form's MARKET DATA panel, fed from `/api/salary`: it plots the *actual* `salary_data_points` observations behind the fit (`points`, stride-sampled to ≤200 by the Edge Function) as grey dots, the polynomial regression `curve` as the green line, a ±1σ band shaded from `std_dev`, and the candidate's desired min/max as gold markers at the experience set via the form's EXPERIENCE — YEARS / MONTHS inputs (defaulting from `candidates.years_exp_claimed`). The request includes `role: form.title`, so everything reflects the job role selected in the TITLE / JOB ROLE combobox (see `JOB_ROLES` below) when seed data exists for it, falling back to the vertical-level dataset otherwise. If `curve` is absent it falls back to a local least-squares line over `points`; shows an "AWAITING MARKET DATA" empty state when both are missing.
 
 ### Typography
-- `font-mono` (JetBrains Mono) — ALL numbers, scores, salaries, data values, labels, kickers
-- `font-sans` (Inter) — headings, body copy, marketing text
+- `font-mono` and `font-sans` (both IBM Plex Mono) — the entire site is monospace: numbers, scores, salaries, data values, labels, kickers, headings, and body copy
+- Sole exception: the landing page hero `<h1>` ("Rational people / think at the margin.") keeps Inter via an explicit `fontFamily: "var(--font-inter), ..."` override, loaded alongside IBM Plex Mono in `src/app/layout.tsx`
 - Monospace rule: if it's a number on screen, it must be `font-mono` / `.mono`
 
 ---
@@ -99,19 +112,22 @@ Single hard-coded "terminal green + warm slate" OKLCH palette — no theme switc
 | `/sign-up` | Public | Role picker |
 | `/sign-up/candidate` | Public | Candidate registration |
 | `/sign-up/employer` | Public | Employer registration |
+| `/verify-email` | Employer (signed-in, unverified) | "Check your inbox" page + resend button; `EmployerLayout` redirects here until `session.user.emailVerified` |
 | `/candidate/dashboard` | Candidate | Score terminal (live score, radar, salary curve) |
 | `/candidate/portfolio` | Candidate | Portfolio grid — projects with files/links and tagged skills |
 | `/candidate/portfolio/[projectId]` | Candidate | Create/edit portfolio project |
 | `/candidate/postings` | Candidate | Job postings grid (up to 10 positions) |
 | `/candidate/postings/[postingId]` | Candidate | Create/edit job posting (incl. market data scatter chart) |
-| `/candidate/matches` | Candidate | Incoming pitches (accept/decline) + chat for accepted matches |
-| `/candidate/profile` | Candidate | Profile — settings & biodata (display name, vertical, experience, location, salary) |
+| `/candidate/matches` | Candidate | Incoming pitches (accept/decline); unread indicators + CHAT → opens an in-app chat slide-over for accepted matches. The PITCH DETAIL slide-over has a VERIFY EMPLOYER panel (company name, contact name + email from the employer's `profiles`, industry, company size, headquarters, website, an ABOUT blurb, and a verified badge) so candidates can confirm the sender's legitimacy before accepting. |
+| `/candidate/settings` | Candidate | Settings — tabbed PROFILE (display name + biodata: date of birth/age, sex, languages, citizenship — role/experience/location/work-mode/salary live per-position in POSTINGS), NOTIFICATIONS (activity-email toggle), SECURITY (change email + password), FAQ, HELP, ACCOUNT (sign out), and DANGER ZONE (delete account) |
 | `/employer/dashboard` | Employer | Overview stats |
-| `/employer/feed` | Employer | Ranked candidate feed (order book layout) |
+| `/employer/feed` | Employer | Ranked candidate feed (order book layout). Candidates with `is_founder_verified` show a gold `VERIFIED` badge next to their name. |
 | `/employer/postings` | Employer | Job postings grid (create roles, set candidate cap) |
 | `/employer/postings/[postingId]` | Employer | Create/edit posting + ranked matched-candidates panel (pitch directly from a match) |
-| `/employer/matches` | Employer | Sent pitches + match status + chat for accepted matches |
+| `/employer/matches` | Employer | Sent pitches + match status; unread indicators + CHAT → opens an in-app chat slide-over for accepted matches |
+| `/employer/settings` | Employer | Settings — tabbed PROFILE (contact name + company profile: name, size, industry, website, headquarters, about), PLAN (read-only subscription tier/status/renewal + upgrade link), NOTIFICATIONS (activity-email toggle), SECURITY (change email + password), FAQ, HELP, ACCOUNT (sign out), and DANGER ZONE (delete account). Company details are entered here, not at sign-up. |
 | `/ticker` | Public | Live anonymised match feed (marketing) |
+| `/admin/concierge` | Internal | Manual matching tool: list `employer_job_postings`, run `candidate-matcher` against any posting, create a pitch on an employer's behalf, and toggle a candidate's `is_founder_verified` flag. Gated by `isAdminEmail()` (`src/lib/auth/admin.ts`, hardcoded email allowlist), 404s for everyone else. No public link. |
 
 ### Proxy (src/proxy.ts)
 - Refreshes Supabase session cookie on every request
@@ -136,23 +152,29 @@ npx supabase gen types typescript --linked > src/lib/supabase/types.ts
 ### Tables
 | Table | Key columns |
 |---|---|
-| `profiles` | id (FK auth.users), role (candidate/employer), display_name |
-| `candidates` | composite_score, percentile_rank, years_exp_claimed, desired_salary_*, is_visible |
-| `employers` | company_name, credits, reputation_score |
-| `salary_data_points` | vertical, role_label, years_exp, location, monthly_salary (cents), source |
-| `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr) |
+| `profiles` | id (FK Better Auth `user`), role (candidate/employer), display_name, email, email_notifications |
+| `candidates` | composite_score, percentile_rank, years_exp_claimed (auto-synced from postings, see below), desired_salary_*, location, is_visible, is_founder_verified, date_of_birth, sex, languages, citizenship (biodata, edited in `/candidate/settings`) |
+| `employers` | company_name, company_size, industry, website, headquarters, description, reputation_score, verified, subscription_tier, subscription_status, subscription_period_end (company profile edited in `/employer/settings`, not at sign-up) |
+| `salary_data_points` | vertical, role_label, years_exp, location, monthly_salary (cents), source, match_id |
+| `matches` | employer_id, candidate_id, posting_id, status, offered_salary, expires_at (72hr), offer_status, offer_salary, offer_sent_at, hired_at, last_message_at, candidate_last_read_at, employer_last_read_at |
 | `match_ticker_events` | vertical, salary_band, role_label (anonymised, public) |
 | `reputation_events` | subject_id, event_type (ghosted/responded/completed_match), weight |
 | `score_history` | candidate_id, composite_score, recorded_at (sparkline data) |
-| `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, notice_period_days |
+| `candidate_job_postings` | candidate_id, title, location, work_modes, desired_salary_*, skills, available_from, years_exp (per-role experience), work_eligible (right-to-work confirmation when citizenship differs from the posting location; null when N/A) (notice_period_days is legacy/unused) |
 | `candidate_portfolio_projects` | candidate_id, title, description, link_url, file_path, file_name, skills |
 | `employer_job_postings` | employer_id, title, description, vertical, years_exp_*, location, work_modes, salary_*, skills, max_candidates (default 5), status |
-| `match_messages` | match_id, sender_id, body, created_at — chat for `accepted` matches only |
+| `match_messages` | match_id, sender_id, body, message_type (text/offer/offer_accepted/offer_declined/file), file_path, file_name, file_size, created_at — chat for `accepted` matches only |
+| `portfolio_feedback` | match_id (unique), employer_id, candidate_id, rating (1-5), created_at — employer's rating of "did the portfolio accurately reflect this candidate's ability", one per match |
+
+> **Candidate profile vs postings:** the `/candidate/settings` PROFILE tab is **biodata only** (display name + `candidates.date_of_birth`/`sex`/`languages`/`citizenship`) — stable attributes that don't vary per role. Role-specific fields (title, **`years_exp`**, location, work modes, salary) live on `candidate_job_postings`. `candidates.years_exp_claimed` is **not user-editable**; it is auto-synced to the candidate's highest posted `years_exp` by `syncCandidateExperience()` (`src/lib/postings/syncCandidateExperience.ts`) on every `POST`/`PATCH`/`DELETE` of `/api/postings`, so the salary regression, dashboard salary curve, `recommendation-scorer`, and match-sourced `salary_data_points` keep reading one canonical value. `candidates.location`/`remote_only` are likewise legacy profile fields no longer edited there (the dashboard derives location/salary/remote from postings). `profiles.vertical` is no longer set via the profile; the candidate's vertical is derived from posting titles via `JOB_ROLES` where needed (e.g. the dashboard in-demand-skills gap).
+
+> **Country selects + work eligibility:** all country/territory fields (candidate citizenship, candidate + employer posting `location`, employer `headquarters`) are `<select>`s populated from `COUNTRIES` (`src/lib/utils/constants.ts`). On the candidate posting form, when the candidate's `citizenship` differs from the posting `location`, a "right to work" checkbox appears and its value is stored in `candidate_job_postings.work_eligible` (left null when citizenship matches the location or is unset).
 
 > **Legacy/unused:** `challenges`, `questions`, `challenge_results` — the old skill-challenge system, replaced by `candidate_portfolio_projects`. Tables and RLS policies remain in the DB (not dropped, reversible) but are no longer referenced by any route or Edge Function.
 
 ### Storage
-- `portfolio-files` bucket (private, 10MB limit) — candidate portfolio project uploads, stored at `${candidateId}/${projectId}/${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/portfolio/[projectId]/file`.
+- `portfolio-files` bucket (private, 10MB limit) — candidate portfolio project uploads, stored at `${candidateId}/${projectId}/${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/portfolio/[projectId]/file`. `candidate_portfolio_projects.file_path` is never selected by client-facing queries (`/candidate/portfolio*` pages, `GET /api/portfolio*`) — only `file_name` (for display) is, so the raw storage path never reaches the browser outside the signed-url route.
+- `match-files` bucket (private, 10MB limit) — chat file attachments for accepted matches, stored at `${matchId}/${messageId}-${fileName}`. Accessed only via service-client `createSignedUrl()` (60s expiry) from `/api/matches/[matchId]/messages/[messageId]/file`.
 
 ### DB triggers
 - `profile_create_role_row` — after INSERT on `profiles`, auto-creates `candidates` or `employers` row
@@ -168,15 +190,16 @@ Serve locally: `npx supabase functions serve`
 Triggered via `triggerRecommendationScorer()` (`src/lib/scoring/recommendation-scorer.ts`) after any create/update/delete on `/api/portfolio*`. Computes `composite_score` (0-100) from weighted signals:
 - portfolio_breadth (0.20) — `min(project_count / 5, 1)`
 - portfolio_skill_coverage (0.25) — `min(distinct_skills / 10, 1)`
-- portfolio_completeness (0.20) — avg per-project: +0.5 if `file_path` or `link_url` set, +0.5 if `skills` non-empty
-- reputation_score (0.20), response_rate (0.10), profile_completeness (0.05)
+- portfolio_completeness (0.10) — avg per-project: +0.5 if `file_path` or `link_url` set, +0.5 if `skills` non-empty
+- portfolio_feedback (0.10) — avg `portfolio_feedback.rating` (1-5) across the candidate's matches, normalised to 0-1 via `(avg - 1) / 4`; defaults to a neutral 0.5 until an employer has rated the candidate
+- reputation_score (0.20), response_rate (0.10), profile_completeness (0.05) — `years_exp_claimed` set + the candidate has ≥1 `candidate_job_postings` row (location/salary/work-mode live on postings, not the profile)
 
 Updates `candidates.composite_score` + `percentile_rank`. Inserts `score_history` row.
 
-### `salary-regression` (POST `{vertical, years_exp, location?, remote?, role?}`)
-Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno math). If `role` is given, filters by `salary_data_points.role_label` first and falls back to the vertical-level dataset if fewer than 3 role-specific points exist. Returns:
-`{ curve: [{years_exp, predicted_salary, ci_lower, ci_upper}], candidate_percentile, median_at_exp }`
-All salary figures (`predicted_salary`, `ci_lower`/`ci_upper`, `median_at_exp`) are MONTHLY HKD in cents.
+### `salary-regression` (POST `{years_exp, vertical?, location?, remote?, role?}`)
+Queries `salary_data_points`, fits degree-2 polynomial regression (pure Deno math). Cascades from most to least specific until ≥3 points are found: role(+location) → vertical(+location) → overall market(+location), dropping the location filter within each level first. Queries are `.order("id").limit(1000)` (uuid order ≈ random) so the cap stays an unbiased sample. Returns:
+`{ curve: [{years_exp, predicted_salary, ci_lower, ci_upper}], points: [{years_exp, monthly_salary}], std_dev, candidate_percentile, median_at_exp }`
+`points` is the actual observation set behind the fit (stride-sampled to ≤200); `std_dev` is the residual standard deviation. All salary figures are MONTHLY HKD in cents.
 
 Called via `/api/salary` proxy route.
 
@@ -184,50 +207,65 @@ Called via `/api/salary` proxy route.
 Triggered by `GET /api/employer-postings/[postingId]/candidates`. Ranks every visible `candidate_job_postings` row against the given `employer_job_postings` row across 6 weighted factors:
 - skills overlap (0.35), experience-range fit (0.20), salary-range overlap (0.15), location/work-mode fit (0.10), vertical match (0.10), candidate `composite_score` (0.10)
 
-Returns the top 25 as `{ matches: [{candidate_id, candidate_posting_id, match_score (0-100), ...}] }`. The Route Handler adds `pitchedCandidateIds` and `capacity: { max, active }` (active = `pending`/`accepted` matches on that posting).
+If the employer posting's `work_modes` includes `remote`, the location factor is scored 1 for everyone (location is irrelevant for remote roles). Each match also gets `match_percentile` (0-100): the share of *all* evaluated visible candidates it out-scores for this posting, computed before truncation. Returns the top 25 sorted by `match_score` desc as `{ matches: [{candidate_id, candidate_posting_id, match_score (0-100), match_percentile, ...}] }`. The Route Handler adds `pitchedCandidateIds` and `capacity: { max, active }` (active = `pending`/`accepted` matches on that posting).
 
 ---
 
 ## Realtime Subscriptions
 | Component | Table | Event | Purpose |
 |---|---|---|---|
-| `DashboardClient` | `candidates` | UPDATE (own row) | Live score updates |
-| `FeedClient` | `candidates` | UPDATE (all visible) | Reorder feed when scores change |
 | `MatchTickerTape` | `match_ticker_events` | INSERT | Live anonymous match stream |
 | `PublicTickerPage` | `match_ticker_events` | INSERT | Public marketing ticker |
 
-> **Known limitation:** `DashboardClient`'s and `FeedClient`'s `candidates` channels subscribe via the anon-key browser client, so Supabase Realtime evaluates the same `auth.uid()`-dependent RLS policies (`candidates_select_own` / `candidates_employer_read`) — both always evaluate false, so these two channels never deliver `postgres_changes` events. `MatchTickerTape`/`PublicTickerPage` are unaffected (`match_ticker_events` has a public-read policy with no `auth.uid()` dependency). Initial page loads for `/dashboard` and `/employer/feed` are correct (service client); only the *live* reorder/score-update behavior is silently inert. Fixing this requires either a broader public RLS policy or replacing these channels with polling against a Route Handler — not yet decided.
+> `match_ticker_events` has a public-read RLS policy with no `auth.uid()` dependency, so these channels deliver `postgres_changes` events correctly via the anon-key browser client.
+
+### Polling (live score updates)
+Better Auth issues its own `better-auth.session_token` cookie, never a Supabase Auth JWT, so `auth.uid()` is always NULL for Supabase Realtime connections made via the anon-key browser client. RLS policies like `candidates_select_own` / `candidates_employer_read` (which depend on `auth.uid()`) silently evaluate false for Realtime, so a `postgres_changes` subscription on `candidates` never delivers events. `DashboardClient` and `FeedClient` instead poll a service-client-backed Route Handler every 15 seconds, the same pattern `MatchChat` uses for its 5 second message poll (see Chat & Hire Offers below):
+- `DashboardClient` polls `GET /api/candidates/me/score` for its own `composite_score` / `percentile_rank` / `score_history`.
+- `FeedClient` polls `GET /api/candidates/feed` (employer-only) and re-sorts the visible candidate list by `composite_score`.
 
 ---
 
 ## Email (src/lib/email/send.ts)
-- `sendPitchNotification()` — employer sends pitch, candidate notified
-- `sendMatchAcceptedNotification()` — candidate accepts, employer notified
+- `sendPitchNotification()` — employer sends pitch, candidate notified (**activity** email — gated on the recipient's `profiles.email_notifications`)
+- `sendMatchAcceptedNotification()` — candidate accepts, employer notified (**activity** email — gated on the recipient's `profiles.email_notifications`)
 - `sendWelcomeEmail()` — on registration
+- `sendVerificationEmail()` — employer email verification (transactional, always sent)
+- `sendEmailChangeVerification()` — change-email approval link (transactional, always sent)
+
+**Activity vs transactional:** activity emails (pitch + match-accepted) are suppressed when the recipient's `profiles.email_notifications` is `false`, gated at the call sites in `POST /api/matches`, `POST /api/matches/[matchId]/respond`, and `POST /api/admin/matches` (check `email_notifications !== false`). Toggled in the Settings → NOTIFICATIONS tab via `GET|PATCH /api/profile/notifications` (`profiles`-only, both roles). Transactional emails (welcome, verification, password/email-change) always send.
 
 ---
 
 ## Anti-Ghosting System
-- Matches expire after 72 hours (`expires_at` default)
-- Accept/decline inserts `reputation_events` row (`event_type: 'responded'`)
-- `GET|POST /api/cron/expire-matches` finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
-- `recommendation-scorer` reads `reputation_events` to adjust reputation signal in composite score
+Two independent timeout rules, both enforced by `GET|POST /api/cron/expire-matches` (`run()` → `{ expired, ghosted_chats }`). Scheduled hourly via `vercel.json` (`0 * * * *`). If `CRON_SECRET` is set, the route requires `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron sends this automatically).
+
+- **Pending pitches** (`expirePendingPitches()`): matches expire after 72 hours (`expires_at` default). Accept/decline inserts a `reputation_events` row (`event_type: 'responded'`). Finds `pending` matches where `expires_at < now()`, sets `status: 'ghosted'`, and inserts a `reputation_events` row per match (`subject_id: candidate_id`, `actor_id: employer_id`, `event_type: 'ghosted'`, `weight: -15`).
+- **Silent chats** (`expireSilentChats()`): an `accepted` match that hasn't reached a hire (`hired_at IS NULL`) is auto-ghosted if neither party sends a `match_messages` row within `CHAT_GHOST_HOURS` (72, `src/lib/utils/constants.ts`) of the last activity — `last_message_at` if a message has been sent, otherwise `responded_at`. The silent party is whoever did **not** send the most recent message (defaults to the employer if no messages were ever sent, since the employer is expected to open the chat). Sets `status: 'ghosted'` and inserts a `reputation_events` row (`event_type: 'ghosted'`, `weight: -15`) against the silent party.
+- `recommendation-scorer` reads `reputation_events` to adjust the reputation signal in composite score
 
 ---
 
 ## Salary Data Flow
 All salary signals — the ticker, the regression curve, and real outcomes — share one underlying dataset (`salary_data_points`), so the market reference stays grounded in the same numbers shown to users:
-- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (42 roles across the 5 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role. Per migration `0016_real_salary_benchmarks.sql`, each role's seed curve is calibrated to real published HK benchmarks (Morgan McKinley HK Salary Guide 2026, JobsDB employer-disclosed ranges, PayScale/Glassdoor 2026, and the C&SD 2025 Annual Earnings and Hours Survey) — entry and 10-year points per role anchor a `base + growth * yrs^0.85` curve with ±10% noise; full citations are in the migration header.
-- The TITLE / JOB ROLE field on `/candidate/postings/[postingId]` (`JobPostingForm.tsx`) is a searchable combobox (`src/components/ui/Combobox.tsx`) populated from `JOB_ROLES`, grouped by vertical. Selecting (or typing) a role is sent to `/api/salary` as `role`, driving the `SalaryScatter` regression below it.
-- `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), and `salary_band` as a ±5% band around `matches.offered_salary` via `formatSalaryBand()`.
-- The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see.
+- `salary_data_points` rows seeded with `source: 'seed'` drive the initial `salary-regression` curve and `candidate_percentile`/`median_at_exp` shown on `/candidate/dashboard` and the job posting MARKET DATA panel. Seed rows are tagged with both `vertical` and `role_label` (97 roles across the 13 verticals, see `JOB_ROLES` in `src/lib/utils/constants.ts`) so the regression can be filtered per-role. Per migrations `0016_real_salary_benchmarks.sql` (original 5 verticals) and `0018_new_vertical_salary_data.sql` (8 white-collar verticals added by `0017_expand_verticals.sql`: legal, healthcare, education, sales, hr, consulting, property, media), each role's seed curve is calibrated to real published HK benchmarks (Morgan McKinley HK Salary Guide 2026, JobsDB employer-disclosed ranges, PayScale/Glassdoor/ERI/Indeed 2025-26, and the C&SD 2025 Annual Earnings and Hours Survey) — entry and 10-year points per role anchor a `base + growth * yrs^0.85` curve with ±10% noise; full citations are in the migration headers.
+- The POSITION panel on `/candidate/postings/[postingId]` (`JobPostingForm.tsx`) has an INDUSTRY select (13 verticals + "ALL INDUSTRIES" default) above a ROLE searchable combobox (`src/components/ui/Combobox.tsx`) populated from `JOB_ROLES` (filtered to the chosen industry, grouped by vertical). The pair drives a market-data cascade sent to `/api/salary`: no industry → overall market regression; industry chosen → that vertical's regression; role chosen → that role's regression. The industry choice also filters the SKILLS panel to that vertical's skills. Changing industry clears the role if it belongs to a different industry's role list. Skills are picked via `SkillPicker` (`src/components/ui/SkillPicker.tsx`: industry-suggested badges + a SEARCH ALL SKILLS input across the full ~413-skill bank), capped at `MAX_POSTING_SKILLS` (10) per posting — enforced in the picker and in all four posting API routes. The employer posting form and the portfolio project form use the same picker (the portfolio form is search-only, uncapped).
+- `POST /api/matches/[matchId]/respond` (`action: "accept"`) derives a `match_ticker_events` row from the *real* match: `vertical`/`role_label` from the linked `employer_job_postings` row (falls back to `tech`/`ENGINEER` if the pitch wasn't sent from a posting), `salary` = the accepted `matches.offered_salary`, and `delta_pct` = % the accepted salary sits above/below the `salary-regression` median for that role & the candidate's experience (best-effort internal call; null if unavailable). The tape and `/ticker` page render `ROLE · HKD xK · ▲ +x.x%` (green above median, red ▼ below); rows without `delta_pct` fall back to `salary_band`/`▲ MATCH`.
+- The same accepted offer is also inserted into `salary_data_points` with `source: 'match'` (`match_id` links back to the originating match, `role_label` from the employer posting's title, `years_exp`/`location`/`remote` from the candidate's profile and posting work modes, `monthly_salary: offered_salary`) — so every completed match incrementally improves the regression curve that future candidates and employers see. `salary_data_points.match_id` has a partial unique index (`migration 0027_salary_data_points_match_id.sql`), so a retry/race on accept can't insert a second point for the same match (insert hits `23505`, which the route ignores). On success, the route emits a `salary_datapoint_created` event via `captureServerEvent()` (`src/lib/analytics/server.ts` — structured `console.log` plus a best-effort POST to PostHog's capture endpoint if `NEXT_PUBLIC_POSTHOG_KEY` is set) for tracking data-moat growth; `/admin/concierge` surfaces a live count of `source: 'match'` rows. `salary-regression` returns `source` per point and fetches match-sourced rows in a separate uncapped-in-practice query (limit 500) alongside the 1000-row seed sample, so real outcomes always contribute to the fit and are never stride-sampled away; `SalaryScatter` renders `source: 'match'` observations as larger terminal-green dots (REAL MATCHES legend entry) so real outcomes stand out from seed data. Matches accepted before this feedback loop shipped were backfilled by migration `0021_backfill_match_salary_points.sql` (only those with `offered_salary` + candidate `years_exp_claimed` — a regression point needs an x-coordinate).
 
 ---
 
-## Chat (Accepted Matches)
-- `match_messages` (match_id, sender_id, body, created_at) — RLS: participants of the match can read; insert requires `sender_id = auth.uid()` and `matches.status = 'accepted'`
-- `GET|POST /api/matches/[matchId]/messages` — service client, scoped to the match's `employer_id`/`candidate_id`; POST rejected (409) unless the match is `accepted`
-- `MatchChat` (`src/components/terminal/MatchChat.tsx`) — polling-based (5s interval; no Realtime, per the known `auth.uid()` RLS limitation above), rendered inside accepted-match cards on `/candidate/matches` and `/employer/matches`
+## Chat & Hire Offers (Accepted Matches)
+- `match_messages` (match_id, sender_id, body, message_type, file_path, file_name, file_size, created_at) — RLS: participants of the match can read; insert requires `sender_id = auth.uid()` and `matches.status = 'accepted'`. `message_type`: `text` (default) | `offer` | `offer_accepted` | `offer_declined` | `file` — for the offer types, `body` is `JSON.stringify({ offered_salary })`, read back via `parseOfferSalary()`; for `file`, `body` is the original filename and `file_path`/`file_name`/`file_size` describe the `match-files` upload.
+- `GET|POST /api/matches/[matchId]/messages` — service client, scoped to the match's `employer_id`/`candidate_id`; POST rejected (409) unless the match is `accepted`. A `multipart/form-data` POST (`file` field) uploads to the `match-files` bucket and inserts a `message_type: 'file'` row (client-validated against `MAX_CHAT_FILE_SIZE_MB`); a JSON POST inserts a `text` message as before. Both paths stamp `matches.last_message_at = now()` (drives the silent-chat rule above) and the sender's own `candidate_last_read_at`/`employer_last_read_at` via `readColumnFor()` (`src/lib/utils/matchReads.ts`), so senders never see their own activity as unread. GET returns `{ messages, currentUserId, match }`, where `match` includes `status, offer_status, offer_salary, offer_sent_at, hired_at, last_message_at`.
+- `GET /api/matches/[matchId]/messages/[messageId]/file` — participant-scoped; resolves `match_messages.file_path` to a `match-files` signed URL (60s expiry) and redirects, mirroring `/api/portfolio/[projectId]/file`.
+- `POST /api/matches/[matchId]/offer` — hire-offer state machine on `matches.offer_status` (`null → 'pending' → 'accepted' | 'declined'`); each action also stamps the acting user's own read column via `readColumnFor()`:
+  - `action: "send"` (employer; match `accepted`, no offer pending, not yet hired) — sets `offer_status: 'pending'`, `offer_salary`, `offer_sent_at`; inserts a `message_type: 'offer'` message
+  - `action: "accept"` (candidate; `offer_status: 'pending'`) — sets `offer_status: 'accepted'`, `hired_at: now()`; inserts a `message_type: 'offer_accepted'` message; inserts a `reputation_events` row for **each** party (`event_type: 'completed_match'`, `weight: 10`)
+  - `action: "decline"` (candidate; `offer_status: 'pending'`) — sets `offer_status: 'declined'`; inserts a `message_type: 'offer_declined'` message
+- `MatchChat` (`src/components/terminal/MatchChat.tsx`) — polling-based (5s interval; no Realtime, per the known `auth.uid()` RLS limitation above), rendered inside a second `.slideover-panel` (titled `CHAT`) on `/candidate/matches` and `/employer/matches`, alongside the existing `PITCH DETAIL` slide-over. Header strip shows the counterpart's name + score/percentile (employer's view of a candidate) or reputation (candidate's view of an employer), plus the pitch's `offered_salary`. Renders `offer`/`offer_accepted`/`offer_declined` messages as centered system cards and `file` messages as a bordered row with filename, `formatFileSize(file_size)`, and a `DOWNLOAD →` link to the file route above; a `+` button opens a file picker to send attachments. Shows the employer a "SEND HIRE OFFER" action when eligible. The candidate's accept/decline is a **multi-layer confirm** (an initial review step, then a final step gated behind a required confirmation checkbox) so an offer can't be accepted or declined with a single accidental tap. Non-`accepted` matches render a "CHAT CLOSED" state; a persistent footer reminds both parties of the `CHAT_GHOST_HOURS` reputation penalty for silence.
+- **Chat slide-over & unread tracking**: `/candidate/matches` and `/employer/matches` show a pulsing `.live-dot` on rows with unread activity — `last_message_at` (or `created_at` if no messages) newer than the viewer's `candidate_last_read_at`/`employer_last_read_at` (candidate side treats `NULL` as unread, since `employer_last_read_at` defaults to `now()` at insert but `candidate_last_read_at` starts `NULL`). Both slide-overs share the same `.slideover-panel` position (`right: 0`): `selectedId` state drives `PITCH DETAIL` (opened via row click → `openRow`) and `chatMatchId` state drives `CHAT` (opened via the row's `CHAT →` button or the `PITCH DETAIL` slide-over's `OPEN CHAT →` button → `openChat`, accepted matches only) — each opener clears the other's state so only one slide-over is visible at a time. Both `openRow` and `openChat` call `markRead()`, which stamps the viewer's read column via `POST /api/matches/[matchId]/read` and optimistically mirrors it client-side, clearing the unread dot immediately.
+- **Portfolio accuracy feedback**: `GET|POST /api/matches/[matchId]/portfolio-feedback` — service client, scoped to the match. `POST` (employer only, match `accepted`) inserts a `portfolio_feedback` row (`rating` 1-5, "did the portfolio accurately reflect this candidate's ability"); 409 if the match isn't `accepted` or feedback was already submitted for it (`match_id` is unique, insert hits `23505`). `GET` (either participant) returns `{ feedback: { rating, created_at } | null }`. `MatchChat` shows the employer a rating prompt (1-5 buttons) below the header once the match is `accepted`, replaced by "PORTFOLIO RATING SUBMITTED · n/5" after submission. `recommendation-scorer` aggregates these per candidate as the `portfolio_feedback` signal above.
 
 ---
 

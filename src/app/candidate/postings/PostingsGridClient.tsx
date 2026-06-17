@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { WORK_MODES, NOTICE_PERIODS } from "@/lib/utils/constants";
+import { WORK_MODES } from "@/lib/utils/constants";
 import { formatSalaryBand } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -31,23 +31,30 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
     setDeleteTarget(null);
   }
 
+  const now = new Date();
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {postings.map((posting) => {
-          const noticeLabel = NOTICE_PERIODS.find((n) => n.value === posting.notice_period_days)?.label;
+          const availableLabel = posting.available_from
+            ? posting.available_from <= todayISO
+              ? "IMMEDIATELY"
+              : `FROM ${posting.available_from}`
+            : null;
           const visibleSkills = posting.skills.slice(0, 3);
           const extraSkills = posting.skills.length - visibleSkills.length;
 
           return (
-            <div key={posting.id} className="panel flex min-h-[200px] flex-col gap-3 p-4">
+            <div key={posting.id} className="panel flex min-h-[220px] flex-col gap-3 p-4">
               <div>
                 <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                   {posting.title}
                 </p>
                 <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
                   {posting.location ?? "LOCATION NOT SET"}
-                  {noticeLabel ? ` · ${noticeLabel}` : ""}
+                  {availableLabel ? ` · ${availableLabel}` : ""}
                 </p>
               </div>
 
@@ -97,7 +104,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
         {postings.length < MAX_POSTINGS && (
           <Link
             href="/candidate/postings/new"
-            className="flex min-h-[200px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+            className="flex min-h-[220px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
             style={{
               border: "1px dashed var(--border-strong)",
               borderRadius: "var(--r-lg)",

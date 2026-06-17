@@ -5,9 +5,26 @@
 export type UserRole = "candidate" | "employer";
 export type ChallengeType = "multiple_choice" | "coding" | "written";
 export type MatchStatus = "pending" | "accepted" | "declined" | "expired" | "ghosted";
-export type Vertical = "tech" | "finance" | "marketing" | "design" | "ops";
+export type Vertical =
+  | "tech"
+  | "finance"
+  | "marketing"
+  | "design"
+  | "ops"
+  | "legal"
+  | "healthcare"
+  | "education"
+  | "sales"
+  | "hr"
+  | "consulting"
+  | "property"
+  | "media";
 export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
+export type OfferStatus = "pending" | "accepted" | "declined";
+export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "file";
+export type SubscriptionTier = "none" | "starter" | "pro";
+export type SubscriptionStatus = "active" | "past_due" | "canceled";
 
 type Relationship = {
   foreignKeyName: string;
@@ -28,6 +45,7 @@ export interface Database {
           email: string;
           vertical: Vertical | null;
           avatar_url: string | null;
+          email_notifications: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -38,6 +56,7 @@ export interface Database {
           email: string;
           vertical?: Vertical | null;
           avatar_url?: string | null;
+          email_notifications?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -45,6 +64,8 @@ export interface Database {
           display_name?: string;
           vertical?: Vertical | null;
           avatar_url?: string | null;
+          email_notifications?: boolean;
+          email?: string;
           updated_at?: string;
         };
         Relationships: Relationship[];
@@ -62,6 +83,11 @@ export interface Database {
           is_visible: boolean;
           reputation_score: number;
           last_active_at: string;
+          is_founder_verified: boolean;
+          date_of_birth: string | null;
+          sex: string | null;
+          languages: string[];
+          citizenship: string | null;
         };
         Insert: {
           id: string;
@@ -75,6 +101,11 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
+          is_founder_verified?: boolean;
+          date_of_birth?: string | null;
+          sex?: string | null;
+          languages?: string[];
+          citizenship?: string | null;
         };
         Update: {
           composite_score?: number;
@@ -87,6 +118,11 @@ export interface Database {
           is_visible?: boolean;
           reputation_score?: number;
           last_active_at?: string;
+          date_of_birth?: string | null;
+          sex?: string | null;
+          languages?: string[];
+          citizenship?: string | null;
+          is_founder_verified?: boolean;
         };
         Relationships: Relationship[];
       };
@@ -97,9 +133,13 @@ export interface Database {
           company_size: string | null;
           industry: string | null;
           website: string | null;
-          credits: number;
+          headquarters: string | null;
+          description: string | null;
           verified: boolean;
           reputation_score: number;
+          subscription_tier: SubscriptionTier;
+          subscription_status: SubscriptionStatus;
+          subscription_period_end: string | null;
         };
         Insert: {
           id: string;
@@ -107,17 +147,25 @@ export interface Database {
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
-          credits?: number;
+          headquarters?: string | null;
+          description?: string | null;
           verified?: boolean;
           reputation_score?: number;
+          subscription_tier?: SubscriptionTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_period_end?: string | null;
         };
         Update: {
           company_name?: string;
           company_size?: string | null;
           industry?: string | null;
           website?: string | null;
-          credits?: number;
+          headquarters?: string | null;
+          description?: string | null;
           reputation_score?: number;
+          subscription_tier?: SubscriptionTier;
+          subscription_status?: SubscriptionStatus;
+          subscription_period_end?: string | null;
         };
         Relationships: Relationship[];
       };
@@ -218,6 +266,7 @@ export interface Database {
           remote: boolean;
           monthly_salary: number;
           source: string;
+          match_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -229,6 +278,7 @@ export interface Database {
           remote?: boolean;
           monthly_salary: number;
           source?: string;
+          match_id?: string | null;
           created_at?: string;
         };
         Update: Record<string, never>;
@@ -246,6 +296,13 @@ export interface Database {
           responded_at: string | null;
           expires_at: string;
           created_at: string;
+          offer_status: OfferStatus | null;
+          offer_salary: number | null;
+          offer_sent_at: string | null;
+          hired_at: string | null;
+          last_message_at: string | null;
+          candidate_last_read_at: string | null;
+          employer_last_read_at: string;
         };
         Insert: {
           id?: string;
@@ -258,10 +315,24 @@ export interface Database {
           responded_at?: string | null;
           expires_at?: string;
           created_at?: string;
+          offer_status?: OfferStatus | null;
+          offer_salary?: number | null;
+          offer_sent_at?: string | null;
+          hired_at?: string | null;
+          last_message_at?: string | null;
+          candidate_last_read_at?: string | null;
+          employer_last_read_at?: string;
         };
         Update: {
           status?: MatchStatus;
           responded_at?: string | null;
+          offer_status?: OfferStatus | null;
+          offer_salary?: number | null;
+          offer_sent_at?: string | null;
+          hired_at?: string | null;
+          last_message_at?: string | null;
+          candidate_last_read_at?: string | null;
+          employer_last_read_at?: string;
         };
         Relationships: Relationship[];
       };
@@ -271,6 +342,8 @@ export interface Database {
           vertical: Vertical;
           salary_band: string | null;
           role_label: string | null;
+          salary: number | null;
+          delta_pct: number | null;
           match_type: string;
           created_at: string;
         };
@@ -279,6 +352,8 @@ export interface Database {
           vertical: Vertical;
           salary_band?: string | null;
           role_label?: string | null;
+          salary?: number | null;
+          delta_pct?: number | null;
           match_type?: string;
           created_at?: string;
         };
@@ -334,6 +409,9 @@ export interface Database {
           desired_salary_max: number | null;
           skills: string[];
           notice_period_days: number | null;
+          available_from: string | null;
+          years_exp: number | null;
+          work_eligible: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -347,6 +425,9 @@ export interface Database {
           desired_salary_max?: number | null;
           skills?: string[];
           notice_period_days?: number | null;
+          available_from?: string | null;
+          years_exp?: number | null;
+          work_eligible?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -358,6 +439,9 @@ export interface Database {
           desired_salary_max?: number | null;
           skills?: string[];
           notice_period_days?: number | null;
+          available_from?: string | null;
+          years_exp?: number | null;
+          work_eligible?: boolean | null;
           updated_at?: string;
         };
         Relationships: Relationship[];
@@ -458,6 +542,10 @@ export interface Database {
           match_id: string;
           sender_id: string;
           body: string;
+          message_type: MessageType;
+          file_path: string | null;
+          file_name: string | null;
+          file_size: number | null;
           created_at: string;
         };
         Insert: {
@@ -465,6 +553,34 @@ export interface Database {
           match_id: string;
           sender_id: string;
           body: string;
+          message_type?: MessageType;
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          file_path?: string | null;
+          file_name?: string | null;
+          file_size?: number | null;
+        };
+        Relationships: Relationship[];
+      };
+      portfolio_feedback: {
+        Row: {
+          id: string;
+          match_id: string;
+          employer_id: string;
+          candidate_id: string;
+          rating: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          employer_id: string;
+          candidate_id: string;
+          rating: number;
           created_at?: string;
         };
         Update: Record<string, never>;

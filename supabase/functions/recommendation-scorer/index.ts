@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const WEIGHTS = {
   portfolio_breadth: 0.2,
   portfolio_skill_coverage: 0.25,
-  portfolio_completeness: 0.2,
+  portfolio_completeness: 0.1,
+  portfolio_feedback: 0.1,
   reputation_score: 0.2,
   response_rate: 0.1,
   profile_completeness: 0.05,
@@ -35,12 +36,20 @@ Deno.serve(async (req: Request) => {
     .select("skills, file_path, link_url")
     .eq("candidate_id", candidate_id);
 
-  // Fetch candidate profile for completeness check
+  // Fetch candidate profile for completeness check. Location / salary / work
+  // mode now live per-position on candidate_job_postings (set in the candidate's
+  // postings, not the profile), so completeness counts having a posting rather
+  // than profile-level salary/location fields.
   const { data: candidate } = await supabase
     .from("candidates")
-    .select("years_exp_claimed, location, desired_salary_min, desired_salary_max")
+    .select("years_exp_claimed")
     .eq("id", candidate_id)
     .single();
+
+  const { count: postingCount } = await supabase
+    .from("candidate_job_postings")
+    .select("id", { count: "exact", head: true })
+    .eq("candidate_id", candidate_id);
 
   // Fetch reputation events
   const { data: repEvents } = await supabase
@@ -55,6 +64,12 @@ Deno.serve(async (req: Request) => {
     .select("status, responded_at")
     .eq("candidate_id", candidate_id)
     .gte("created_at", thirtyDaysAgo);
+
+  // Fetch employer ratings of portfolio accuracy
+  const { data: feedbackRows } = await supabase
+    .from("portfolio_feedback")
+    .select("rating")
+    .eq("candidate_id", candidate_id);
 
   // --- Signal computations ---
 
@@ -106,17 +121,25 @@ Deno.serve(async (req: Request) => {
   // 6. profile_completeness (0-1)
   const profileFields = [
     candidate?.years_exp_claimed != null,
-    candidate?.location != null,
-    candidate?.desired_salary_min != null,
-    candidate?.desired_salary_max != null,
+    (postingCount ?? 0) > 0,
   ];
   const profileCompletenessScore = profileFields.filter(Boolean).length / profileFields.length;
+
+  // 7. portfolio_feedback (0-1): avg employer rating (1-5) of "did the
+  // portfolio accurately reflect this candidate's ability", normalised.
+  // Neutral 0.5 default until an employer has rated this candidate.
+  let portfolioFeedbackScore = 0.5;
+  if (feedbackRows && feedbackRows.length > 0) {
+    const avgRating = feedbackRows.reduce((sum, f) => sum + f.rating, 0) / feedbackRows.length;
+    portfolioFeedbackScore = (avgRating - 1) / 4;
+  }
 
   // Weighted composite score (0-100)
   const composite =
     (breadthScore * WEIGHTS.portfolio_breadth +
       skillCoverageScore * WEIGHTS.portfolio_skill_coverage +
       completenessScore * WEIGHTS.portfolio_completeness +
+      portfolioFeedbackScore * WEIGHTS.portfolio_feedback +
       reputationScore * WEIGHTS.reputation_score +
       responseRate * WEIGHTS.response_rate +
       profileCompletenessScore * WEIGHTS.profile_completeness) *
@@ -153,6 +176,7 @@ Deno.serve(async (req: Request) => {
     portfolio_breadth: breadthScore,
     portfolio_skill_coverage: skillCoverageScore,
     portfolio_completeness: completenessScore,
+    portfolio_feedback: portfolioFeedbackScore,
     reputation_score: reputationScore,
     response_rate: responseRate,
     profile_completeness: profileCompletenessScore,

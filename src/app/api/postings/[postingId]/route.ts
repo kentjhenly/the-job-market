@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
+import { syncCandidateExperience } from "@/lib/postings/syncCandidateExperience";
 
 export async function GET(
   request: NextRequest,
@@ -33,6 +35,13 @@ export async function PATCH(
 
   const { postingId } = await params;
   const body = await request.json();
+
+  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
+    return NextResponse.json(
+      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
+      { status: 400 }
+    );
+  }
   const supabase = getSupabaseServiceClient();
 
   const { error } = await supabase
@@ -44,12 +53,16 @@ export async function PATCH(
       desired_salary_min: body.desired_salary_min ?? null,
       desired_salary_max: body.desired_salary_max ?? null,
       skills: body.skills ?? [],
-      notice_period_days: body.notice_period_days ?? null,
+      available_from: body.available_from ?? null,
+      years_exp: body.years_exp ?? null,
+      work_eligible: body.work_eligible ?? null,
     })
     .eq("id", postingId)
     .eq("candidate_id", session.user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await syncCandidateExperience(supabase, session.user.id);
 
   return NextResponse.json({ ok: true });
 }
@@ -71,6 +84,8 @@ export async function DELETE(
     .eq("candidate_id", session.user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await syncCandidateExperience(supabase, session.user.id);
 
   return NextResponse.json({ ok: true });
 }

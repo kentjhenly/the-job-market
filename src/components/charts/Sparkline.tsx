@@ -44,8 +44,8 @@ export function Sparkline({ data, w = 320, h = 64, color, fill = true, className
         </linearGradient>
       </defs>
       {fill && <path d={area} fill={`url(#${gradientId})`} />}
-      <path d={line} fill="none" stroke={col} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={x(data.length - 1)} cy={y(data[data.length - 1])} r="2.6" fill={col} />
+      <path d={line} className="spark-line" pathLength="1" fill="none" stroke={col} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      <circle className="spark-dot" cx={x(data.length - 1)} cy={y(data[data.length - 1])} r="2.6" fill={col} />
     </svg>
   );
 }

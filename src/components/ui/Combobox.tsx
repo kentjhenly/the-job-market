@@ -15,9 +15,10 @@ interface ComboboxProps {
   placeholder?: string;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
-export function Combobox({ value, onChange, options, placeholder, className, required }: ComboboxProps) {
+export function Combobox({ value, onChange, options, placeholder, className, required, disabled }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -57,11 +58,13 @@ export function Combobox({ value, onChange, options, placeholder, className, req
           }
         }}
         placeholder={placeholder}
-        className="field"
+        className="field disabled:cursor-not-allowed disabled:opacity-50"
+        style={{ textTransform: "uppercase" }}
         autoComplete="off"
         required={required}
+        disabled={disabled}
       />
-      {open && filtered.length > 0 && (
+      {open && !disabled && filtered.length > 0 && (
         <div
           className="panel absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto"
           style={{ top: "100%" }}
@@ -82,7 +85,7 @@ export function Combobox({ value, onChange, options, placeholder, className, req
                     onClick={() => select(o)}
                     className="block w-full px-3 py-2 text-left transition-colors hover:bg-surface-2"
                   >
-                    <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
+                    <span className="mono" style={{ fontSize: 12, color: "var(--text)", textTransform: "uppercase" }}>
                       {o.value}
                     </span>
                   </button>

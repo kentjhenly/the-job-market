@@ -63,7 +63,6 @@ export default function CandidateSignUpPage() {
         <h1 className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--up)", letterSpacing: "0.04em" }}>
           CANDIDATE REGISTRATION
         </h1>
-        <p className="kicker mt-1">YOUR SKILL SCORE IS YOUR PROFILE</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,6 +105,14 @@ export default function CandidateSignUpPage() {
           {loading ? "REGISTERING..." : "CREATE CANDIDATE ACCOUNT"}
         </button>
       </form>
+
+      <div className="hr my-6" />
+      <p className="mono text-center" style={{ fontSize: 12, color: "var(--muted)" }}>
+        ALREADY HAVE AN ACCOUNT?{" "}
+        <Link href="/sign-in" className="link-up">
+          SIGN IN
+        </Link>
+      </p>
     </div>
   );
 }

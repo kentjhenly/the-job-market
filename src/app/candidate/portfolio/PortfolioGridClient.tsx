@@ -8,7 +8,16 @@ import { Modal } from "@/components/ui/Modal";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
-type PortfolioProject = Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"];
+type PortfolioProject = Omit<
+  Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"],
+  "file_path"
+>;
+
+const IMAGE_EXTS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"];
+
+function fileExt(name: string): string {
+  return name.split(".").pop()?.toLowerCase() ?? "";
+}
 
 function linkHostname(url: string): string {
   try {
@@ -16,6 +25,53 @@ function linkHostname(url: string): string {
   } catch {
     return url;
   }
+}
+
+function Thumbnail({ project }: { project: PortfolioProject }) {
+  const ext = project.file_name ? fileExt(project.file_name) : "";
+
+  if (IMAGE_EXTS.includes(ext)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- signed-URL redirect, not a static asset
+      <img
+        src={`/api/portfolio/${project.id}/file`}
+        alt={project.title}
+        className="h-24 w-full object-cover"
+        style={{ background: "var(--bg-deep)" }}
+      />
+    );
+  }
+
+  if (ext) {
+    return (
+      <div className="flex h-24 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
+        <span
+          className="mono"
+          style={{ fontSize: 17, fontWeight: 600, letterSpacing: "0.2em", color: "var(--muted)" }}
+        >
+          {ext.toUpperCase()}
+        </span>
+      </div>
+    );
+  }
+
+  if (project.link_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- external screenshot service
+      <img
+        src={`https://s.wordpress.com/mshots/v1/${encodeURIComponent(project.link_url)}?w=640`}
+        alt={project.title}
+        className="h-24 w-full object-cover"
+        style={{ background: "var(--bg-deep)" }}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-24 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
+      <span className="kicker">NO MEDIA</span>
+    </div>
+  );
 }
 
 export function PortfolioGridClient({ initialProjects }: { initialProjects: PortfolioProject[] }) {
@@ -38,62 +94,55 @@ export function PortfolioGridClient({ initialProjects }: { initialProjects: Port
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {projects.map((project) => {
           const visibleSkills = project.skills.slice(0, 3);
           const extraSkills = project.skills.length - visibleSkills.length;
 
           return (
-            <div key={project.id} className="panel flex flex-col gap-3 p-4">
-              <div>
-                <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
-                  {project.title}
-                </p>
-                {project.description && (
-                  <p
-                    className="mono mt-1"
-                    style={{
-                      fontSize: 11,
-                      color: "var(--muted)",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {project.description}
-                  </p>
-                )}
+            <div key={project.id} className="panel flex min-h-[220px] flex-col overflow-hidden">
+              <div style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                <Thumbnail project={project} />
               </div>
 
-              {(project.file_name || project.link_url) && (
-                <p className="mono" style={{ fontSize: 11, color: "var(--info)" }}>
-                  {project.file_name ? `📎 ${project.file_name}` : `🔗 ${linkHostname(project.link_url!)}`}
-                </p>
-              )}
-
-              {project.skills.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {visibleSkills.map((skill) => (
-                    <Badge key={skill} variant="outline">
-                      {skill}
-                    </Badge>
-                  ))}
-                  {extraSkills > 0 && <Badge variant="outline">+{extraSkills} MORE</Badge>}
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                <div>
+                  <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                    {project.title}
+                  </p>
+                  {(project.file_name || project.link_url) && (
+                    <p className="mono mt-1 truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
+                      {project.file_name ?? linkHostname(project.link_url!)}
+                    </p>
+                  )}
                 </div>
-              )}
 
-              <div className="mt-auto flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border-soft)" }}>
-                <Link href={`/candidate/portfolio/${project.id}`} className="link-up mono" style={{ fontSize: 11 }}>
-                  EDIT
-                </Link>
-                <button
-                  onClick={() => setDeleteTarget(project)}
-                  className="mono"
-                  style={{ fontSize: 11, color: "var(--down)" }}
+                {project.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {visibleSkills.map((skill) => (
+                      <Badge key={skill} variant="outline">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {extraSkills > 0 && <Badge variant="outline">+{extraSkills} MORE</Badge>}
+                  </div>
+                )}
+
+                <div
+                  className="mt-auto flex items-center justify-between pt-2"
+                  style={{ borderTop: "1px solid var(--border-soft)" }}
                 >
-                  DELETE
-                </button>
+                  <Link href={`/candidate/portfolio/${project.id}`} className="link-up mono" style={{ fontSize: 11 }}>
+                    EDIT
+                  </Link>
+                  <button
+                    onClick={() => setDeleteTarget(project)}
+                    className="mono"
+                    style={{ fontSize: 11, color: "var(--down)" }}
+                  >
+                    DELETE
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -102,11 +151,10 @@ export function PortfolioGridClient({ initialProjects }: { initialProjects: Port
         {projects.length < MAX_PORTFOLIO_PROJECTS && (
           <Link
             href="/candidate/portfolio/new"
-            className="flex flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+            className="flex min-h-[220px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
             style={{
               border: "1px dashed var(--border-strong)",
               borderRadius: "var(--r-lg)",
-              minHeight: 160,
             }}
           >
             <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>

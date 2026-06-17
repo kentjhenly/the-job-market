@@ -21,6 +21,11 @@ export function formatScore(score: number): string {
   return score.toFixed(1);
 }
 
+export function formatShortDate(date: Date | string): string {
+  const d = new Date(date);
+  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" }).toUpperCase();
+}
+
 export function formatRelativeTime(date: Date | string): string {
   const d = new Date(date);
   const diff = Date.now() - d.getTime();
@@ -38,4 +43,10 @@ export function formatTimeRemaining(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendMatchAcceptedNotification } from "@/lib/email/send";
-import { formatSalaryBand } from "@/lib/utils/formatters";
+import { captureServerEvent } from "@/lib/analytics/server";
 
 export async function POST(
   request: NextRequest,
@@ -79,39 +79,89 @@ export async function POST(
     ]);
 
     const vertical = posting?.vertical ?? "tech";
-    const salaryBand = match.offered_salary
-      ? formatSalaryBand(Math.round(match.offered_salary * 0.95), Math.round(match.offered_salary * 1.05))
-      : null;
+
+    // % the accepted salary sits above/below the regression median for this
+    // role & experience — best-effort, the ticker works without it
+    let deltaPct: number | null = null;
+    if (match.offered_salary) {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/salary-regression`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              vertical,
+              years_exp: candidate?.years_exp_claimed ?? 0,
+              location: candidate?.location ?? "Hong Kong",
+              role: posting?.title ?? undefined,
+            }),
+          }
+        );
+        const d = await res.json();
+        if (res.ok && typeof d.median_at_exp === "number" && d.median_at_exp > 0) {
+          deltaPct =
+            Math.round(((match.offered_salary - d.median_at_exp) / d.median_at_exp) * 1000) / 10;
+        }
+      } catch {
+        // ignore — delta stays null
+      }
+    }
 
     await supabase.from("match_ticker_events").insert({
       vertical,
       role_label: posting?.title ? posting.title.toUpperCase() : "ENGINEER",
-      salary_band: salaryBand,
+      salary: match.offered_salary ?? null,
+      delta_pct: deltaPct,
       match_type: "match",
     });
 
-    // Feed the accepted offer back into the salary regression dataset
+    // Feed the accepted offer back into the salary regression dataset.
+    // match_id has a partial unique index, so a retry/race on accept hits
+    // 23505 instead of inserting a second point for this match.
     if (match.offered_salary && candidate?.years_exp_claimed != null) {
-      await supabase.from("salary_data_points").insert({
-        vertical,
-        years_exp: candidate.years_exp_claimed,
-        location: candidate.location,
-        remote: posting ? posting.work_modes.includes("remote") : candidate.remote_only,
-        monthly_salary: match.offered_salary,
-        source: "match",
-      });
+      const { data: salaryPoint, error: salaryPointError } = await supabase
+        .from("salary_data_points")
+        .insert({
+          match_id: matchId,
+          vertical,
+          role_label: posting?.title ?? null,
+          years_exp: candidate.years_exp_claimed,
+          location: candidate.location,
+          remote: posting ? posting.work_modes.includes("remote") : candidate.remote_only,
+          monthly_salary: match.offered_salary,
+          source: "match",
+        })
+        .select("id")
+        .single();
+
+      if (salaryPoint) {
+        captureServerEvent("salary_datapoint_created", {
+          match_id: matchId,
+          salary_data_point_id: salaryPoint.id,
+          vertical,
+          role_label: posting?.title ?? null,
+          years_exp: candidate.years_exp_claimed,
+          monthly_salary: match.offered_salary,
+        });
+      } else if (salaryPointError && salaryPointError.code !== "23505") {
+        console.error("salary_data_points insert failed:", salaryPointError);
+      }
     }
 
     // Notify employer that the candidate accepted (best-effort, don't block the response)
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, email, display_name")
+      .select("id, email, display_name, email_notifications")
       .in("id", [match.employer_id, match.candidate_id]);
 
     const employerProfile = profiles?.find((p) => p.id === match.employer_id);
     const candidateProfile = profiles?.find((p) => p.id === match.candidate_id);
 
-    if (employerProfile && candidateProfile) {
+    if (employerProfile && candidateProfile && employerProfile.email_notifications !== false) {
       sendMatchAcceptedNotification({
         to: employerProfile.email,
         candidateName: candidateProfile.display_name,

@@ -21,6 +21,7 @@ interface MatchedCandidate {
   desired_salary_max: number | null;
   skills: string[];
   match_score: number;
+  match_percentile?: number;
 }
 
 interface CandidatesResponse {
@@ -157,7 +158,12 @@ export function MatchedCandidatesPanel({ postingId }: Props) {
                         {m.display_name ?? `CAND-${m.candidate_id.slice(0, 6).toUpperCase()}`}
                         <span style={{ color: "var(--muted)" }}> · {m.posting_title}</span>
                       </p>
-                      <Badge variant="gold">{m.match_score}% MATCH</Badge>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <Badge variant="gold">{m.match_score}% MATCH</Badge>
+                        {m.match_percentile != null && (
+                          <Badge variant="up">P{m.match_percentile}</Badge>
+                        )}
+                      </span>
                     </div>
 
                     <ScoreBar score={m.composite_score} />

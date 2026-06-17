@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { MAX_POSTING_SKILLS, FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 
 export async function GET() {
   const session = await getServerSession();
@@ -29,6 +30,46 @@ export async function POST(request: NextRequest) {
 
   const supabase = getSupabaseServiceClient();
   const body = await request.json();
+
+  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
+    return NextResponse.json(
+      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
+      { status: 400 }
+    );
+  }
+
+  const { data: employer, error: employerError } = await supabase
+    .from("employers")
+    .select("subscription_status")
+    .eq("id", session.user.id)
+    .single();
+
+  if (employerError || !employer) {
+    return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
+  }
+
+  // First FREE_JOB_POSTINGS postings are a free trial, regardless of
+  // subscription status. Beyond that, an active subscription is required for
+  // unlimited postings.
+  // TODO(stripe): subscription_status is manually-settable until billing is
+  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
+  // should keep employers.subscription_status/subscription_tier/
+  // subscription_period_end in sync going forward.
+  if (employer.subscription_status !== "active") {
+    const { count: postingCount } = await supabase
+      .from("employer_job_postings")
+      .select("id", { count: "exact", head: true })
+      .eq("employer_id", session.user.id);
+
+    if ((postingCount ?? 0) >= FREE_JOB_POSTINGS) {
+      return NextResponse.json(
+        {
+          error: `Free trial limit reached (${FREE_JOB_POSTINGS} job postings). An active subscription is required for unlimited postings.`,
+        },
+        { status: 402 }
+      );
+    }
+  }
 
   const { data, error } = await supabase
     .from("employer_job_postings")

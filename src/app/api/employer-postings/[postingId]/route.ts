@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
 
 export async function GET(
   request: NextRequest,
@@ -33,6 +34,13 @@ export async function PATCH(
 
   const { postingId } = await params;
   const body = await request.json();
+
+  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
+    return NextResponse.json(
+      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
+      { status: 400 }
+    );
+  }
   const supabase = getSupabaseServiceClient();
 
   const { error } = await supabase

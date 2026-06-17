@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface RegressionInput {
-  vertical: string;
+  vertical?: string;
   years_exp: number;
   location?: string;
   remote?: boolean;
@@ -106,38 +106,52 @@ Deno.serve(async (req: Request) => {
   const input: RegressionInput = await req.json();
   const { vertical, years_exp, location, remote, role } = input;
 
-  if (!vertical || years_exp == null) {
-    return new Response(JSON.stringify({ error: "vertical and years_exp required" }), {
+  if (years_exp == null) {
+    return new Response(JSON.stringify({ error: "years_exp required" }), {
       status: 400,
     });
   }
 
-  // Try progressively broader filters until enough points are found:
-  // role+location → role → vertical+location → vertical. The location
-  // filter is dropped before the role filter so a candidate outside the
-  // seeded market (all seed rows are 'Hong Kong') still gets a curve.
-  const attempts: { byRole: boolean; byLocation: boolean }[] = [];
-  if (role) {
-    if (location) attempts.push({ byRole: true, byLocation: true });
-    attempts.push({ byRole: true, byLocation: false });
+  // Cascade from most to least specific until enough points are found:
+  // role(+location) → vertical(+location) → overall market(+location).
+  // The location filter is dropped within each level before falling to
+  // the next, so a candidate outside the seeded market still gets a curve.
+  type Level = "role" | "vertical" | "all";
+  const attempts: { level: Level; byLocation: boolean }[] = [];
+  for (const level of ["role", "vertical", "all"] as Level[]) {
+    if (level === "role" && !role) continue;
+    if (level === "vertical" && !vertical) continue;
+    if (location) attempts.push({ level, byLocation: true });
+    attempts.push({ level, byLocation: false });
   }
-  if (location) attempts.push({ byRole: false, byLocation: true });
-  attempts.push({ byRole: false, byLocation: false });
 
-  let dataPoints: { years_exp: number; monthly_salary: number }[] | null = null;
+  let dataPoints: { years_exp: number; monthly_salary: number; source: string }[] | null = null;
 
   for (const attempt of attempts) {
-    let query = supabase
-      .from("salary_data_points")
-      .select("years_exp, monthly_salary");
+    const base = () => {
+      let query = supabase
+        .from("salary_data_points")
+        .select("years_exp, monthly_salary, source");
 
-    if (attempt.byRole) query = query.eq("role_label", role);
-    else query = query.eq("vertical", vertical);
-    if (attempt.byLocation) query = query.eq("location", location);
-    if (remote !== undefined) query = query.eq("remote", remote);
+      if (attempt.level === "role") query = query.eq("role_label", role);
+      if (attempt.level === "vertical") query = query.eq("vertical", vertical);
+      if (attempt.byLocation) query = query.eq("location", location);
+      if (remote !== undefined) query = query.eq("remote", remote);
+      return query;
+    };
 
-    const { data } = await query;
-    if (data && data.length >= 3) {
+    // Real match outcomes are rare and must always contribute to the fit,
+    // so they're fetched separately — the row cap below would otherwise
+    // sample most of them away once the seed dataset outgrows it.
+    const [{ data: matchData }, { data: seedData }] = await Promise.all([
+      base().eq("source", "match").order("id").limit(500),
+      // uuid PK order ≈ random order, so the row cap stays an unbiased
+      // sample when the dataset exceeds PostgREST's per-request limit
+      base().neq("source", "match").order("id").limit(1000),
+    ]);
+
+    const data = [...(seedData ?? []), ...(matchData ?? [])];
+    if (data.length >= 3) {
       dataPoints = data;
       break;
     }
@@ -180,9 +194,28 @@ Deno.serve(async (req: Request) => {
   const belowCount = nearby.filter((d) => d.monthly_salary < candidatePredicted).length;
   const candidatePercentile = nearbyCount > 0 ? (belowCount / nearbyCount) * 100 : 50;
 
+  // Return the actual observations behind the fit (stride-sampled so the
+  // vertical-level fallback dataset doesn't bloat the payload). Match
+  // outcomes are prioritized — included in full up to half the budget so
+  // they can never crowd the seed layer out of the scatter entirely (the
+  // regression fit above always uses every fetched row regardless).
+  const MAX_POINTS = 200;
+  const matchRaw = dataPoints.filter((d) => d.source === "match");
+  const otherRaw = dataPoints.filter((d) => d.source !== "match");
+  const matchBudget = Math.min(matchRaw.length, Math.floor(MAX_POINTS / 2)) || 1;
+  const matchStride = Math.max(1, Math.ceil(matchRaw.length / matchBudget));
+  const matchPoints = matchRaw.filter((_, i) => i % matchStride === 0);
+  const stride = Math.max(
+    1,
+    Math.ceil(otherRaw.length / Math.max(MAX_POINTS - matchPoints.length, 1))
+  );
+  const points = [...otherRaw.filter((_, i) => i % stride === 0), ...matchPoints];
+
   return new Response(
     JSON.stringify({
       curve,
+      points,
+      std_dev: Math.round(stdDev),
       candidate_percentile: Math.round(candidatePercentile),
       median_at_exp: Math.round(candidatePredicted),
     }),

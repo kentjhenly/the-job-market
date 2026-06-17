@@ -2,19 +2,24 @@ import Link from "next/link";
 import { Clock } from "./Clock";
 import { SignOutButton } from "./SignOutButton";
 
+type Stat = { label: string; value: string };
+
 interface TopBarProps {
   homeHref: string;
-  stat?: { label: string; value: string };
+  stat?: Stat | Stat[];
+  showSignOut?: boolean;
 }
 
-export function TopBar({ homeHref, stat }: TopBarProps) {
+export function TopBar({ homeHref, stat, showSignOut = true }: TopBarProps) {
+  const stats = stat ? (Array.isArray(stat) ? stat : [stat]) : [];
+
   return (
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-4">
       <div className="flex min-w-0 items-center gap-[18px]">
         <Link
           href={homeHref}
           className="mono shrink-0 whitespace-nowrap"
-          style={{ color: "var(--up)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}
+          style={{ color: "var(--gold)", fontSize: 13, letterSpacing: "0.16em", fontWeight: 700 }}
         >
           ◧ THE JOB MARKET
         </Link>
@@ -24,13 +29,13 @@ export function TopBar({ homeHref, stat }: TopBarProps) {
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-4">
-        {stat && (
-          <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-            {stat.label} <span style={{ color: "var(--up)", fontWeight: 600 }}>{stat.value}</span>
+        {stats.map((s) => (
+          <span key={s.label} className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+            {s.label} <span style={{ color: "var(--up)", fontWeight: 600 }}>{s.value}</span>
           </span>
-        )}
+        ))}
         <Clock />
-        <SignOutButton />
+        {showSignOut && <SignOutButton />}
       </div>
     </header>
   );

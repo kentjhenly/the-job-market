@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { OrderBook } from "@/components/terminal/OrderBook";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -17,43 +16,39 @@ export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
 
 interface Props {
   initialCandidates: Candidate[];
-  employerCredits: number;
 }
 
-export function FeedClient({ initialCandidates, employerCredits }: Props) {
+const POLL_INTERVAL_MS = 15000;
+
+export function FeedClient({ initialCandidates }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
   const [selected, setSelected] = useState<Candidate | null>(null);
-  const [credits, setCredits] = useState(employerCredits);
   const [pitchOpen, setPitchOpen] = useState(false);
   const [pitchMsg, setPitchMsg] = useState("");
   const [pitchSalary, setPitchSalary] = useState("");
   const [sending, setSending] = useState(false);
   const [pitchResult, setPitchResult] = useState<"success" | "error" | null>(null);
-  const supabase = getSupabaseBrowserClient();
 
-  // Realtime: subscribe to candidate updates (score changes reorder feed)
+  // Poll for score updates to reorder the feed (Supabase Realtime is inert for Better Auth sessions, see CLAUDE.md)
   useEffect(() => {
-    const channel = supabase
-      .channel("candidates-feed")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "candidates" },
-        (payload) => {
-          setCandidates((prev) => {
-            const updated = prev.map((c) =>
-              c.id === payload.new.id ? { ...c, ...(payload.new as Candidate) } : c
-            );
-            return [...updated].sort((a, b) => b.composite_score - a.composite_score);
-          });
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      fetch("/api/candidates/feed")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.candidates) return;
+          setCandidates(d.candidates as Candidate[]);
+          setSelected((prev) =>
+            prev ? (d.candidates as Candidate[]).find((c) => c.id === prev.id) ?? prev : prev
+          );
+        })
+        .catch(() => null);
+    }, POLL_INTERVAL_MS);
 
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase]);
+    return () => clearInterval(interval);
+  }, []);
 
   async function sendPitch() {
-    if (!selected || credits < 1) return;
+    if (!selected) return;
     setSending(true);
     setPitchResult(null);
 
@@ -68,7 +63,6 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
     });
 
     if (res.ok) {
-      setCredits((c) => c - 1);
       setPitchResult("success");
       setPitchMsg("");
       setPitchSalary("");
@@ -89,7 +83,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
             RANKED BY COMPOSITE SCORE · LIVE UPDATES
           </p>
         </div>
-        <span className="badge badge-up">CREDITS: {credits}</span>
+        <span className="badge badge-up">PITCHES: FREE</span>
       </div>
 
       <OrderBook candidates={candidates} onSelect={setSelected} selectedId={selected?.id} />
@@ -147,21 +141,15 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
           </div>
 
           <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
-            {credits < 1 ? (
-              <p className="kicker text-center" style={{ color: "var(--down)" }}>
-                NO CREDITS REMAINING
-              </p>
-            ) : (
-              <Button
-                onClick={() => {
-                  setPitchOpen(true);
-                  setPitchResult(null);
-                }}
-                className="w-full"
-              >
-                SEND PITCH →
-              </Button>
-            )}
+            <Button
+              onClick={() => {
+                setPitchOpen(true);
+                setPitchResult(null);
+              }}
+              className="w-full"
+            >
+              SEND PITCH →
+            </Button>
           </div>
         </div>
       )}
@@ -196,7 +184,7 @@ export function FeedClient({ initialCandidates, employerCredits }: Props) {
               className="field"
             />
             <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-              1 CREDIT WILL BE DEDUCTED · {credits} REMAINING
+              SENDING A PITCH IS FREE · THE CANDIDATE WILL BE NOTIFIED
             </p>
           </div>
 
