@@ -14,13 +14,16 @@ export default async function PostingsPage() {
     .eq("candidate_id", session.user.id)
     .order("created_at", { ascending: true });
 
+  const count = postings?.length ?? 0;
+  const countClass = count >= 10 ? "badge-up" : count >= 5 ? "badge-gold" : "badge-down";
+
   return (
     <div className="view-enter space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           POSTINGS
         </h1>
-        <span className="badge badge-up tnum">{(postings?.length ?? 0)}/10</span>
+        <span className={`badge tnum ${countClass}`}>{count}/10</span>
       </div>
 
       <PostingsGridClient initialPostings={postings ?? []} />

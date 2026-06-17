@@ -15,14 +15,17 @@ export default async function PortfolioPage() {
     .eq("candidate_id", session.user.id)
     .order("created_at", { ascending: true });
 
+  const count = projects?.length ?? 0;
+  const countClass = count >= MAX_PORTFOLIO_PROJECTS ? "badge-up" : count >= 5 ? "badge-gold" : "badge-down";
+
   return (
     <div className="view-enter space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           PORTFOLIO
         </h1>
-        <span className="badge badge-up tnum">
-          {(projects?.length ?? 0)}/{MAX_PORTFOLIO_PROJECTS}
+        <span className={`badge tnum ${countClass}`}>
+          {count}/{MAX_PORTFOLIO_PROJECTS}
         </span>
       </div>
 

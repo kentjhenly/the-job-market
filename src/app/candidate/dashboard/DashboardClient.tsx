@@ -423,7 +423,17 @@ export function DashboardClient({
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
           <div className="flex flex-1 flex-col p-4">
-            <DataRow label="REPUTATION" value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`} color="up" />
+            <DataRow
+              label="REPUTATION"
+              value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`}
+              color={
+                (candidate?.reputation_score ?? 100) >= 80
+                  ? "up"
+                  : (candidate?.reputation_score ?? 100) >= 50
+                    ? "gold"
+                    : "down"
+              }
+            />
             <DataRow label="PORTFOLIO" value={`${projectCount} / ${MAX_PORTFOLIO_PROJECTS}`} />
             <DataRow
               label="MARKET MEDIAN"
@@ -467,7 +477,19 @@ export function DashboardClient({
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">SALARY POSITION</span>
-            {salaryData && <span className="badge badge-up">{salaryData.candidate_percentile}TH PERCENTILE</span>}
+            {salaryData && (
+              <span
+                className={`badge ${
+                  salaryData.candidate_percentile >= 75
+                    ? "badge-gold"
+                    : salaryData.candidate_percentile >= 40
+                      ? "badge-up"
+                      : "badge-down"
+                }`}
+              >
+                {salaryData.candidate_percentile}TH PERCENTILE
+              </span>
+            )}
           </div>
           <div className="p-4">
             {salaryData ? (
