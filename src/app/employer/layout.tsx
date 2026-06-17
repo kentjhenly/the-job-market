@@ -14,7 +14,7 @@ const NAV = [
   { href: "/employer/dashboard", label: "DASHBOARD" },
   { href: "/employer/feed", label: "FEED" },
   { href: "/employer/postings", label: "POSTINGS" },
-  { href: "/employer/matches", label: "SENT PITCHES" },
+  { href: "/employer/matches", label: "PITCHES" },
   { href: "/employer/settings", label: "SETTINGS" },
 ];
 
@@ -37,7 +37,7 @@ export default async function EmployerLayout({
   const supabase = getSupabaseServiceClient();
   const { data: employer } = await supabase
     .from("employers")
-    .select("subscription_tier")
+    .select("subscription_tier, reputation_score")
     .eq("id", session.user.id)
     .single();
 
@@ -46,7 +46,10 @@ export default async function EmployerLayout({
       <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
         <TopBar
           homeHref="/employer/dashboard"
-          stat={{ label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase() }}
+          stat={[
+            { label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase() },
+            { label: "REPUTATION", value: `${(employer?.reputation_score ?? 100).toFixed(0)}/100` },
+          ]}
         />
         <CommandBar commands={EMPLOYER_COMMANDS} />
         <MatchTickerTape />

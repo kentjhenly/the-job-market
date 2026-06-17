@@ -17,10 +17,15 @@ export const VERTICALS = [
 ] as const;
 export type VerticalType = (typeof VERTICALS)[number];
 
-// Display label for a vertical, uppercased except "ops" which spells out
-// as "OPERATIONS" (the stored value stays "ops" to match seed data).
+// Display label for a vertical, uppercased except for a few that spell out
+// (the stored value stays the short key to match seed data).
+const VERTICAL_LABELS: Partial<Record<VerticalType, string>> = {
+  ops: "OPERATIONS",
+  hr: "HUMAN RESOURCES",
+  tech: "TECHNOLOGY",
+};
 export function verticalLabel(vertical: VerticalType): string {
-  return vertical === "ops" ? "OPERATIONS" : vertical.toUpperCase();
+  return VERTICAL_LABELS[vertical] ?? vertical.toUpperCase();
 }
 
 export const MAX_PORTFOLIO_PROJECTS = 10;

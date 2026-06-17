@@ -12,7 +12,7 @@ import { DeleteAccountForm } from "@/components/terminal/DeleteAccountForm";
 import { DataRow } from "@/components/terminal/DataRow";
 import Link from "next/link";
 import { EMPLOYER_FAQ } from "@/lib/utils/faq";
-import { COMPANY_SIZES, COUNTRIES } from "@/lib/utils/constants";
+import { COMPANY_SIZES, COUNTRIES, VERTICALS, verticalLabel } from "@/lib/utils/constants";
 
 interface Subscription {
   tier: string;
@@ -141,12 +141,6 @@ export default function EmployerSettingsPage() {
                     }
                   />
                 </div>
-                <div className="p-4">
-                  <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.6 }}>
-                    An active subscription unlocks the ranked candidate feed, sending pitches, and unlimited job
-                    postings beyond your first 3.
-                  </p>
-                </div>
               </div>
             ),
           },
@@ -166,11 +160,11 @@ export default function EmployerSettingsPage() {
           <form onSubmit={save} className="space-y-6">
             <div className="panel">
               <div className="panel-head">
-                <span className="panel-title">CONTACT</span>
+                <span className="panel-title">EMPLOYER</span>
               </div>
               <div className="space-y-4 p-4">
                 <div>
-                  <label className="kicker mb-1.5 block">CONTACT NAME</label>
+                  <label className="kicker mb-1.5 block">EMPLOYER NAME</label>
                   <input
                     value={form.display_name}
                     onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
@@ -206,11 +200,11 @@ export default function EmployerSettingsPage() {
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">INDUSTRY</label>
-                    <input
+                    <Combobox
                       value={form.industry}
-                      onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-                      className="field"
-                      placeholder="Technology"
+                      onChange={(v) => setForm((f) => ({ ...f, industry: v }))}
+                      options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
+                      placeholder="SELECT"
                     />
                   </div>
                 </div>
@@ -222,7 +216,6 @@ export default function EmployerSettingsPage() {
                       value={form.website}
                       onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
                       className="field"
-                      placeholder="https://acme.com"
                     />
                   </div>
                   <div>
@@ -243,7 +236,6 @@ export default function EmployerSettingsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     className="field"
                     rows={4}
-                    placeholder="What your company does. Shown to candidates on your pitches."
                   />
                 </div>
               </div>
