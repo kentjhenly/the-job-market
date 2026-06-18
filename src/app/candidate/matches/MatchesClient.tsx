@@ -48,8 +48,8 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1rem 7rem 1.6fr 7rem 6rem 6.5rem 4.5rem 5.5rem 1rem";
-const HEADERS = ["", "STATUS", "EMPLOYER", "OFFERED", "REPUTATION", "SENT", "OFFER", "", ""];
+const COLUMNS = "1rem 7rem 1.6fr 7rem 8rem 8rem 5.5rem 1rem";
+const HEADERS = ["", "STATUS", "EMPLOYER", "REPUTATION", "OFFERED", "SENT", "", ""];
 
 function reputationColor(reputation?: number | null) {
   return reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
@@ -165,7 +165,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     <div className="view-enter space-y-6">
       <div>
         <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
-          INCOMING PITCHES
+          PITCHES
         </h1>
       </div>
 
@@ -211,26 +211,23 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
                   {m.employers?.company_name ?? "UNKNOWN COMPANY"}
                 </p>
+                <span className="mono tnum" style={{ fontSize: 11, color: reputationColor(reputation) }}>
+                  {reputation != null ? `${reputation.toFixed(0)}/100` : "—"}
+                </span>
                 <span
                   className="mono tnum"
                   style={{ fontSize: 12, fontWeight: 600, color: m.offered_salary ? "var(--up)" : "var(--muted)" }}
                 >
                   {m.offered_salary ? formatSalary(m.offered_salary) : "—"}
                 </span>
-                <span className="mono tnum" style={{ fontSize: 11, color: reputationColor(reputation) }}>
-                  {reputation != null ? `${reputation.toFixed(0)}/100` : "—"}
-                </span>
                 <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
                   {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
                 </span>
                 <div className="flex items-center gap-1">
-                  {m.status === "accepted" && m.offer_status === "pending" && (
+                  {m.status === "accepted" && m.offer_status === "pending" ? (
                     <>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startOfferConfirm(m, "accept");
-                        }}
+                        onClick={(e) => { e.stopPropagation(); startOfferConfirm(m, "accept"); }}
                         className="btn btn-primary"
                         style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
                         title="Accept hire offer"
@@ -238,10 +235,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         ✓
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startOfferConfirm(m, "decline");
-                        }}
+                        onClick={(e) => { e.stopPropagation(); startOfferConfirm(m, "decline"); }}
                         className="btn btn-danger"
                         style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
                         title="Decline hire offer"
@@ -249,21 +243,15 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         ✗
                       </button>
                     </>
-                  )}
-                </div>
-                <div>
-                  {m.status === "accepted" && (
+                  ) : m.status === "accepted" ? (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openChat(m);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); openChat(m); }}
                       className="btn btn-ghost btn-sm"
                       style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
                     >
                       CHAT →
                     </button>
-                  )}
+                  ) : null}
                 </div>
                 <span className="mono" style={{ fontSize: 14, color: "var(--dim)" }}>
                   ›
