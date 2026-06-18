@@ -278,17 +278,26 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                     <>
                       <button
                         onClick={() => startOfferConfirm(m, "accept")}
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: 11, padding: "4px 7px" }}
                         title="Accept hire offer"
+                        className="mono"
+                        style={{
+                          background: "transparent",
+                          border: "1px solid color-mix(in oklch, var(--up) 55%, transparent)",
+                          color: "var(--up)",
+                          padding: "2px 8px",
+                          fontSize: 12,
+                          borderRadius: "var(--r)",
+                          cursor: "pointer",
+                          lineHeight: 1.6,
+                        }}
                       >
                         ✓
                       </button>
                       <button
                         onClick={() => startOfferConfirm(m, "decline")}
-                        className="btn btn-danger btn-sm"
-                        style={{ fontSize: 11, padding: "4px 7px" }}
                         title="Decline hire offer"
+                        className="btn btn-danger-solid mono"
+                        style={{ padding: "2px 8px", fontSize: 12, lineHeight: 1.6 }}
                       >
                         ✗
                       </button>
