@@ -48,8 +48,8 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1fr 8rem 12rem 9rem";
-const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "STATUS"];
+const COLUMNS = "1fr 8rem 12rem 8rem 6rem";
+const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "STATUS", ""];
 const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
 function isUnread(m: Match) {
@@ -81,7 +81,7 @@ function StatusPill({ status }: { status: string }) {
         justifyContent: "center",
         border: `1px solid ${col}`,
         background: `color-mix(in oklch, ${col} 12%, transparent)`,
-        borderRadius: "var(--r)",
+        borderRadius: 9999,
       }}
     >
       <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: col, letterSpacing: "0.1em" }}>
@@ -209,7 +209,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
       </div>
 
       {/* Table */}
-      <div className="panel overflow-hidden">
+      <div className="panel overflow-hidden" style={{ borderTop: "2px solid var(--gold)" }}>
         <div
           className="grid gap-4 px-4 py-2.5"
           style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
@@ -275,6 +275,38 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
 
                 {/* STATUS — full-width pill */}
                 <StatusPill status={m.status} />
+
+                {/* actions */}
+                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                  {m.status === "accepted" && m.offer_status === "pending" ? (
+                    <>
+                      <button
+                        onClick={() => startOfferConfirm(m, "accept")}
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 11, padding: "4px 7px" }}
+                        title="Accept hire offer"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => startOfferConfirm(m, "decline")}
+                        className="btn btn-danger btn-sm"
+                        style={{ fontSize: 11, padding: "4px 7px" }}
+                        title="Decline hire offer"
+                      >
+                        ✗
+                      </button>
+                    </>
+                  ) : m.status === "accepted" ? (
+                    <button
+                      onClick={() => openChat(m)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
+                    >
+                      CHAT →
+                    </button>
+                  ) : null}
+                </div>
               </div>
             );
           })
