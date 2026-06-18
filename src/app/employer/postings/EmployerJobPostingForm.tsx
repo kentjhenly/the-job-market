@@ -22,8 +22,14 @@ interface ScatterPoint {
   years_exp: number;
   salary: number;
   source?: string;
-  ci_lower?: number;
-  ci_upper?: number;
+}
+
+interface CurvePoint {
+  years_exp: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
 }
 
 interface EmployerJobPostingFormProps {
@@ -87,9 +93,11 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
   const [deleting, setDeleting] = useState(false);
 
   const [marketPoints, setMarketPoints] = useState<ScatterPoint[]>([]);
-  const [curvePoints, setCurvePoints] = useState<ScatterPoint[]>([]);
+  const [curvePoints, setCurvePoints] = useState<CurvePoint[]>([]);
   const [stdDev, setStdDev] = useState<number | undefined>(undefined);
   const [medianAtExp, setMedianAtExp] = useState<number | undefined>(undefined);
+  const [nPoints, setNPoints] = useState<number | undefined>(undefined);
+  const [marginalPerYear, setMarginalPerYear] = useState<number | undefined>(undefined);
 
   const expMinNum = form.years_exp_min ? parseInt(form.years_exp_min) : null;
   const expMaxNum = form.years_exp_max ? parseInt(form.years_exp_max) : null;
@@ -114,16 +122,30 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
             setMarketPoints([]);
             setStdDev(undefined);
             setMedianAtExp(undefined);
+            setNPoints(undefined);
+            setMarginalPerYear(undefined);
             return;
           }
           if (Array.isArray(d.curve)) {
             setCurvePoints(
-              d.curve.map((c: { years_exp: number; predicted_salary: number; ci_lower?: number; ci_upper?: number }) => ({
-                years_exp: c.years_exp,
-                salary: c.predicted_salary,
-                ci_lower: c.ci_lower,
-                ci_upper: c.ci_upper,
-              }))
+              d.curve.map(
+                (c: {
+                  years_exp: number;
+                  predicted_salary: number;
+                  p25?: number;
+                  p50?: number;
+                  p75?: number;
+                  p90?: number;
+                  ci_lower?: number;
+                  ci_upper?: number;
+                }) => ({
+                  years_exp: c.years_exp,
+                  p25: c.p25 ?? c.ci_lower ?? c.predicted_salary,
+                  p50: c.p50 ?? c.predicted_salary,
+                  p75: c.p75 ?? c.ci_upper ?? c.predicted_salary,
+                  p90: c.p90 ?? c.ci_upper ?? c.predicted_salary,
+                })
+              )
             );
           }
           setMarketPoints(
@@ -137,6 +159,8 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           );
           setStdDev(typeof d.std_dev === "number" ? d.std_dev : undefined);
           setMedianAtExp(typeof d.median_at_exp === "number" ? d.median_at_exp : undefined);
+          setNPoints(typeof d.n_points === "number" ? d.n_points : undefined);
+          setMarginalPerYear(typeof d.marginal_per_year === "number" ? d.marginal_per_year : undefined);
         })
         .catch(() => null);
     }, 350);
@@ -347,10 +371,12 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
               <SalaryScatter
                 points={marketPoints}
                 curve={curvePoints}
-                stdDev={stdDev}
+                nPoints={nPoints ?? marketPoints.length}
+                marginalPerYear={marginalPerYear}
                 candYears={expMid}
                 candSalaryMin={salaryMinCents}
                 candSalaryMax={salaryMaxCents}
+                tone="employer"
                 height={220}
               />
             )}
@@ -358,22 +384,22 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
               <>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span style={{ width: 14, height: 2, background: "var(--up)" }} />
+                    <span style={{ width: 14, height: 2, background: "var(--info)" }} />
                     <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                      REGRESSION
+                      MEDIAN
                     </span>
                   </div>
-                  {stdDev != null && (
+                  {curvePoints.length > 0 && (
                     <div className="flex items-center gap-2">
                       <span
                         style={{
                           width: 14,
                           height: 8,
-                          background: "color-mix(in oklch, var(--up) 15%, transparent)",
+                          background: "color-mix(in oklch, var(--info) 22%, transparent)",
                         }}
                       />
                       <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                        CONFIDENCE BAND
+                        P25–P75 RANGE
                       </span>
                     </div>
                   )}

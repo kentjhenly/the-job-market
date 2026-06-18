@@ -75,9 +75,23 @@ function expiryLabel(iso: string | null): string | null {
 }
 
 interface SalaryData {
-  curve: { years_exp: number; predicted_salary: number; ci_lower: number; ci_upper: number }[];
+  // New shrinkage-Mincer fields (p25/p50/p75/p90); the predicted_salary/ci_* aliases
+  // are kept so the chart still works against the not-yet-deployed edge function.
+  curve: {
+    years_exp: number;
+    p25?: number;
+    p50?: number;
+    p75?: number;
+    p90?: number;
+    predicted_salary: number;
+    ci_lower: number;
+    ci_upper: number;
+  }[];
+  points?: { years_exp: number }[];
   candidate_percentile: number;
   median_at_exp: number;
+  marginal_per_year?: number;
+  n_points?: number;
 }
 
 interface ActivityItem {
@@ -487,7 +501,7 @@ export function DashboardClient({
                       : "badge-down"
                 }`}
               >
-                {salaryData.candidate_percentile}TH PERCENTILE
+                {formatPercentile(salaryData.candidate_percentile).toUpperCase()} PERCENTILE
               </span>
             )}
           </div>
@@ -495,15 +509,25 @@ export function DashboardClient({
             {salaryData ? (
               <>
                 <SalaryCurve
-                  curve={salaryData.curve}
+                  curve={salaryData.curve.map((c) => ({
+                    years_exp: c.years_exp,
+                    p25: c.p25 ?? c.ci_lower,
+                    p50: c.p50 ?? c.predicted_salary,
+                    p75: c.p75 ?? c.ci_upper,
+                    p90: c.p90 ?? c.ci_upper,
+                  }))}
+                  nPoints={salaryData.n_points ?? salaryData.points?.length ?? 0}
                   candYears={candidate?.years_exp_claimed ?? undefined}
-                  candMin={candidate?.current_salary ?? undefined}
+                  candSalary={candidate?.current_salary ?? undefined}
+                  candPercentile={salaryData.candidate_percentile}
+                  marginalPerYear={salaryData.marginal_per_year}
+                  tone="candidate"
                   height={210}
                 />
                 <p className="mono mt-1.5 text-center" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                  <span style={{ color: "var(--up)", marginRight: 4 }}>―</span>MARKET REGRESSION &nbsp;&nbsp;
-                  <span style={{ color: "color-mix(in oklch, var(--up) 30%, transparent)", marginRight: 4 }}>▮</span>CONFIDENCE BAND &nbsp;&nbsp;
-                  <span style={{ color: "var(--gold)", marginRight: 4 }}>┊</span>YOUR SALARY @ {candidate?.years_exp_claimed ?? 0}Y
+                  <span style={{ color: "color-mix(in oklch, var(--up) 30%, transparent)", marginRight: 4 }}>▮</span>P25–P75 RANGE &nbsp;&nbsp;
+                  <span style={{ color: "var(--up)", marginRight: 4 }}>―</span>MEDIAN &nbsp;&nbsp;
+                  <span style={{ color: "var(--gold)", marginRight: 4 }}>●</span>YOU @ {candidate?.years_exp_claimed ?? 0}Y
                 </p>
                 <SalaryEstimateFootnote />
               </>
