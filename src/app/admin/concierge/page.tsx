@@ -17,6 +17,12 @@ export type CandidateForVerification = {
   profiles: { display_name: string } | null;
 };
 
+export type EmployerForAdmin = {
+  id: string;
+  company_name: string;
+  profiles: { display_name: string; email: string } | null;
+};
+
 export default async function AdminConciergePage() {
   const session = await getServerSession();
   if (!session || !isAdminEmail(session.user.email)) {
@@ -24,7 +30,7 @@ export default async function AdminConciergePage() {
   }
 
   const supabase = getSupabaseServiceClient();
-  const [{ data: postings }, { count: matchSalaryPointCount }, { data: candidates }] = await Promise.all([
+  const [{ data: postings }, { count: matchSalaryPointCount }, { data: candidates }, { data: employers }] = await Promise.all([
     supabase
       .from("employer_job_postings")
       .select("*, employers(company_name)")
@@ -39,6 +45,10 @@ export default async function AdminConciergePage() {
       .eq("is_visible", true)
       .order("composite_score", { ascending: false })
       .limit(100),
+    supabase
+      .from("employers")
+      .select("id, company_name, profiles(display_name, email)")
+      .order("company_name", { ascending: true }),
   ]);
 
   return (
@@ -46,6 +56,7 @@ export default async function AdminConciergePage() {
       postings={(postings as PostingWithEmployer[] | null) ?? []}
       matchSalaryPointCount={matchSalaryPointCount ?? 0}
       candidates={(candidates as unknown as CandidateForVerification[] | null) ?? []}
+      employers={(employers as unknown as EmployerForAdmin[] | null) ?? []}
     />
   );
 }

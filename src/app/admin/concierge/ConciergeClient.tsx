@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ScoreBar } from "@/components/charts/ScoreBar";
 import { formatSalaryBand, formatPercentile, formatShortDate } from "@/lib/utils/formatters";
-import type { CandidateForVerification, PostingWithEmployer } from "./page";
+import type { CandidateForVerification, EmployerForAdmin, PostingWithEmployer } from "./page";
 
 interface MatchedCandidate {
   candidate_id: string;
@@ -31,13 +31,24 @@ interface CandidatesResponse {
   capacity: { max: number; active: number };
 }
 
+interface EmployerMatch {
+  id: string;
+  status: string;
+  offer_status: string | null;
+  offer_salary: number | null;
+  offered_salary: number | null;
+  created_at: string;
+  candidates: { profiles: { display_name: string } | null } | null;
+}
+
 interface Props {
   postings: PostingWithEmployer[];
   matchSalaryPointCount: number;
   candidates: CandidateForVerification[];
+  employers: EmployerForAdmin[];
 }
 
-export function ConciergeClient({ postings, matchSalaryPointCount, candidates }: Props) {
+export function ConciergeClient({ postings, matchSalaryPointCount, candidates, employers }: Props) {
   const [selected, setSelected] = useState<PostingWithEmployer | null>(null);
   const [data, setData] = useState<CandidatesResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,6 +61,10 @@ export function ConciergeClient({ postings, matchSalaryPointCount, candidates }:
   const [candidateList, setCandidateList] = useState(candidates);
   const [candidateSearch, setCandidateSearch] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [selectedEmployer, setSelectedEmployer] = useState<EmployerForAdmin | null>(null);
+  const [employerMatches, setEmployerMatches] = useState<EmployerMatch[]>([]);
+  const [loadingEmployerMatches, setLoadingEmployerMatches] = useState(false);
+  const [togglingOfferId, setTogglingOfferId] = useState<string | null>(null);
 
   async function toggleVerified(candidate: CandidateForVerification) {
     setVerifyingId(candidate.id);
@@ -67,6 +82,30 @@ export function ConciergeClient({ postings, matchSalaryPointCount, candidates }:
       );
     }
     setVerifyingId(null);
+  }
+
+  async function loadEmployerMatches(employer: EmployerForAdmin) {
+    setSelectedEmployer(employer);
+    setEmployerMatches([]);
+    setLoadingEmployerMatches(true);
+    const res = await fetch(`/api/admin/employers/${employer.id}/matches`);
+    const json = res.ok ? await res.json() : { matches: [] };
+    setEmployerMatches(json.matches ?? []);
+    setLoadingEmployerMatches(false);
+  }
+
+  async function toggleOfferPending(match: EmployerMatch) {
+    setTogglingOfferId(match.id);
+    const next = match.offer_status === "pending" ? null : "pending";
+    const res = await fetch(`/api/admin/matches/${match.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offer_status: next }),
+    });
+    if (res.ok) {
+      setEmployerMatches((prev) => prev.map((m) => (m.id === match.id ? { ...m, offer_status: next } : m)));
+    }
+    setTogglingOfferId(null);
   }
 
   const filteredCandidates = candidateSearch.trim()
@@ -232,6 +271,102 @@ export function ConciergeClient({ postings, matchSalaryPointCount, candidates }:
                 </Button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* EMPLOYERS — offer_status toggle */}
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">EMPLOYERS · OFFER STATUS</span>
+          <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
+            {employers.length} TOTAL
+          </span>
+        </div>
+
+        {employers.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <p className="kicker">NO EMPLOYERS</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] divide-y divide-border-soft lg:divide-y-0 lg:divide-x">
+            {/* Employer list */}
+            <div style={{ maxHeight: 360, overflowY: "auto" }}>
+              {employers.map((e, idx) => (
+                <div
+                  key={e.id}
+                  className="flex cursor-pointer items-center justify-between gap-3 p-4"
+                  style={{
+                    borderBottom: idx === employers.length - 1 ? "none" : "1px solid var(--border-soft)",
+                    background: selectedEmployer?.id === e.id ? "var(--surface-2)" : "transparent",
+                  }}
+                  onClick={() => loadEmployerMatches(e)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
+                      {e.company_name}
+                    </p>
+                    <p className="mono mt-0.5 truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
+                      {e.profiles?.email ?? e.id.slice(0, 12)}
+                    </p>
+                  </div>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--dim)" }}>›</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Accepted matches for selected employer */}
+            <div style={{ minHeight: 120 }}>
+              {!selectedEmployer ? (
+                <div className="flex h-full items-center justify-center px-4 py-12">
+                  <p className="kicker">SELECT AN EMPLOYER</p>
+                </div>
+              ) : loadingEmployerMatches ? (
+                <div className="flex h-full items-center justify-center px-4 py-12">
+                  <p className="kicker">LOADING...</p>
+                </div>
+              ) : employerMatches.length === 0 ? (
+                <div className="flex h-full items-center justify-center px-4 py-12">
+                  <p className="kicker">NO ACCEPTED MATCHES</p>
+                </div>
+              ) : (
+                <div style={{ maxHeight: 360, overflowY: "auto" }}>
+                  {employerMatches.map((m, idx) => {
+                    const candidateName =
+                      (m.candidates as { profiles: { display_name: string } | null } | null)?.profiles?.display_name ??
+                      `CAND-${m.id.slice(0, 6).toUpperCase()}`;
+                    const isPending = m.offer_status === "pending";
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between gap-3 p-4"
+                        style={{ borderBottom: idx === employerMatches.length - 1 ? "none" : "1px solid var(--border-soft)" }}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="mono truncate" style={{ fontSize: 12, color: "var(--text)" }}>
+                            {candidateName}
+                          </p>
+                          <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
+                            OFFER:{" "}
+                            <span style={{ color: isPending ? "var(--gold)" : "var(--dim)" }}>
+                              {m.offer_status?.toUpperCase() ?? "NONE"}
+                            </span>
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={isPending ? "ghost" : "primary"}
+                          loading={togglingOfferId === m.id}
+                          onClick={() => toggleOfferPending(m)}
+                        >
+                          {isPending ? "CLEAR OFFER" : "SET PENDING"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

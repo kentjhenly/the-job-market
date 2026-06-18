@@ -193,10 +193,9 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     <div className="view-enter space-y-4">
       {/* Header */}
       <div>
-        <h1 className="mono" style={{ fontSize: 18, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text)" }}>
+        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
           PITCHES
         </h1>
-        <p className="kicker mt-1">TRACK MATCH STATUS · GHOSTING HURTS YOUR REPUTATION</p>
       </div>
 
       {/* Filter tabs */}
