@@ -67,8 +67,8 @@
   --color-green: var(--up);
   --color-danger: var(--down);
 
-  --font-sans: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: var(--font-ibm-plex-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: var(--font-ibm-plex-mono), "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-DEFAULT: var(--r);
   --radius-lg: var(--r-lg);
