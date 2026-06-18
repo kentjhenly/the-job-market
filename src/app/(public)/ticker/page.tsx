@@ -20,7 +20,7 @@ interface TickerItem {
 }
 
 const COLUMNS = ["ROLE", "SALARY", "Δ MARKET", "AGE"];
-const GRID_COLS = "1.4fr 1fr 0.7fr 0.6fr";
+const GRID_COLS = "2fr 1fr 0.9fr 0.7fr";
 
 export default function PublicTickerPage() {
   const [items, setItems] = useState<TickerItem[]>([]);
@@ -57,7 +57,7 @@ export default function PublicTickerPage() {
   }, [supabase]);
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-end justify-between">
         <div>
           <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
