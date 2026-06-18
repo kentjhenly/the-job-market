@@ -193,7 +193,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     <div className="view-enter space-y-4">
       {/* Header */}
       <div>
-        <h1 className="mono" style={{ fontSize: 14, letterSpacing: "0.16em", color: "var(--text)" }}>
+        <h1 className="mono" style={{ fontSize: 18, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text)" }}>
           PITCHES
         </h1>
         <p className="kicker mt-1">TRACK MATCH STATUS · GHOSTING HURTS YOUR REPUTATION</p>
@@ -242,8 +242,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 style={{
                   gridTemplateColumns: COLUMNS,
                   borderBottom: idx === filtered.length - 1 ? "none" : "1px solid var(--border-soft)",
-                  borderLeft: `3px solid ${sel ? "var(--up)" : unread ? "color-mix(in oklch, var(--up) 40%, transparent)" : "transparent"}`,
-                  background: sel ? "var(--up-dim)" : "transparent",
+                  background: sel ? "var(--surface-2)" : unread ? "color-mix(in oklch, var(--up) 4%, transparent)" : "transparent",
                 }}
               >
                 {/* EMPLOYER — 2-line */}
