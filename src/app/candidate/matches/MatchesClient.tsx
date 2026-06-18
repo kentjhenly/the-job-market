@@ -279,27 +279,23 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                       <button
                         onClick={() => startOfferConfirm(m, "accept")}
                         title="Accept hire offer"
-                        className="mono"
-                        style={{
-                          background: "transparent",
-                          border: "1px solid color-mix(in oklch, var(--up) 55%, transparent)",
-                          color: "var(--up)",
-                          padding: "2px 8px",
-                          fontSize: 12,
-                          borderRadius: "var(--r)",
-                          cursor: "pointer",
-                          lineHeight: 1.6,
-                        }}
+                        className="btn btn-primary"
+                        style={{ padding: "3px 9px" }}
                       >
-                        ✓
+                        <svg width="12" height="10" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
+                          <polyline points="1,5 4.5,9 11,1" />
+                        </svg>
                       </button>
                       <button
                         onClick={() => startOfferConfirm(m, "decline")}
                         title="Decline hire offer"
-                        className="btn btn-danger-solid mono"
-                        style={{ padding: "2px 8px", fontSize: 12, lineHeight: 1.6 }}
+                        className="btn btn-danger-solid"
+                        style={{ padding: "3px 9px" }}
                       >
-                        ✗
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
+                          <line x1="1" y1="1" x2="9" y2="9" />
+                          <line x1="9" y1="1" x2="1" y2="9" />
+                        </svg>
                       </button>
                     </>
                   )}
