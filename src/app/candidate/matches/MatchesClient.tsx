@@ -48,8 +48,8 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1fr 8rem 12rem 8rem 6rem";
-const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "STATUS", ""];
+const COLUMNS = "1fr 8rem 12rem 5rem 6rem 8rem";
+const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "", "", "STATUS"];
 const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
 function isUnread(m: Match) {
@@ -273,12 +273,9 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   )}
                 </span>
 
-                {/* STATUS — full-width pill */}
-                <StatusPill status={m.status} />
-
-                {/* actions */}
-                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                  {m.status === "accepted" && m.offer_status === "pending" ? (
+                {/* offer buttons */}
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  {m.status === "accepted" && m.offer_status === "pending" && (
                     <>
                       <button
                         onClick={() => startOfferConfirm(m, "accept")}
@@ -297,16 +294,24 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         ✗
                       </button>
                     </>
-                  ) : m.status === "accepted" ? (
+                  )}
+                </div>
+
+                {/* CHAT button — green */}
+                <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                  {m.status === "accepted" && (
                     <button
                       onClick={() => openChat(m)}
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
+                      className="btn btn-sm"
+                      style={{ fontSize: 10.5, whiteSpace: "nowrap", background: "color-mix(in oklch, var(--up) 15%, transparent)", color: "var(--up)", border: "1px solid color-mix(in oklch, var(--up) 40%, transparent)" }}
                     >
                       CHAT →
                     </button>
-                  ) : null}
+                  )}
                 </div>
+
+                {/* STATUS — full-width pill */}
+                <StatusPill status={m.status} />
               </div>
             );
           })
