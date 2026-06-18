@@ -193,7 +193,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     <div className="view-enter space-y-4">
       {/* Header */}
       <div>
-        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           PITCHES
         </h1>
       </div>

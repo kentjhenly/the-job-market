@@ -124,7 +124,7 @@ export default async function EmployerDashboardPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="mono" style={{ color: "var(--text)", fontSize: 14, letterSpacing: "0.16em" }}>
+            <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
               {employer?.company_name?.toUpperCase() ?? "HIRING DESK"}
             </h1>
             {employer?.verified && <Badge variant="gold">VERIFIED</Badge>}

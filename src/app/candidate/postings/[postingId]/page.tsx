@@ -51,7 +51,7 @@ export default async function JobPostingPage({
     if ((count ?? 0) >= MAX_POSTINGS) {
       return (
         <div className="view-enter max-w-2xl space-y-4">
-          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
             POSTINGS
           </h1>
           <p className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>

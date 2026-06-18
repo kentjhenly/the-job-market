@@ -258,7 +258,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
         <Link href="/employer/postings" className="link-up mono" style={{ fontSize: 11 }}>
           ← BACK TO POSTINGS
         </Link>
-        <h1 className="kicker mt-2" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono mt-2" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           {isEditing ? "EDIT JOB POSTING" : "CREATE JOB POSTING"}
         </h1>
       </div>

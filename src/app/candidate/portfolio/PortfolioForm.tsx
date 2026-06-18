@@ -147,7 +147,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
         <Link href="/candidate/portfolio" className="link-up mono" style={{ fontSize: 11 }}>
           ← BACK TO PORTFOLIO
         </Link>
-        <h1 className="kicker mt-2" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono mt-2" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           {isEditing ? "EDIT PROJECT" : "ADD PROJECT"}
         </h1>
       </div>

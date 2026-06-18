@@ -151,7 +151,7 @@ export default function SettingsPage() {
   return (
     <div className="view-enter space-y-6">
       <div>
-        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           SETTINGS
         </h1>
       </div>

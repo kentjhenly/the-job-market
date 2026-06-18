@@ -370,14 +370,9 @@ export function DashboardClient({
     <div className="view-enter scroll-main space-y-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="mono" style={{ color: "var(--text)", fontSize: 14, letterSpacing: "0.16em" }}>
+          <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
             SCORE TERMINAL
           </h1>
-          {profile?.display_name && (
-            <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
-              {profile.display_name.toUpperCase()}
-            </p>
-          )}
         </div>
       </div>
 

@@ -20,7 +20,7 @@ export default async function PostingsPage() {
   return (
     <div className="view-enter space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           POSTINGS
         </h1>
         <span className={`badge tnum ${countClass}`}>{count}/10</span>

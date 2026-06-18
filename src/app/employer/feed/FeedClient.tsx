@@ -76,7 +76,7 @@ export function FeedClient({ initialCandidates }: Props) {
     <div className="view-enter space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
             CANDIDATE FEED
           </h1>
           <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>

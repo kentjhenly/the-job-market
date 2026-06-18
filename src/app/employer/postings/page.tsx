@@ -42,7 +42,7 @@ export default async function EmployerPostingsPage() {
     <div className="view-enter space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+          <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
             POSTINGS
           </h1>
           <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
