@@ -211,8 +211,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
                   {m.employers?.company_name ?? "UNKNOWN COMPANY"}
                 </p>
-                <span className="mono tnum" style={{ fontSize: 11, color: reputationColor(reputation) }}>
-                  {reputation != null ? `${reputation.toFixed(0)}/100` : "—"}
+                <span className="mono tnum" style={{ fontSize: 12, color: reputationColor(reputation) }}>
+                  {reputation != null ? reputation.toFixed(0) : "—"}
                 </span>
                 <span
                   className="mono tnum"
@@ -284,15 +284,15 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
             </div>
 
             <div>
-              {selected.offered_salary != null && (
-                <DataRow label="OFFERED SALARY" value={formatSalary(selected.offered_salary)} color="up" />
-              )}
               {selected.employers?.reputation_score != null && (
                 <DataRow
-                  label="EMPLOYER REPUTATION"
-                  value={`${selected.employers.reputation_score.toFixed(0)}/100`}
+                  label="REPUTATION"
+                  value={selected.employers.reputation_score.toFixed(0)}
                   color={selected.employers.reputation_score >= 80 ? "up" : selected.employers.reputation_score >= 50 ? "gold" : "down"}
                 />
+              )}
+              {selected.offered_salary != null && (
+                <DataRow label="OFFERED SALARY" value={formatSalary(selected.offered_salary)} color="up" />
               )}
               <DataRow label="SENT" value={formatRelativeTime(selected.created_at)} />
               {selected.status === "pending" && (
