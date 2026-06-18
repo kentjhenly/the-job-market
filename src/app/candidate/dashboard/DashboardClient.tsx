@@ -10,8 +10,7 @@ import { LiveDot } from "@/components/terminal/LiveDot";
 import { RadarChart } from "@/components/charts/RadarChart";
 import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { Sparkline } from "@/components/charts/Sparkline";
-import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
-import { formatPercentile, formatSalary, formatShortDate } from "@/lib/utils/formatters";
+import { formatPercentile, formatSalary, formatSalaryBand, formatShortDate } from "@/lib/utils/formatters";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
@@ -135,6 +134,59 @@ const SIGNAL_SUGGESTIONS: { key: keyof Signals; text: string }[] = [
   { key: "portfolio_feedback", text: "Keep portfolio projects accurate to your real skills, employers rate this after a match." },
 ];
 
+function MeterRow({ label, value, pct, color }: { label: string; value: string; pct: number; color: "up" | "gold" | "down" }) {
+  const col = color === "gold" ? "var(--gold)" : color === "down" ? "var(--down)" : "var(--up)";
+  return (
+    <div className="py-2.5" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="kicker">{label}</span>
+        <span className="mono tnum" style={{ fontSize: 12, fontWeight: 600, color: col }}>{value}</span>
+      </div>
+      <div style={{ height: 3, background: "var(--surface-3)", borderRadius: 2 }}>
+        <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: "100%", background: col, borderRadius: 2 }} />
+      </div>
+    </div>
+  );
+}
+
+function PitchFunnel({ stats }: { stats: PitchStats }) {
+  const replied = stats.accepted + stats.declined + stats.ghosted;
+  const stages = [
+    { k: "RECEIVED", n: stats.received, col: "var(--info)" },
+    { k: "REPLIED",  n: replied,         col: "var(--gold)" },
+    { k: "ACCEPTED", n: stats.accepted,  col: "var(--up)" },
+  ];
+  const maxN = stages[0].n || 1;
+  return (
+    <div className="flex flex-col gap-2.5 px-4 py-3">
+      {stages.map((s, i) => {
+        const widthPct = Math.max(8, (s.n / maxN) * 100);
+        const conv = i > 0 ? Math.round((s.n / (stages[i - 1].n || 1)) * 100) : null;
+        return (
+          <div key={s.k} className="grid items-center gap-3" style={{ gridTemplateColumns: "5rem 1fr 2.5rem" }}>
+            <span className="kicker" style={{ color: "var(--muted)" }}>{s.k}</span>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{
+                width: `${widthPct}%`, height: 28,
+                background: `color-mix(in oklch, ${s.col} 14%, transparent)`,
+                border: `1px solid ${s.col}`,
+                borderRadius: "var(--r)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "width .7s cubic-bezier(.2,.7,.3,1)",
+              }}>
+                <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col }}>{s.n}</span>
+              </div>
+            </div>
+            <span className="mono tnum" style={{ fontSize: 10.5, textAlign: "right", color: conv != null ? (conv >= 50 ? "var(--up)" : "var(--muted)") : "transparent" }}>
+              {conv != null ? `${conv}%` : ""}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const BREADTH_TARGET = 5;
 const SKILL_COVERAGE_TARGET = 10;
 const ACTIVITY_LIMIT = 6;
@@ -143,6 +195,7 @@ const POLL_INTERVAL_MS = 15000;
 export function DashboardClient({
   candidateId,
   candidate: initial,
+  profile,
   postingSummary,
   pitchStats,
   skillGap,
@@ -315,12 +368,16 @@ export function DashboardClient({
 
   return (
     <div className="view-enter scroll-main space-y-6">
-      {/* Header */}
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="mono" style={{ color: "var(--text)", fontSize: 14, letterSpacing: "0.16em" }}>
             SCORE TERMINAL
           </h1>
+          {profile?.display_name && (
+            <p className="mono mt-1" style={{ fontSize: 11.5, color: "var(--muted)" }}>
+              {profile.display_name.toUpperCase()}
+            </p>
+          )}
         </div>
       </div>
 
@@ -419,72 +476,67 @@ export function DashboardClient({
 
         <div className="panel flex flex-col">
           <div className="panel-head">
-            <span className="panel-title">SKILL RADAR</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-              YOUR SIGNALS
-            </span>
-          </div>
-          <div className="flex flex-1 items-center justify-center p-4">
-            <RadarChart dims={radarDims} />
-          </div>
-        </div>
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="panel flex flex-col">
-          <div className="panel-head">
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
           <div className="flex flex-1 flex-col p-4">
-            <DataRow
+            <MeterRow
+              label="PERCENTILE"
+              value={formatPercentile(percentile)}
+              pct={percentile}
+              color="gold"
+            />
+            <MeterRow
               label="REPUTATION"
               value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`}
-              color={
-                (candidate?.reputation_score ?? 100) >= 80
-                  ? "up"
-                  : (candidate?.reputation_score ?? 100) >= 50
-                    ? "gold"
-                    : "down"
-              }
+              pct={candidate?.reputation_score ?? 100}
+              color={(candidate?.reputation_score ?? 100) >= 80 ? "up" : (candidate?.reputation_score ?? 100) >= 50 ? "gold" : "down"}
             />
             <DataRow label="PORTFOLIO" value={`${projectCount} / ${MAX_PORTFOLIO_PROJECTS}`} />
+            <DataRow
+              label="SALARY FLOOR"
+              value={
+                postingSummary.salaryMin && postingSummary.salaryMax
+                  ? formatSalaryBand(postingSummary.salaryMin, postingSummary.salaryMax)
+                  : postingSummary.salaryMin
+                    ? formatSalary(postingSummary.salaryMin)
+                    : "—"
+              }
+            />
             <DataRow
               label="MARKET MEDIAN"
               value={salaryData?.median_at_exp ? formatSalary(salaryData.median_at_exp) : "—"}
               color="up"
             />
-            <div
-              className="mt-3 flex flex-1 flex-col"
-              style={{
-                border: "1px solid color-mix(in oklch, var(--gold) 35%, transparent)",
-                background: "var(--gold-dim)",
-                borderRadius: "var(--r)",
-                padding: "11px 13px",
-              }}
-            >
-              <p className="mono" style={{ fontSize: 10, color: "var(--gold)", letterSpacing: "0.16em" }}>
-                WAYS TO IMPROVE
-              </p>
-              {improvementSuggestions.length > 0 ? (
-                <ul className="mt-1.5 space-y-1.5">
-                  {improvementSuggestions.map((text, i) => (
-                    <li
-                      key={i}
-                      className="mono flex gap-2"
-                      style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.5 }}
-                    >
-                      <span style={{ color: "var(--gold)" }}>{i + 1}.</span>
-                      <span>{text}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mono mt-1.5" style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.55 }}>
-                  Your profile is in great shape. Keep shipping new portfolio work to stay ahead.
+            {improvementSuggestions.length > 0 && (
+              <div
+                className="mt-3 flex flex-1 flex-col"
+                style={{
+                  border: "1px solid color-mix(in oklch, var(--gold) 35%, transparent)",
+                  background: "var(--gold-dim)",
+                  borderRadius: "var(--r)",
+                  padding: "11px 13px",
+                }}
+              >
+                <p className="mono" style={{ fontSize: 10, color: "var(--gold)", letterSpacing: "0.16em" }}>
+                  NEXT BEST ACTION
                 </p>
-              )}
-            </div>
+                <p className="mono mt-1.5" style={{ fontSize: 11.5, color: "var(--text)", lineHeight: 1.55 }}>
+                  {improvementSuggestions[0]}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Charts row: SKILL RADAR + SALARY POSITION */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="panel flex flex-col">
+          <div className="panel-head">
+            <span className="panel-title">SKILL RADAR</span>
+          </div>
+          <div className="flex flex-1 items-center justify-center p-4">
+            <RadarChart dims={radarDims} />
           </div>
         </div>
 
@@ -524,12 +576,6 @@ export function DashboardClient({
                   tone="candidate"
                   height={210}
                 />
-                <p className="mono mt-1.5 text-center" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                  <span style={{ color: "color-mix(in oklch, var(--up) 30%, transparent)", marginRight: 4 }}>▮</span>P25–P75 RANGE &nbsp;&nbsp;
-                  <span style={{ color: "var(--up)", marginRight: 4 }}>―</span>MEDIAN &nbsp;&nbsp;
-                  <span style={{ color: "var(--gold)", marginRight: 4 }}>●</span>YOU @ {candidate?.years_exp_claimed ?? 0}Y
-                </p>
-                <SalaryEstimateFootnote />
               </>
             ) : (
               <div className="flex h-52 items-center justify-center">
@@ -553,19 +599,8 @@ export function DashboardClient({
               VIEW ALL
             </Link>
           </div>
-          <div className="px-4">
-            <DataRow label="RECEIVED" value={pitchStats.received} />
-            <DataRow
-              label="PENDING"
-              value={pitchStats.pending}
-              color={pitchStats.pending > 0 ? "gold" : undefined}
-            />
-            <DataRow
-              label="ACCEPTED"
-              value={pitchStats.accepted}
-              color={pitchStats.accepted > 0 ? "up" : undefined}
-            />
-            <DataRow label="DECLINED" value={pitchStats.declined} />
+          <PitchFunnel stats={pitchStats} />
+          <div className="px-4 pb-3">
             <DataRow
               label="RESPONSE RATE"
               value={pitchStats.received > 0 ? `${Math.round(effectiveSignals.response_rate * 100)}%` : "—"}
@@ -577,9 +612,6 @@ export function DashboardClient({
         <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">IN-DEMAND SKILLS</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-              GAPS IN YOUR PORTFOLIO
-            </span>
           </div>
           <div className="flex flex-1 flex-col justify-center p-4">
             {skillGap.length > 0 ? (
@@ -595,11 +627,7 @@ export function DashboardClient({
                     </span>
                   ))}
                 </div>
-                <p className="mono mt-3" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
-                  Skills open roles are hiring for that your portfolio doesn&apos;t tag yet. Add a project covering
-                  these to climb the feed.
-                </p>
-              </>
+                </>
             ) : (
               <div className="flex h-20 items-center justify-center px-4">
                 <p className="kicker text-center">YOUR PORTFOLIO COVERS THE TOP IN-DEMAND SKILLS</p>
@@ -613,9 +641,6 @@ export function DashboardClient({
       <div className="panel">
         <div className="panel-head">
           <span className="panel-title">ACTIVITY LOG</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
-            RECENT
-          </span>
         </div>
         {recentActivity.length > 0 ? (
           <div>
