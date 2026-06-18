@@ -49,7 +49,7 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
 };
 
 const COLUMNS = "1fr 8rem 12rem 5rem 6rem 8rem";
-const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "", "", "STATUS"];
+const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "OFFER", "", "STATUS"];
 const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
 function isUnread(m: Match) {
