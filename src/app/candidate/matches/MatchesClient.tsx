@@ -48,17 +48,46 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1rem 7rem 1.6fr 7rem 8rem 8rem 5.5rem 1rem";
-const HEADERS = ["", "STATUS", "EMPLOYER", "REPUTATION", "OFFERED", "SENT", "", ""];
-
-function reputationColor(reputation?: number | null) {
-  return reputation == null ? "var(--muted)" : reputation >= 80 ? "var(--up)" : reputation >= 50 ? "var(--gold)" : "var(--down)";
-}
+const COLUMNS = "1fr 8rem 12rem 9rem";
+const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "STATUS"];
+const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
 function isUnread(m: Match) {
   return (
     !m.candidate_last_read_at ||
     new Date(m.last_message_at ?? m.created_at) > new Date(m.candidate_last_read_at)
+  );
+}
+
+function expiryCountdown(expiresAt: string): string {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "SOON";
+  const hours = Math.floor(ms / 3600000);
+  return hours < 1 ? "< 1H" : `${hours}H`;
+}
+
+function StatusPill({ status }: { status: string }) {
+  const col =
+    status === "accepted" ? "var(--up)"
+    : status === "declined" || status === "ghosted" ? "var(--down)"
+    : status === "pending" ? "var(--gold)"
+    : "var(--muted)";
+  return (
+    <div
+      style={{
+        height: 30,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: `1px solid ${col}`,
+        background: `color-mix(in oklch, ${col} 12%, transparent)`,
+        borderRadius: "var(--r)",
+      }}
+    >
+      <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: col, letterSpacing: "0.1em" }}>
+        {status.toUpperCase()}
+      </span>
+    </div>
   );
 }
 
@@ -68,6 +97,7 @@ interface MatchesClientProps {
 
 export function MatchesClient({ matches: initial }: MatchesClientProps) {
   const [matches, setMatches] = useState<Match[]>(initial);
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -78,6 +108,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
   const [confirmSending, setConfirmSending] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
+  const filtered = filter === "all" ? matches : matches.filter((m) => m.status === filter);
   const selected = matches.find((m) => m.id === selectedId) ?? null;
   const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
   const confirmMatch = matches.find((m) => m.id === offerConfirm?.matchId) ?? null;
@@ -95,10 +126,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
       setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status } : m)));
     } else {
       const json = await res.json().catch(() => ({}));
-      setErrors((prev) => ({
-        ...prev,
-        [matchId]: json.error ?? "FAILED TO RESPOND",
-      }));
+      setErrors((prev) => ({ ...prev, [matchId]: json.error ?? "FAILED TO RESPOND" }));
     }
     setLoading((prev) => ({ ...prev, [matchId]: false }));
   }
@@ -162,100 +190,92 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
   }
 
   return (
-    <div className="view-enter space-y-6">
+    <div className="view-enter space-y-4">
+      {/* Header */}
       <div>
-        <h1 className="kicker" style={{ color: "var(--up)", fontSize: 12 }}>
+        <h1 className="mono" style={{ fontSize: 14, letterSpacing: "0.16em", color: "var(--text)" }}>
           PITCHES
         </h1>
+        <p className="kicker mt-1">TRACK MATCH STATUS · GHOSTING HURTS YOUR REPUTATION</p>
       </div>
 
+      {/* Filter tabs */}
+      <div className="tabbar">
+        {FILTERS.map((f) => (
+          <span key={f} className={`tab ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
+            {f.toUpperCase()}
+          </span>
+        ))}
+      </div>
+
+      {/* Table */}
       <div className="panel overflow-hidden">
         <div
-          className="grid gap-3 px-4 py-2.5"
+          className="grid gap-4 px-4 py-2.5"
           style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
         >
-          {HEADERS.map((h, i) => (
-            <span key={i} className="kicker">
+          {HEADERS.map((h) => (
+            <span key={h} className="kicker">
               {h}
             </span>
           ))}
         </div>
 
-        {matches.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="kicker">NO PITCHES YET. IMPROVE YOUR SKILL SCORE TO ATTRACT EMPLOYERS.</p>
+            <p className="kicker">
+              {filter === "all"
+                ? "NO PITCHES YET. IMPROVE YOUR SKILL SCORE TO ATTRACT EMPLOYERS."
+                : `NO ${filter.toUpperCase()} PITCHES.`}
+            </p>
           </div>
         ) : (
-          matches.map((m, idx) => {
-            const reputation = m.employers?.reputation_score;
+          filtered.map((m, idx) => {
             const sel = m.id === selectedId;
             const unread = isUnread(m);
+            const secondLine = [m.employers?.industry, m.employers?.company_size].filter(Boolean).join(" · ");
             return (
               <div
                 key={m.id}
                 onClick={() => openRow(m)}
-                className="grid cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
+                className="grid cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2"
                 style={{
                   gridTemplateColumns: COLUMNS,
-                  borderBottom: idx === matches.length - 1 ? "none" : "1px solid var(--border-soft)",
-                  borderLeft: `2px solid ${sel ? "var(--up)" : "transparent"}`,
+                  borderBottom: idx === filtered.length - 1 ? "none" : "1px solid var(--border-soft)",
+                  borderLeft: `3px solid ${sel ? "var(--up)" : unread ? "color-mix(in oklch, var(--up) 40%, transparent)" : "transparent"}`,
                   background: sel ? "var(--up-dim)" : "transparent",
                 }}
               >
-                <div className="flex items-center justify-center">
-                  {unread && <span className="live-dot" title="Unread activity" />}
+                {/* EMPLOYER — 2-line */}
+                <div className="min-w-0">
+                  <p className="mono truncate" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                    {m.employers?.company_name ?? "UNKNOWN COMPANY"}
+                  </p>
+                  {secondLine && (
+                    <p className="mono truncate" style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                      {secondLine}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <Badge variant={statusVariant[m.status] ?? "muted"}>{m.status.toUpperCase()}</Badge>
-                </div>
-                <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)" }}>
-                  {m.employers?.company_name ?? "UNKNOWN COMPANY"}
-                </p>
-                <span className="mono tnum" style={{ fontSize: 12, color: reputationColor(reputation) }}>
-                  {reputation != null ? reputation.toFixed(0) : "—"}
-                </span>
+
+                {/* OFFERED */}
                 <span
                   className="mono tnum"
                   style={{ fontSize: 12, fontWeight: 600, color: m.offered_salary ? "var(--up)" : "var(--muted)" }}
                 >
                   {m.offered_salary ? formatSalary(m.offered_salary) : "—"}
                 </span>
-                <span className="mono" style={{ fontSize: 11, color: m.status === "pending" ? "var(--gold)" : "var(--muted)" }}>
-                  {m.status === "pending" ? `EXP ${formatRelativeTime(m.expires_at)}` : formatRelativeTime(m.created_at)}
+
+                {/* SENT + expiry countdown */}
+                <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
+                  {formatRelativeTime(m.created_at)}
+                  {m.status === "pending" && (
+                    <span style={{ color: "var(--gold)" }}>{` · in ${expiryCountdown(m.expires_at)}`}</span>
+                  )}
                 </span>
-                <div className="flex items-center gap-1">
-                  {m.status === "accepted" && m.offer_status === "pending" ? (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); startOfferConfirm(m, "accept"); }}
-                        className="btn btn-primary"
-                        style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
-                        title="Accept hire offer"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); startOfferConfirm(m, "decline"); }}
-                        className="btn btn-danger"
-                        style={{ fontSize: 11, padding: "4px 7px", lineHeight: 1 }}
-                        title="Decline hire offer"
-                      >
-                        ✗
-                      </button>
-                    </>
-                  ) : m.status === "accepted" ? (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openChat(m); }}
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: 10.5, whiteSpace: "nowrap" }}
-                    >
-                      CHAT →
-                    </button>
-                  ) : null}
-                </div>
-                <span className="mono" style={{ fontSize: 14, color: "var(--dim)" }}>
-                  ›
-                </span>
+
+                {/* STATUS — full-width pill */}
+                <StatusPill status={m.status} />
               </div>
             );
           })
@@ -288,7 +308,13 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 <DataRow
                   label="REPUTATION"
                   value={selected.employers.reputation_score.toFixed(0)}
-                  color={selected.employers.reputation_score >= 80 ? "up" : selected.employers.reputation_score >= 50 ? "gold" : "down"}
+                  color={
+                    selected.employers.reputation_score >= 80
+                      ? "up"
+                      : selected.employers.reputation_score >= 50
+                        ? "gold"
+                        : "down"
+                  }
                 />
               )}
               {selected.offered_salary != null && (
@@ -299,6 +325,35 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 <DataRow label="EXPIRES" value={formatRelativeTime(selected.expires_at)} color="gold" />
               )}
             </div>
+
+            {/* hire offer pending — surface prominently in slide-over */}
+            {selected.status === "accepted" && selected.offer_status === "pending" && (
+              <div
+                style={{
+                  border: "1px solid color-mix(in oklch, var(--gold) 35%, transparent)",
+                  background: "var(--gold-dim)",
+                  borderRadius: "var(--r)",
+                  padding: "12px 14px",
+                }}
+              >
+                <p className="kicker" style={{ color: "var(--gold)" }}>
+                  HIRE OFFER PENDING
+                </p>
+                {selected.offer_salary && (
+                  <p className="mono tnum" style={{ fontSize: 15, color: "var(--gold)", fontWeight: 700, marginTop: 4 }}>
+                    {formatSalary(selected.offer_salary)}/mo
+                  </p>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={() => startOfferConfirm(selected, "accept")} className="flex-1">
+                    ACCEPT OFFER
+                  </Button>
+                  <Button variant="danger" onClick={() => startOfferConfirm(selected, "decline")} className="flex-1">
+                    DECLINE
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="mb-2 flex items-center gap-2">
@@ -374,7 +429,12 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 >
                   ACCEPT MATCH
                 </Button>
-                <Button variant="danger" onClick={() => respond(selected.id, "decline")} loading={loading[selected.id]} className="flex-1">
+                <Button
+                  variant="danger"
+                  onClick={() => respond(selected.id, "decline")}
+                  loading={loading[selected.id]}
+                  className="flex-1"
+                >
                   DECLINE
                 </Button>
               </div>
@@ -408,7 +468,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         </div>
       )}
 
-      {/* hire offer accept/decline confirm */}
+      {/* hire offer confirm modal */}
       <Modal
         open={confirmStep !== "none"}
         onClose={closeOfferConfirm}
@@ -443,10 +503,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
 
         {confirmStep === "final" && (
           <div className="space-y-3">
-            <p
-              className="kicker"
-              style={{ color: offerConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}
-            >
+            <p className="kicker" style={{ color: offerConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}>
               FINAL STEP. THIS CANNOT BE UNDONE
             </p>
             <label className="flex items-start gap-2">
@@ -458,8 +515,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
               />
               <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
                 I understand this {offerConfirm?.action === "accept" ? "accepts" : "declines"} the offer
-                {confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} and
-                cannot be changed afterwards.
+                {confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} and cannot be
+                changed afterwards.
               </span>
             </label>
             {confirmError && <p className="kicker c-down">{confirmError}</p>}
