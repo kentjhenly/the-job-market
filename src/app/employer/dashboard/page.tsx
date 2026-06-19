@@ -66,7 +66,7 @@ export default async function EmployerDashboardPage() {
     { data: urgentMatches },
     { data: visibleCandIds },
   ] = await Promise.all([
-    supabase.from("matches").select("status, offered_salary, created_at, candidate_last_read_at").eq("employer_id", session.user.id),
+    supabase.from("matches").select("status, offer_status, offered_salary, created_at, candidate_last_read_at").eq("employer_id", session.user.id),
     supabase
       .from("matches")
       .select("id, status, created_at, offered_salary, employer_job_postings(title), candidates(years_exp_claimed, profiles(display_name))")
@@ -95,11 +95,13 @@ export default async function EmployerDashboardPage() {
   const ms = allMatches ?? [];
   const sent = ms.length;
   const pending = ms.filter(m => m.status === "pending").length;
-  const accepted = ms.filter(m => m.status === "accepted").length;
-  const declined = ms.filter(m => m.status === "declined").length;
-  const ghosted = ms.filter(m => m.status === "ghosted").length;
-  const responded = accepted + declined + ghosted;
-  const acceptanceRate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+  // "responded" = candidate actively accepted or declined (ghosted = no response, excluded)
+  const responded = ms.filter(m => m.status === "accepted" || m.status === "declined").length;
+  // "offerAccepted" = employer sent a hire offer AND candidate accepted it
+  const offerAccepted = ms.filter(m => m.offer_status === "accepted").length;
+  // pitch acceptance rate for the HIRING SUMMARY meter (how many pitches led to a chat)
+  const pitchAccepted = ms.filter(m => m.status === "accepted").length;
+  const acceptanceRate = sent > 0 ? Math.round((pitchAccepted / sent) * 100) : 0;
   const reviewed = ms.filter(m => (m as { candidate_last_read_at?: string | null }).candidate_last_read_at != null).length;
   const offeredSalaries = ms.filter(m => m.offered_salary).map(m => m.offered_salary as number);
   const avgOffered = offeredSalaries.length > 0
@@ -572,10 +574,10 @@ export default async function EmployerDashboardPage() {
           </div>
           <div className="flex flex-col gap-2.5 px-4 py-3">
             {[
-              { k: "SENT",      n: sent,      col: "var(--info)"         },
-              { k: "REVIEWED",  n: reviewed,  col: "oklch(0.52 0.01 80)" },
-              { k: "RESPONDED", n: responded, col: "var(--gold)"         },
-              { k: "ACCEPTED",  n: accepted,  col: "var(--up)"           },
+              { k: "SENT",      n: sent,         col: "var(--info)"         },
+              { k: "REVIEWED",  n: reviewed,     col: "oklch(0.52 0.01 80)" },
+              { k: "RESPONDED", n: responded,    col: "var(--gold)"         },
+              { k: "ACCEPTED",  n: offerAccepted, col: "var(--up)"          },
             ].map((s, i, arr) => {
               const maxN = arr[0].n || 1;
               const prev = i > 0 ? arr[i - 1].n || 1 : null;
@@ -617,11 +619,11 @@ export default async function EmployerDashboardPage() {
             })}
           </div>
           <div className="flex items-center justify-center gap-1.5 px-4 pb-3 pt-2.5">
-            <span className="kicker">ACCEPTANCE RATE</span>
+            <span className="kicker">CLOSE RATE</span>
             <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, color: "var(--up)" }}>
-              {sent > 0 ? Math.round((accepted / sent) * 100) : 0}%
+              {sent > 0 ? Math.round((offerAccepted / sent) * 100) : 0}%
             </span>
-            <span className="kicker">· {accepted} OF {sent} CLOSED</span>
+            <span className="kicker">· {offerAccepted} HIRED OF {sent} SENT</span>
           </div>
         </div>
 
