@@ -354,99 +354,7 @@ export default async function EmployerDashboardPage() {
         {employer?.verified && <Badge variant="gold">VERIFIED EMPLOYER</Badge>}
       </div>
 
-      {/* ROW 0 — TOP MATCHES */}
-      <div className="panel">
-        <div className="panel-head">
-          <span className="panel-title">TOP MATCHES</span>
-          {topMatches.length > 0 && (
-            <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-              ACROSS {postingList.length} OPEN POSTING{postingList.length !== 1 ? "S" : ""}
-            </span>
-          )}
-          {postingList.length > 0 && (
-            <Link href="/employer/feed" className="link-up mono ml-auto" style={{ fontSize: 11 }}>
-              FULL FEED
-            </Link>
-          )}
-        </div>
-        {topMatches.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10">
-            <p className="kicker">NO OPEN POSTINGS — CREATE A ROLE TO SEE TOP CANDIDATES</p>
-            <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
-              CREATE POSTING →
-            </Link>
-          </div>
-        ) : (
-          <>
-            {/* Column headers */}
-            <div
-              className="grid items-center gap-3 px-4 py-2"
-              style={{
-                gridTemplateColumns: "1.4rem 1fr 4.5rem 3.5rem 7rem 5.5rem",
-                borderBottom: "1px solid var(--border-soft)",
-              }}
-            >
-              {["#", "CANDIDATE", "MATCH", "EXP", "SALARY ASK", ""].map((h, i) => (
-                <span key={i} className="kicker">{h}</span>
-              ))}
-            </div>
-            {topMatches.map((m, idx) => (
-              <div
-                key={m.candidate_id}
-                className="grid items-center gap-3 px-4 py-3"
-                style={{
-                  gridTemplateColumns: "1.4rem 1fr 4.5rem 3.5rem 7rem 5.5rem",
-                  borderBottom: idx < topMatches.length - 1 ? "1px solid var(--border-soft)" : "none",
-                  borderLeft: `2px solid ${idx === 0 ? "var(--up)" : "transparent"}`,
-                }}
-              >
-                <span className="mono tnum" style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {idx + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)", fontWeight: idx === 0 ? 600 : 400 }}>
-                    {m.candidate.display_name}
-                  </p>
-                  <p className="mono truncate mt-0.5" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                    {m.posting_title}
-                  </p>
-                </div>
-                <span
-                  className="mono tnum"
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: m.match_score >= 70 ? "var(--up)" : m.match_score >= 45 ? "var(--gold)" : "var(--muted)",
-                  }}
-                >
-                  {m.match_score.toFixed(0)}%
-                </span>
-                <span className="mono tnum" style={{ fontSize: 12, color: "var(--text-2)" }}>
-                  {m.candidate.years_exp_claimed > 0 ? `${m.candidate.years_exp_claimed}Y` : "—"}
-                </span>
-                <span className="mono tnum" style={{ fontSize: 11, color: "var(--text-2)" }}>
-                  {m.candidate.desired_salary_max ? formatSalary(m.candidate.desired_salary_max) : "—"}
-                </span>
-                <Link
-                  href={`/employer/postings/${m.posting_id}`}
-                  className="mono"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--up)",
-                    fontWeight: 600,
-                    letterSpacing: "0.06em",
-                    textDecoration: "none",
-                  }}
-                >
-                  PITCH →
-                </Link>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-
-      {/* ROW 1 — asymmetric hero: EMPLOYER REPUTATION + POSITION SUMMARY */}
+      {/* ROW 1 — asymmetric hero: EMPLOYER REPUTATION + HIRING SUMMARY */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
 
         {/* EMPLOYER REPUTATION */}
@@ -502,10 +410,10 @@ export default async function EmployerDashboardPage() {
           </div>
         </div>
 
-        {/* POSITION SUMMARY */}
+        {/* HIRING SUMMARY */}
         <div className="panel flex flex-col" style={{ borderTopWidth: 2 }}>
           <div className="panel-head">
-            <span className="panel-title">POSITION SUMMARY</span>
+            <span className="panel-title">HIRING SUMMARY</span>
           </div>
           <div className="flex flex-1 flex-col p-4">
             {/* NEEDS ACTION strip */}
@@ -569,8 +477,86 @@ export default async function EmployerDashboardPage() {
         </div>
       </div>
 
-      {/* ROW 2 — SALARY BENCHMARK + PITCH PIPELINE */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* ROW 2 — 2×2 grid: TOP MATCHES · SALARY BENCHMARK · PITCH PIPELINE · MARKET SUPPLY */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+        {/* TOP MATCHES */}
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">TOP MATCHES</span>
+            {topMatches.length > 0 && (
+              <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                ACROSS {postingList.length} POSTING{postingList.length !== 1 ? "S" : ""}
+              </span>
+            )}
+            {postingList.length > 0 && (
+              <Link href="/employer/feed" className="link-up mono ml-auto" style={{ fontSize: 11 }}>
+                FEED →
+              </Link>
+            )}
+          </div>
+          {topMatches.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-10">
+              <p className="kicker">NO OPEN POSTINGS</p>
+              <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
+                CREATE POSTING →
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div
+                className="grid items-center gap-2 px-4 py-2"
+                style={{
+                  gridTemplateColumns: "1.4rem 1fr 3.8rem 3rem 5rem",
+                  borderBottom: "1px solid var(--border-soft)",
+                }}
+              >
+                {["#", "CANDIDATE", "MATCH", "EXP", "SALARY"].map((h, i) => (
+                  <span key={i} className="kicker">{h}</span>
+                ))}
+              </div>
+              {topMatches.map((m, idx) => (
+                <Link
+                  key={m.candidate_id}
+                  href={`/employer/postings/${m.posting_id}`}
+                  className="grid items-center gap-2 px-4 py-2.5"
+                  style={{
+                    gridTemplateColumns: "1.4rem 1fr 3.8rem 3rem 5rem",
+                    borderBottom: idx < topMatches.length - 1 ? "1px solid var(--border-soft)" : "none",
+                    borderLeft: `2px solid ${idx === 0 ? "var(--up)" : "transparent"}`,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>{idx + 1}</span>
+                  <div className="min-w-0">
+                    <p className="mono truncate" style={{ fontSize: 12, color: "var(--text)", fontWeight: idx === 0 ? 600 : 400 }}>
+                      {m.candidate.display_name}
+                    </p>
+                    <p className="mono truncate" style={{ fontSize: 10, color: "var(--dim)" }}>
+                      {m.posting_title}
+                    </p>
+                  </div>
+                  <span
+                    className="mono tnum"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: m.match_score >= 70 ? "var(--up)" : m.match_score >= 45 ? "var(--gold)" : "var(--muted)",
+                    }}
+                  >
+                    {m.match_score.toFixed(0)}%
+                  </span>
+                  <span className="mono tnum" style={{ fontSize: 11, color: "var(--text-2)" }}>
+                    {m.candidate.years_exp_claimed > 0 ? `${m.candidate.years_exp_claimed}Y` : "—"}
+                  </span>
+                  <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--text-2)" }}>
+                    {m.candidate.desired_salary_max ? formatSalary(m.candidate.desired_salary_max) : "—"}
+                  </span>
+                </Link>
+              ))}
+            </>
+          )}
+        </div>
 
         {/* SALARY BENCHMARK */}
         <div className="panel">
@@ -629,63 +615,64 @@ export default async function EmployerDashboardPage() {
             <span className="kicker">· {accepted} OF {sent} CLOSED</span>
           </div>
         </div>
-      </div>
 
-      {/* ROW 3 — MARKET SUPPLY */}
-      <div className="panel">
-        <div className="panel-head">
-          <span className="panel-title">MARKET SUPPLY</span>
-          {filteredSupply.length > 0 && (
-            <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-              {filteredSupply.length} VISIBLE POSTINGS
-            </span>
-          )}
-        </div>
-        <div className="p-4">
-          {supplyRoles.length > 0 ? (
-            <>
-              <div className="mb-2 grid" style={{ gridTemplateColumns: "6rem 1fr 1fr 1fr 1fr" }}>
-                <span className="kicker" style={{ color: "var(--dim)" }}>ROLE</span>
-                {EXP_BUCKETS.map(b => <span key={b.label} className="kicker text-center">{b.label}</span>)}
-              </div>
-              {marketSupply.map(r => {
-                const maxC = Math.max(...r.buckets.map(b => b.count), 1);
-                return (
-                  <div key={r.role} className="mb-1 grid items-center" style={{ gridTemplateColumns: "6rem 1fr 1fr 1fr 1fr" }}>
-                    <span className="mono truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                      {r.role.toUpperCase().slice(0, 11)}
-                    </span>
-                    {r.buckets.map(b => (
-                      <div key={b.label} className="p-0.5">
-                        <div style={{
-                          height: 24, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center",
-                          background: b.count === 0
-                            ? "var(--surface-2)"
-                            : `color-mix(in oklch, var(--up) ${10 + Math.round((b.count / maxC) * 55)}%, transparent)`,
-                        }}>
-                          {b.count > 0 && (
-                            <span className="mono tnum" style={{ fontSize: 11, fontWeight: 600, color: "var(--up)" }}>{b.count}</span>
-                          )}
+        {/* MARKET SUPPLY */}
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">MARKET SUPPLY</span>
+            {filteredSupply.length > 0 && (
+              <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                {filteredSupply.length} POSTINGS
+              </span>
+            )}
+          </div>
+          <div className="p-4">
+            {supplyRoles.length > 0 ? (
+              <>
+                <div className="mb-2 grid" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
+                  <span className="kicker" style={{ color: "var(--dim)" }}>ROLE</span>
+                  {EXP_BUCKETS.map(b => <span key={b.label} className="kicker text-center">{b.label}</span>)}
+                </div>
+                {marketSupply.map(r => {
+                  const maxC = Math.max(...r.buckets.map(b => b.count), 1);
+                  return (
+                    <div key={r.role} className="mb-1 grid items-center" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
+                      <span className="mono truncate" style={{ fontSize: 10, color: "var(--muted)" }}>
+                        {r.role.toUpperCase().slice(0, 10)}
+                      </span>
+                      {r.buckets.map(b => (
+                        <div key={b.label} className="p-0.5">
+                          <div style={{
+                            height: 22, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center",
+                            background: b.count === 0
+                              ? "var(--surface-2)"
+                              : `color-mix(in oklch, var(--up) ${10 + Math.round((b.count / maxC) * 55)}%, transparent)`,
+                          }}>
+                            {b.count > 0 && (
+                              <span className="mono tnum" style={{ fontSize: 10.5, fontWeight: 600, color: "var(--up)" }}>{b.count}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-              <div className="mt-3 flex items-center gap-1.5">
-                <span className="kicker">LOW</span>
-                {[10, 25, 45, 65, 90].map(p => (
-                  <div key={p} style={{ width: 14, height: 10, borderRadius: 1, background: `color-mix(in oklch, var(--up) ${p}%, transparent)` }} />
-                ))}
-                <span className="kicker">HIGH</span>
+                      ))}
+                    </div>
+                  );
+                })}
+                <div className="mt-3 flex items-center gap-1.5">
+                  <span className="kicker">LOW</span>
+                  {[10, 25, 45, 65, 90].map(p => (
+                    <div key={p} style={{ width: 14, height: 10, borderRadius: 1, background: `color-mix(in oklch, var(--up) ${p}%, transparent)` }} />
+                  ))}
+                  <span className="kicker">HIGH</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10">
+                <p className="kicker">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10">
-              <p className="kicker">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
+
       </div>
 
     </div>
