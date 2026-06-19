@@ -12,7 +12,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { repVar } from "@/lib/utils/score";
 
 const NAV = [
-  { href: "/employer/dashboard", label: "DASHBOARD" },
+  { href: "/employer/terminal", label: "TERMINAL" },
   { href: "/employer/feed", label: "FEED" },
   { href: "/employer/postings", label: "POSTINGS" },
   { href: "/employer/matches", label: "PITCHES" },
@@ -28,7 +28,7 @@ export default async function EmployerLayout({
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "employer") redirect("/candidate/dashboard");
+  if (role !== "employer") redirect("/candidate/terminal");
 
   // SHELVED while running locally — employer email verification gate. Do not
   // delete; re-enable (with the emailVerification config in src/lib/auth/auth.ts)
@@ -46,7 +46,7 @@ export default async function EmployerLayout({
     <CommandConsoleProvider>
       <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
         <TopBar
-          homeHref="/employer/dashboard"
+          homeHref="/employer/terminal"
           stat={[
             { label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase(), ...((employer?.subscription_tier ?? "none") === "none" ? { href: "/employer/feed" } : {}) },
             { label: "REPUTATION", value: `${(employer?.reputation_score ?? 100).toFixed(0)}/100`, color: repVar(employer?.reputation_score ?? 100) },

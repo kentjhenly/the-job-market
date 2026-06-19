@@ -7,8 +7,8 @@ export default async function VerifyEmailPage() {
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "employer") redirect("/candidate/dashboard");
-  if (session.user.emailVerified) redirect("/employer/dashboard");
+  if (role !== "employer") redirect("/candidate/terminal");
+  if (session.user.emailVerified) redirect("/employer/terminal");
 
   return (
     <div className="panel p-8">

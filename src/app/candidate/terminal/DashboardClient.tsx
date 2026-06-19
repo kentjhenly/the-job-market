@@ -359,7 +359,7 @@ export function DashboardClient({
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="mono" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
-            SCORE TERMINAL
+            TERMINAL
           </h1>
         </div>
       </div>

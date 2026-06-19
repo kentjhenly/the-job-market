@@ -43,7 +43,7 @@ export default function EmployerSignUpPage() {
       // @ts-expect-error — Better Auth additionalFields
       role: "employer",
       display_name: form.companyName,
-      callbackURL: "/employer/dashboard",
+      callbackURL: "/employer/terminal",
     });
 
     if (result.error) {
@@ -52,7 +52,7 @@ export default function EmployerSignUpPage() {
       return;
     }
 
-    router.push("/employer/dashboard");
+    router.push("/employer/terminal");
     router.refresh();
   }
 

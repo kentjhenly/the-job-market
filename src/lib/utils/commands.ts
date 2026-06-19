@@ -6,7 +6,7 @@ export interface CommandDef {
 }
 
 export const CANDIDATE_COMMANDS: CommandDef[] = [
-  { cmd: "DASH", desc: "Score terminal", href: "/candidate/dashboard" },
+  { cmd: "DASH", desc: "Score terminal", href: "/candidate/terminal" },
   { cmd: "PORT", desc: "Portfolio projects", href: "/candidate/portfolio" },
   { cmd: "POST", desc: "Job postings", href: "/candidate/postings" },
   { cmd: "PITCH", desc: "Incoming pitches", href: "/candidate/matches" },
@@ -24,7 +24,7 @@ export const CANDIDATE_FKEYS: [string, CommandDef][] = [
 ];
 
 export const EMPLOYER_COMMANDS: CommandDef[] = [
-  { cmd: "DASH", desc: "Market overview", href: "/employer/dashboard" },
+  { cmd: "DASH", desc: "Market overview", href: "/employer/terminal" },
   { cmd: "FEED", desc: "Ranked candidate feed", href: "/employer/feed" },
   { cmd: "POST", desc: "Job postings", href: "/employer/postings" },
   { cmd: "SENT", desc: "Sent pitches", href: "/employer/matches" },

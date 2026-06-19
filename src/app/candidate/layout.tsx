@@ -11,7 +11,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 const NAV = [
-  { href: "/candidate/dashboard", label: "DASHBOARD" },
+  { href: "/candidate/terminal", label: "TERMINAL" },
   { href: "/candidate/portfolio", label: "PORTFOLIO" },
   { href: "/candidate/postings", label: "POSTINGS" },
   { href: "/candidate/matches", label: "PITCHES" },
@@ -27,7 +27,7 @@ export default async function CandidateLayout({
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "candidate") redirect("/employer/dashboard");
+  if (role !== "candidate") redirect("/employer/terminal");
 
   const supabase = getSupabaseServiceClient();
   const { data: candidate } = await supabase
@@ -44,7 +44,7 @@ export default async function CandidateLayout({
     <CommandConsoleProvider>
       <div className="flex h-screen flex-col" style={{ background: "var(--bg)" }}>
         <TopBar
-          homeHref="/candidate/dashboard"
+          homeHref="/candidate/terminal"
           stat={{ label: "SCORE", value: (candidate?.composite_score ?? 0).toFixed(1) }}
         />
         <CommandBar commands={CANDIDATE_COMMANDS} />

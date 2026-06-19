@@ -136,8 +136,8 @@ interface WelcomeEmailParams {
 export async function sendWelcomeEmail({ to, name, role }: WelcomeEmailParams) {
   const dashboardUrl =
     role === "employer"
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/employer/dashboard`
-      : `${process.env.NEXT_PUBLIC_APP_URL}/candidate/dashboard`;
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/employer/terminal`
+      : `${process.env.NEXT_PUBLIC_APP_URL}/candidate/terminal`;
 
   return resend.emails.send({
     from: FROM,
