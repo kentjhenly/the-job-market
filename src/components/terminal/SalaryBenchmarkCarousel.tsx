@@ -67,11 +67,9 @@ export function SalaryBenchmarkCarousel({ slides }: Props) {
 
       <div className="p-4">
         {slides.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1.5" style={{ height: 265 }}>
-            <span className="kicker" style={{ color: "var(--dim)" }}>NO OPEN POSTINGS</span>
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-              CREATE A POSTING TO SEE ROLE-SPECIFIC SALARY DATA
-            </span>
+          <div className="flex flex-col items-center justify-center gap-2" style={{ height: 265 }}>
+            <p className="kicker text-center">NO OPEN POSTINGS</p>
+            <p className="kicker text-center">CREATE A POSTING TO SEE ROLE-SPECIFIC SALARY DATA</p>
           </div>
         ) : (
           <>

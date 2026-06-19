@@ -628,7 +628,7 @@ export default async function EmployerDashboardPage() {
         </div>
 
         {/* MARKET SUPPLY */}
-        <div className="panel">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">MARKET SUPPLY</span>
             {filteredSupply.length > 0 && (
@@ -637,7 +637,7 @@ export default async function EmployerDashboardPage() {
               </span>
             )}
           </div>
-          <div className="p-4">
+          <div className="flex flex-1 flex-col p-4">
             {supplyRoles.length > 0 ? (
               <>
                 <div className="mb-2 grid" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
@@ -677,8 +677,8 @@ export default async function EmployerDashboardPage() {
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-10">
-                <p className="kicker">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
+              <div className="flex flex-1 flex-col items-center justify-center py-10">
+                <p className="kicker text-center">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
               </div>
             )}
           </div>
