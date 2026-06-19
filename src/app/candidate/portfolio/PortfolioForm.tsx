@@ -87,7 +87,14 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     });
 
     setSaving(false);
-    if (res.ok) router.push("/candidate/portfolio");
+    if (res.ok) {
+      if (isEditing) {
+        router.push(`/candidate/portfolio/${initial.id}`);
+      } else {
+        const data = await res.json();
+        router.push(`/candidate/portfolio/${data.id}`);
+      }
+    }
   }
 
   async function confirmDelete() {
@@ -144,8 +151,12 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
   return (
     <div className="view-enter space-y-6">
       <div>
-        <Link href="/candidate/portfolio" className="link-up mono" style={{ fontSize: 11 }}>
-          ← BACK TO PORTFOLIO
+        <Link
+          href={isEditing ? `/candidate/portfolio/${initial.id}` : "/candidate/portfolio"}
+          className="link-up mono"
+          style={{ fontSize: 11 }}
+        >
+          {isEditing ? "← BACK TO PROJECT" : "← BACK TO PORTFOLIO"}
         </Link>
         <h1 className="mono mt-2" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           {isEditing ? "EDIT PROJECT" : "ADD PROJECT"}
@@ -305,7 +316,11 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
           <Button type="submit" loading={saving}>
             SAVE PROJECT
           </Button>
-          <Button type="button" variant="ghost" onClick={() => router.push("/candidate/portfolio")}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push(isEditing ? `/candidate/portfolio/${initial.id}` : "/candidate/portfolio")}
+          >
             CANCEL
           </Button>
           {isEditing && (

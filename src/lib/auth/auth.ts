@@ -30,9 +30,21 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+  session: {
+    // Cache the session in a signed, short-lived cookie so the common case
+    // (getServerSession on the proxy + layout + page of every navigation)
+    // is served from the cookie instead of a Postgres round-trip on each
+    // call. Better Auth refreshes/invalidates this cookie automatically when
+    // the session changes (sign-in/out, changeEmail, role update), so the
+    // 5-minute window only ever serves data that's still valid.
+    cookieCache: {
+      enabled: true,
+      maxAge: 300,
+    },
+  },
   // SHELVED while running locally — employer email verification. Do not delete;
   // re-enable (and uncomment the sendVerificationEmail import + the EmployerLayout
-  // redirect in src/app/employer/layout.tsx) for production.
+  // redirect in src/app/recruiter/layout.tsx) for production.
   // emailVerification: {
   //   sendVerificationEmail: async ({ user, url }) => {
   //     const { role, display_name, name, email } = user as typeof user & {

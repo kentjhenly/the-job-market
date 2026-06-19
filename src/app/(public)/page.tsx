@@ -13,6 +13,39 @@ const BOARD = [
   { label: "BIAS REDUCTION", value: "ALGORITHMIC", desc: "SCORE, NOT BACKGROUND" },
 ];
 
+const EMPLOYER_CAN_SEE = [
+  "Composite skill score & percentile rank",
+  "Portfolio of real work (projects, files, tagged skills)",
+  "Desired salary range, location & work modes",
+  "Years of experience",
+  "Market salary regression curves",
+  "Languages & citizenship",
+  "Availability date & work eligibility",
+];
+
+const EMPLOYER_CANNOT_SEE = [
+  "Current salary (private to the candidate's own dashboard)",
+  "Email or contact info (revealed only after accepting a pitch)",
+  "Date of birth or age",
+  "Sex or gender",
+];
+
+const CANDIDATE_CAN_SEE = [
+  "Company name, industry, size & headquarters",
+  "Contact name & verified employer badge",
+  "Full job posting (role, description, salary range, skills)",
+  "Offered pitch salary before accepting",
+  "Employer reputation score",
+  "Market salary data for the role",
+];
+
+const CANDIDATE_CANNOT_SEE = [
+  "Other candidates who were pitched for the same role",
+  "Your ranking vs. other candidates on a posting",
+  "Employer's subscription tier or plan details",
+  "Internal match score or matching formula weights",
+];
+
 const FEATURES = [
   {
     title: "RANKED BY SKILL",
@@ -139,6 +172,133 @@ export default async function LandingPage() {
                 <span style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6 }}>{f.desc}</span>
               </div>
             ))}
+          </section>
+        </ScrollReveal>
+
+        {/* information transparency */}
+        <ScrollReveal className="mb-3.5">
+          <section className="panel no-num" style={{ overflow: "hidden" }}>
+            <div className="panel-head">
+              <span className="panel-title">INFORMATION TRANSPARENCY</span>
+              <span className="mono" style={{ fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em" }}>
+                WHAT EACH SIDE SEES
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* Employer column */}
+              <div className="border-b border-border md:border-b-0 md:border-r md:border-border">
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    color: "var(--muted)",
+                    padding: "14px 20px 10px",
+                    borderBottom: "1px solid var(--border-soft)",
+                    background: "var(--surface)",
+                  }}
+                >
+                  EMPLOYERS
+                </div>
+                <div style={{ padding: "12px 20px 6px" }}>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--up)" }}
+                  >
+                    CAN SEE
+                  </span>
+                </div>
+                {EMPLOYER_CAN_SEE.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5"
+                    style={{ padding: "6px 20px", fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}
+                  >
+                    <span style={{ color: "var(--up)", fontWeight: 700, flexShrink: 0 }}>+</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+                <div style={{ padding: "14px 20px 6px" }}>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--down)" }}
+                  >
+                    CANNOT SEE
+                  </span>
+                </div>
+                {EMPLOYER_CANNOT_SEE.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5"
+                    style={{ padding: "6px 20px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}
+                  >
+                    <span className="mono" style={{ color: "var(--down)", fontWeight: 700, flexShrink: 0 }}>
+                      &minus;
+                    </span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+                <div style={{ height: 16 }} />
+              </div>
+
+              {/* Candidate column */}
+              <div>
+                <div
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    color: "var(--muted)",
+                    padding: "14px 20px 10px",
+                    borderBottom: "1px solid var(--border-soft)",
+                    background: "var(--surface)",
+                  }}
+                >
+                  CANDIDATES
+                </div>
+                <div style={{ padding: "12px 20px 6px" }}>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--up)" }}
+                  >
+                    CAN SEE
+                  </span>
+                </div>
+                {CANDIDATE_CAN_SEE.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5"
+                    style={{ padding: "6px 20px", fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}
+                  >
+                    <span style={{ color: "var(--up)", fontWeight: 700, flexShrink: 0 }}>+</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+                <div style={{ padding: "14px 20px 6px" }}>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--down)" }}
+                  >
+                    CANNOT SEE
+                  </span>
+                </div>
+                {CANDIDATE_CANNOT_SEE.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5"
+                    style={{ padding: "6px 20px", fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}
+                  >
+                    <span className="mono" style={{ color: "var(--down)", fontWeight: 700, flexShrink: 0 }}>
+                      &minus;
+                    </span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+                <div style={{ height: 16 }} />
+              </div>
+            </div>
           </section>
         </ScrollReveal>
 

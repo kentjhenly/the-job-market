@@ -58,7 +58,7 @@ export async function sendMatchAcceptedNotification({
         <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">
           <strong style="color: #fff;">${candidateName}</strong> has accepted your pitch.
         </p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/employer/matches" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/employer/postings" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
           VIEW MATCH →
         </a>
       </div>

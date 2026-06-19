@@ -58,32 +58,48 @@ async function expireSilentChats() {
   if (e1) throw new Error(e1.message);
   if (e2) throw new Error(e2.message);
 
+  // neverMessaged (last_message_at IS NULL) and wentQuiet (last_message_at <
+  // cutoff) are disjoint, so the combined id list has no duplicates.
   const stale = [...(neverMessaged ?? []), ...(wentQuiet ?? [])];
   if (stale.length === 0) return 0;
 
-  for (const match of stale) {
-    const { data: lastMessage } = await supabase
-      .from("match_messages")
-      .select("sender_id")
-      .eq("match_id", match.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const staleIds = stale.map((m) => m.id);
 
-    const silentIsEmployer = !lastMessage || lastMessage.sender_id !== match.employer_id;
-    const subjectId = silentIsEmployer ? match.employer_id : match.candidate_id;
-    const actorId = silentIsEmployer ? match.candidate_id : match.employer_id;
+  // Resolve the latest sender for every stale match in one query instead of
+  // one per match (the old per-row loop was an N+1). Rows come back newest
+  // first, so the first sender_id seen for a match is its most recent.
+  const { data: messages } = await supabase
+    .from("match_messages")
+    .select("match_id, sender_id")
+    .in("match_id", staleIds)
+    .order("created_at", { ascending: false });
 
-    await supabase.from("matches").update({ status: "ghosted" }).eq("id", match.id);
+  const lastSenderByMatch = new Map<string, string>();
+  for (const msg of messages ?? []) {
+    if (!lastSenderByMatch.has(msg.match_id)) lastSenderByMatch.set(msg.match_id, msg.sender_id);
+  }
 
-    await supabase.from("reputation_events").insert({
-      subject_id: subjectId,
-      actor_id: actorId,
-      event_type: "ghosted",
+  const reputationRows = stale.map((match) => {
+    // Silent party is whoever didn't send the most recent message; with no
+    // messages at all it's the employer, who was expected to open the chat.
+    const lastSender = lastSenderByMatch.get(match.id);
+    const silentIsEmployer = !lastSender || lastSender !== match.employer_id;
+    return {
+      subject_id: silentIsEmployer ? match.employer_id : match.candidate_id,
+      actor_id: silentIsEmployer ? match.candidate_id : match.employer_id,
+      event_type: "ghosted" as const,
       weight: -15,
       match_id: match.id,
-    });
-  }
+    };
+  });
+
+  // Two bulk writes instead of two per match.
+  const [{ error: updateError }, { error: insertError }] = await Promise.all([
+    supabase.from("matches").update({ status: "ghosted" }).in("id", staleIds),
+    supabase.from("reputation_events").insert(reputationRows),
+  ]);
+  if (updateError) throw new Error(updateError.message);
+  if (insertError) throw new Error(insertError.message);
 
   return stale.length;
 }

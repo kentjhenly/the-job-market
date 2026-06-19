@@ -13,8 +13,8 @@ import { SalaryEstimateFootnote } from "@/components/ui/SalaryEstimateFootnote";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
-import { WORK_MODES, VERTICALS, COUNTRIES, MAX_POSTING_SKILLS, verticalLabel, type VerticalType } from "@/lib/utils/constants";
-import type { Database, WorkMode, Vertical, PostingStatus } from "@/lib/supabase/types";
+import { WORK_MODES, VERTICALS, COUNTRIES, JOB_ROLES, MAX_POSTING_SKILLS, verticalLabel, type VerticalType } from "@/lib/utils/constants";
+import type { Database, WorkMode, Vertical } from "@/lib/supabase/types";
 
 type EmployerPosting = Database["public"]["Tables"]["employer_job_postings"]["Row"];
 
@@ -76,16 +76,14 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
   const [form, setForm] = useState({
     title: initial?.title ?? "",
     description: initial?.description ?? "",
-    vertical: (initial?.vertical ?? "tech") as Vertical,
+    vertical: (initial?.vertical ?? "") as Vertical | "",
     years_exp_min: initial?.years_exp_min?.toString() ?? "",
     years_exp_max: initial?.years_exp_max?.toString() ?? "",
     location: initial?.location ?? "",
     work_modes: initial?.work_modes ?? ([] as WorkMode[]),
-    salary_min: initial?.salary_min != null ? (initial.salary_min / 100).toString() : "",
     salary_max: initial?.salary_max != null ? (initial.salary_max / 100).toString() : "",
     skills: initial?.skills ?? ([] as string[]),
-    max_candidates: initial?.max_candidates ?? 5,
-    status: (initial?.status ?? "open") as PostingStatus,
+    headcount: initial?.max_candidates?.toString() ?? "1",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +107,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vertical: form.vertical,
+          vertical: form.vertical || undefined,
           years_exp: expMid,
           location: form.location || "Hong Kong",
           role: form.title || undefined,
@@ -168,12 +166,9 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
     return () => clearTimeout(timeout);
   }, [expMid, form.vertical, form.location, form.title]);
 
-  const salaryMinCents = form.salary_min ? Math.round(parseFloat(form.salary_min) * 100) : undefined;
+  const salaryMinCents = undefined;
   const salaryMaxCents = form.salary_max ? Math.round(parseFloat(form.salary_max) * 100) : undefined;
-  const offerMid =
-    salaryMinCents != null && salaryMaxCents != null
-      ? (salaryMinCents + salaryMaxCents) / 2
-      : salaryMinCents ?? salaryMaxCents;
+  const offerMid = salaryMaxCents;
 
   let percentile: number | undefined;
   let band: CompetitivenessBand | undefined;
@@ -209,16 +204,16 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
     const body = {
       title: form.title,
       description: form.description || null,
-      vertical: form.vertical,
+      vertical: form.vertical || "tech",
       years_exp_min: form.years_exp_min ? parseInt(form.years_exp_min) : null,
       years_exp_max: form.years_exp_max ? parseInt(form.years_exp_max) : null,
       location: form.location || null,
       work_modes: form.work_modes,
-      salary_min: form.salary_min ? Math.round(parseFloat(form.salary_min) * 100) : null,
+      salary_min: null,
       salary_max: form.salary_max ? Math.round(parseFloat(form.salary_max) * 100) : null,
       skills: form.skills,
-      max_candidates: form.max_candidates,
-      status: form.status,
+      max_candidates: Math.min(10, Math.max(1, parseInt(form.headcount) || 1)),
+      ...(!isEditing && { status: "open" }),
     };
 
     const res = await fetch(
@@ -233,14 +228,14 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
     setSaving(false);
     if (res.ok) {
       if (isEditing) {
-        router.refresh();
+        router.push(`/employer/postings/${initial.id}`);
       } else {
         const { id } = await res.json();
         router.push(`/employer/postings/${id}`);
       }
     } else {
       const json = await res.json().catch(() => ({}));
-      setError(json.error ?? "FAILED TO SAVE POSTING");
+      setError(json.error ?? "FAILED TO SAVE OPENING");
     }
   }
 
@@ -253,233 +248,22 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
   }
 
   return (
-    <div className="view-enter max-w-2xl space-y-6">
+    <div className="view-enter space-y-6">
       <div>
-        <Link href="/employer/postings" className="link-up mono" style={{ fontSize: 11 }}>
-          ← BACK TO POSTINGS
+        <Link
+          href={isEditing ? `/employer/postings/${initial.id}` : "/employer/postings"}
+          className="link-up mono"
+          style={{ fontSize: 11 }}
+        >
+          {isEditing ? "← BACK TO OPENING" : "← BACK TO OPENINGS"}
         </Link>
         <h1 className="mono mt-2" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
-          {isEditing ? "EDIT JOB POSTING" : "CREATE JOB POSTING"}
+          {isEditing ? "EDIT JOB OPENING" : "CREATE JOB OPENING"}
         </h1>
       </div>
 
-      <form onSubmit={save} className="space-y-6">
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">ROLE</span>
-          </div>
-          <div className="space-y-4 p-4">
-            <div>
-              <label className="kicker mb-1.5 block">TITLE / JOB ROLE</label>
-              <input
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                className="field"
-                placeholder="Senior Frontend Engineer"
-                required
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">DESCRIPTION</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="field"
-                rows={4}
-                placeholder="What this role involves, team context, etc."
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">VERTICAL</label>
-              <Combobox
-                value={form.vertical}
-                onChange={(v) => setForm((f) => ({ ...f, vertical: v as Vertical }))}
-                options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
-                placeholder="SELECT"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">EXPERIENCE</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-4">
-            <div>
-              <label className="kicker mb-1.5 block">MIN YEARS</label>
-              <input
-                type="number"
-                min={0}
-                value={form.years_exp_min}
-                onChange={(e) => setForm((f) => ({ ...f, years_exp_min: e.target.value }))}
-                className="field"
-                placeholder="2"
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">MAX YEARS</label>
-              <input
-                type="number"
-                min={0}
-                value={form.years_exp_max}
-                onChange={(e) => setForm((f) => ({ ...f, years_exp_max: e.target.value }))}
-                className="field"
-                placeholder="6"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">SALARY (HKD/MONTH)</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-4">
-            <div>
-              <label className="kicker mb-1.5 block">MINIMUM</label>
-              <input
-                type="number"
-                value={form.salary_min}
-                onChange={(e) => setForm((f) => ({ ...f, salary_min: e.target.value }))}
-                className="field"
-                placeholder="80000"
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">MAXIMUM</label>
-              <input
-                type="number"
-                value={form.salary_max}
-                onChange={(e) => setForm((f) => ({ ...f, salary_max: e.target.value }))}
-                className="field"
-                placeholder="120000"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">COMPETITIVENESS</span>
-            {band && <Badge variant={BAND_CONFIG[band].variant}>{BAND_CONFIG[band].label}</Badge>}
-          </div>
-          <div className="p-4">
-            {offerMid == null ? (
-              <p className="kicker">ENTER A SALARY RANGE TO SEE HOW IT COMPARES TO THE MARKET</p>
-            ) : (
-              <SalaryScatter
-                points={marketPoints}
-                curve={curvePoints}
-                nPoints={nPoints ?? marketPoints.length}
-                marginalPerYear={marginalPerYear}
-                candYears={expMid}
-                candSalaryMin={salaryMinCents}
-                candSalaryMax={salaryMaxCents}
-                tone="employer"
-                height={220}
-              />
-            )}
-            {offerMid != null && medianAtExp != null && band && (
-              <>
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span style={{ width: 14, height: 2, background: "var(--info)" }} />
-                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                      MEDIAN
-                    </span>
-                  </div>
-                  {curvePoints.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span
-                        style={{
-                          width: 14,
-                          height: 8,
-                          background: "color-mix(in oklch, var(--info) 22%, transparent)",
-                        }}
-                      />
-                      <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                        P25–P75 RANGE
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: "var(--muted)",
-                        opacity: 0.6,
-                      }}
-                    />
-                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                      MARKET
-                    </span>
-                  </div>
-                  {marketPoints.some((p) => p.source === "match") && (
-                    <div className="flex items-center gap-2">
-                      <span
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: "50%",
-                          background: "var(--up)",
-                        }}
-                      />
-                      <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                        REAL MATCHES
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "var(--gold)",
-                      }}
-                    />
-                    <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
-                      YOUR RANGE
-                    </span>
-                  </div>
-                </div>
-                <p className="mono mt-4" style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-2)" }}>
-                  {BAND_CONFIG[band].copy}
-                </p>
-                <SalaryEstimateFootnote />
-              </>
-            )}
-          </div>
-          {offerMid != null && medianAtExp != null && (
-            <div className="px-4 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
-              <DataRow
-                label={`MARKET MEDIAN @ ${expMid.toFixed(1).replace(/\.0$/, "")}Y`}
-                value={formatSalary(medianAtExp)}
-                color="up"
-              />
-              <DataRow
-                label="YOUR RANGE"
-                value={
-                  salaryMinCents != null && salaryMaxCents != null
-                    ? formatSalaryBand(salaryMinCents, salaryMaxCents)
-                    : formatSalary(offerMid)
-                }
-                color="gold"
-              />
-              {percentile != null && band && (
-                <DataRow
-                  label="YOUR OFFER SITS AT"
-                  value={formatPercentile(percentile)}
-                  color={band === "below" ? "down" : band === "above" ? "gold" : "up"}
-                />
-              )}
-            </div>
-          )}
-        </div>
-
+      <form onSubmit={save} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="space-y-6">
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">LOCATION & WORK MODE</span>
@@ -494,7 +278,6 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
                 placeholder="SELECT"
               />
             </div>
-
             <div>
               <label className="kicker mb-1.5 block">WORK MODES</label>
               <div className="flex flex-wrap gap-2">
@@ -518,6 +301,112 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
 
         <div className="panel">
           <div className="panel-head">
+            <span className="panel-title">POSITION</span>
+          </div>
+          <div className="space-y-4 p-4">
+            <div>
+              <label className="kicker mb-1.5 block">INDUSTRY</label>
+              <Combobox
+                value={form.vertical}
+                onChange={(v) => {
+                  const next = v as Vertical | "";
+                  const match = JOB_ROLES.find((r) => r.title === form.title);
+                  setForm((f) => ({
+                    ...f,
+                    vertical: next,
+                    title: !next || (match && match.vertical !== next) ? "" : f.title,
+                  }));
+                }}
+                options={VERTICALS.map((v) => ({ value: v, label: verticalLabel(v) }))}
+                placeholder="SELECT"
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">ROLE</label>
+              <Combobox
+                value={form.title}
+                onChange={(title) => setForm((f) => ({ ...f, title }))}
+                options={(form.vertical ? JOB_ROLES.filter((r) => r.vertical === form.vertical) : JOB_ROLES)
+                  .slice()
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
+                placeholder="SEARCH ROLES"
+                disabled={!form.vertical}
+                required
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">DESCRIPTION</label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="field"
+                rows={4}
+                placeholder=""
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">POSITIONS AVAILABLE</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={form.headcount}
+                onChange={(e) => setForm((f) => ({ ...f, headcount: e.target.value }))}
+                className="field"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">EXPERIENCE</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 p-4">
+            <div>
+              <label className="kicker mb-1.5 block">MIN YEARS</label>
+              <input
+                type="number"
+                min={0}
+                value={form.years_exp_min}
+                onChange={(e) => setForm((f) => ({ ...f, years_exp_min: e.target.value }))}
+                className="field"
+                placeholder=""
+              />
+            </div>
+            <div>
+              <label className="kicker mb-1.5 block">MAX YEARS</label>
+              <input
+                type="number"
+                min={0}
+                value={form.years_exp_max}
+                onChange={(e) => setForm((f) => ({ ...f, years_exp_max: e.target.value }))}
+                className="field"
+                placeholder=""
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="panel-title">SALARY BUDGET (HKD/MONTH)</span>
+          </div>
+          <div className="p-4">
+            <label className="kicker mb-1.5 block">MAXIMUM</label>
+            <input
+              type="number"
+              value={form.salary_max}
+              onChange={(e) => setForm((f) => ({ ...f, salary_max: e.target.value }))}
+              className="field"
+              placeholder=""
+            />
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
             <span className="panel-title">REQUIRED SKILLS</span>
             <span
               className="kicker"
@@ -530,48 +419,9 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
             <SkillPicker
               selected={form.skills}
               onToggle={toggleSkill}
-              industry={form.vertical as VerticalType}
+              industry={(form.vertical || undefined) as VerticalType | undefined}
               max={MAX_POSTING_SKILLS}
             />
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">CAPACITY & STATUS</span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 p-4">
-            <div>
-              <label className="kicker mb-1.5 block">MAX ACTIVE CANDIDATES</label>
-              <input
-                type="number"
-                min={1}
-                value={form.max_candidates}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, max_candidates: parseInt(e.target.value) || 1 }))
-                }
-                className="field"
-              />
-            </div>
-            <div>
-              <label className="kicker mb-1.5 block">STATUS</label>
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, status: "open" }))}
-                  className={cn("badge", form.status === "open" ? "badge-up" : "badge-muted")}
-                >
-                  OPEN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, status: "closed" }))}
-                  className={cn("badge", form.status === "closed" ? "badge-down" : "badge-muted")}
-                >
-                  CLOSED
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -583,9 +433,13 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
-            SAVE POSTING
+            SAVE OPENING
           </Button>
-          <Button type="button" variant="ghost" onClick={() => router.push("/employer/postings")}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push(isEditing ? `/employer/postings/${initial.id}` : "/employer/postings")}
+          >
             CANCEL
           </Button>
           {isEditing && (
@@ -594,12 +448,129 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
             </Button>
           )}
         </div>
+        </div>
+
+        <div className="panel lg:sticky lg:top-6">
+          <div className="panel-head">
+            <span className="panel-title">MARKET DATA</span>
+            {band && <Badge variant={BAND_CONFIG[band].variant}>{BAND_CONFIG[band].label}</Badge>}
+          </div>
+          <div className="p-4">
+            <SalaryScatter
+              points={marketPoints}
+              curve={curvePoints}
+              nPoints={nPoints ?? marketPoints.length}
+              marginalPerYear={marginalPerYear}
+              candYears={expMid}
+              candSalaryMin={salaryMinCents}
+              candSalaryMax={salaryMaxCents}
+              tone="candidate"
+              height={260}
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+              <div className="flex items-center gap-2">
+                <span style={{ width: 14, height: 2, background: "var(--up)" }} />
+                <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                  MEDIAN
+                </span>
+              </div>
+              {curvePoints.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      width: 14,
+                      height: 8,
+                      background: "color-mix(in oklch, var(--up) 22%, transparent)",
+                    }}
+                  />
+                  <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                    P25–P75 RANGE
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "var(--muted)",
+                    opacity: 0.6,
+                  }}
+                />
+                <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                  MARKET
+                </span>
+              </div>
+              {marketPoints.some((p) => p.source === "match") && (
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "var(--up)",
+                    }}
+                  />
+                  <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                    REAL MATCHES
+                  </span>
+                </div>
+              )}
+              {salaryMaxCents != null && (
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: "var(--gold)",
+                    }}
+                  />
+                  <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.06em" }}>
+                    YOUR BUDGET
+                  </span>
+                </div>
+              )}
+            </div>
+            <SalaryEstimateFootnote />
+          </div>
+          {curvePoints.length > 0 && (
+            <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border-soft)" }}>
+              <DataRow
+                label={`MEDIAN @ ${expMid.toFixed(1).replace(/\.0$/, "")}Y`}
+                value={medianAtExp != null ? formatSalary(medianAtExp) : "—"}
+                color="up"
+              />
+              <DataRow
+                label="YOUR BUDGET"
+                value={salaryMaxCents != null ? formatSalary(salaryMaxCents) : "—"}
+                color="gold"
+              />
+              {percentile != null && band && (
+                <DataRow
+                  label="YOUR OFFER SITS AT"
+                  value={formatPercentile(percentile)}
+                  color={band === "below" ? "down" : band === "above" ? "gold" : "up"}
+                />
+              )}
+              <DataRow label="STD DEVIATION" value={stdDev != null ? `±${formatSalary(stdDev)}` : "—"} />
+            </div>
+          )}
+          {band && (
+            <div className="px-4 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+              <p className="mono" style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-2)" }}>
+                {BAND_CONFIG[band].copy}
+              </p>
+            </div>
+          )}
+        </div>
       </form>
 
-      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="DELETE POSTING">
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="DELETE OPENING">
         <div className="space-y-4">
           <p className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
-            Delete &quot;{initial?.title}&quot;? This cannot be undone.
+            Delete opening &quot;{initial?.title}&quot;? This cannot be undone.
           </p>
           <div className="flex gap-3">
             <Button variant="danger" onClick={confirmDelete} loading={deleting}>
@@ -611,6 +582,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
           </div>
         </div>
       </Modal>
+
     </div>
   );
 }

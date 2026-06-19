@@ -10,6 +10,7 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { formatSalary, formatShortDate, formatPercentile } from "@/lib/utils/formatters";
 import { SalaryBenchmarkCarousel, type BenchmarkSlide } from "@/components/terminal/SalaryBenchmarkCarousel";
 import { repVar, scoreBadgeVariant } from "@/lib/utils/score";
+import { getCachedPostingMatches, getCachedSalaryRegression } from "@/lib/scoring/terminalCache";
 
 type MatchRow = {
   id: string;
@@ -115,26 +116,8 @@ export default async function EmployerDashboardPage() {
   const [matcherSettled, { data: supplyRaw }] = await Promise.all([
     Promise.allSettled(
       postingList.slice(0, 10).map(async (posting) => {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/candidate-matcher`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ posting_id: posting.id }),
-            cache: "no-store",
-          }
-        );
-        if (!res.ok) return [] as MatcherEntry[];
-        const data = await res.json();
-        return ((data.matches ?? []) as Array<{
-          candidate_id: string;
-          candidate_posting_id: string;
-          match_score: number;
-          match_percentile: number;
-        }>).map(m => ({ ...m, posting_id: posting.id, posting_title: posting.title }));
+        const matches = await getCachedPostingMatches(posting.id);
+        return matches.map(m => ({ ...m, posting_id: posting.id, posting_title: posting.title }));
       })
     ),
     supabase
@@ -248,21 +231,9 @@ export default async function EmployerDashboardPage() {
       let marginalPerYear: number | undefined;
 
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/salary-regression`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-            cache: "no-store",
-          }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          curve = data.curve ?? [];
+        const data = await getCachedSalaryRegression(body);
+        if (data) {
+          curve = (data.curve ?? []) as CurvePoint[];
           nPoints = (data.n_points ?? (data.points?.length ?? 0)) as number;
           offerPercentile = candSalary ? (data.candidate_percentile as number | undefined) : undefined;
           marginalPerYear = data.marginal_per_year as number | undefined;
@@ -422,7 +393,7 @@ export default async function EmployerDashboardPage() {
             {/* NEEDS ACTION strip */}
             {urgentList.length > 0 && (
               <Link
-                href="/employer/matches"
+                href="/employer/postings"
                 className="mb-3 flex items-center justify-between gap-2"
                 style={{
                   background: "color-mix(in oklch, var(--down) 12%, transparent)",
@@ -489,7 +460,7 @@ export default async function EmployerDashboardPage() {
             <span className="panel-title">TOP MATCHES</span>
             {topMatches.length > 0 && (
               <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                ACROSS {postingList.length} POSTING{postingList.length !== 1 ? "S" : ""}
+                ACROSS {postingList.length} OPENING{postingList.length !== 1 ? "S" : ""}
               </span>
             )}
             {postingList.length > 0 && (
@@ -500,9 +471,9 @@ export default async function EmployerDashboardPage() {
           </div>
           {topMatches.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10">
-              <p className="kicker text-center">NO OPEN POSTINGS</p>
+              <p className="kicker text-center">NO OPENINGS YET</p>
               <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
-                CREATE POSTING →
+                CREATE OPENING →
               </Link>
             </div>
           ) : (
@@ -570,7 +541,7 @@ export default async function EmployerDashboardPage() {
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">PITCH PIPELINE</span>
-            <Link href="/employer/matches" className="link-up mono ml-auto" style={{ fontSize: 11 }}>VIEW ALL</Link>
+            <Link href="/employer/postings" className="link-up mono ml-auto" style={{ fontSize: 11 }}>VIEW ALL</Link>
           </div>
           <div className="flex flex-col gap-2.5 px-4 py-3">
             {[
@@ -633,7 +604,7 @@ export default async function EmployerDashboardPage() {
             <span className="panel-title">MARKET SUPPLY</span>
             {filteredSupply.length > 0 && (
               <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                {filteredSupply.length} POSTINGS
+                {filteredSupply.length} OPENINGS
               </span>
             )}
           </div>

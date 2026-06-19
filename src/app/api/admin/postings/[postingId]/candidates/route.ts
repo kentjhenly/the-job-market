@@ -3,7 +3,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 
-// Mirrors GET /api/employer-postings/[postingId]/candidates, but for any
+// Mirrors GET /api/recruiter-postings/[postingId]/candidates, but for any
 // posting (not just the caller's own) -- gated by the admin allowlist instead
 // of posting ownership.
 export async function GET(

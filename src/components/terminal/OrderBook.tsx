@@ -2,12 +2,12 @@ import { cn } from "@/lib/utils/cn";
 import { formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { scoreVar } from "@/lib/utils/score";
 import { ScoreBar } from "@/components/charts/ScoreBar";
-import { DepthBar } from "@/components/charts/DepthBar";
 import { Badge } from "@/components/ui/Badge";
 import type { Database } from "@/lib/supabase/types";
 
 type CandidateRow = Database["public"]["Tables"]["candidates"]["Row"] & {
   profiles?: { display_name: string } | null;
+  candidate_job_postings?: { title: string }[] | null;
 };
 
 interface OrderBookProps {
@@ -17,8 +17,8 @@ interface OrderBookProps {
   className?: string;
 }
 
-const COLUMNS = "2.2rem 1.6fr 6rem 5.5rem 9rem 7rem";
-const HEADERS = ["#", "CANDIDATE", "VERTICAL", "SCORE", "SALARY RANGE", "PERCENTILE"];
+const COLUMNS = "2.5rem 1.6fr 7rem 4.5rem 9rem 7.5rem";
+const HEADERS = ["#", "CANDIDATE", "ROLE", "SCORE", "SALARY RANGE", "PERCENTILE"];
 
 export function OrderBook({ candidates, onSelect, selectedId, className }: OrderBookProps) {
   return (
@@ -67,6 +67,9 @@ function OrderBookRow({
   isLast: boolean;
   onClick: () => void;
 }) {
+  const roleLabel =
+    candidate.candidate_job_postings?.[0]?.title ?? "TECH";
+
   return (
     <div
       onClick={onClick}
@@ -79,13 +82,13 @@ function OrderBookRow({
       }}
     >
       <span className="mono tnum" style={{ fontSize: 12, color: "var(--muted)" }}>
-        {rank}
+        {String(rank).padStart(2, "0")}
       </span>
 
       <div className="min-w-0">
-        <p className="mono flex items-center gap-1.5 truncate" style={{ fontSize: 13, color: "var(--text)" }}>
+        <p className="mono flex items-center gap-1.5 truncate" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
           <span className="truncate">
-            {candidate.profiles?.display_name ?? `CAND-${candidate.id.slice(0, 6).toUpperCase()}`}
+            {candidate.profiles?.display_name ?? `CAND-${candidate.id.slice(0, 4).toUpperCase()}`}
           </span>
           {candidate.is_founder_verified && <Badge variant="gold">VERIFIED</Badge>}
         </p>
@@ -94,13 +97,15 @@ function OrderBookRow({
         </div>
       </div>
 
-      <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-        TECH
+      <span className="mono truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
+        {roleLabel.toUpperCase()}
       </span>
 
-      <DepthBar score={candidate.composite_score} />
+      <span className="mono tnum" style={{ fontSize: 13, color: "var(--up)", fontWeight: 600 }}>
+        {candidate.composite_score.toFixed(1)}
+      </span>
 
-      <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+      <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
         {candidate.desired_salary_min && candidate.desired_salary_max
           ? formatSalaryBand(candidate.desired_salary_min, candidate.desired_salary_max)
           : "—"}

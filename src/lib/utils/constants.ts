@@ -41,7 +41,7 @@ export const CHAT_GHOST_HOURS = 72;
 export const MAX_CHAT_FILE_SIZE_MB = 10;
 
 // Employers can create this many job postings without an active subscription;
-// beyond this, POST /api/employer-postings requires subscription_status = 'active'
+// beyond this, POST /api/recruiter-postings requires subscription_status = 'active'
 export const FREE_JOB_POSTINGS = 3;
 
 export const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-1000", "1000+"];

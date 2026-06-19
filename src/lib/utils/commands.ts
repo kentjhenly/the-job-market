@@ -24,21 +24,19 @@ export const CANDIDATE_FKEYS: [string, CommandDef][] = [
 ];
 
 export const EMPLOYER_COMMANDS: CommandDef[] = [
-  { cmd: "DASH", desc: "Market overview", href: "/employer/terminal" },
-  { cmd: "FEED", desc: "Ranked candidate feed", href: "/employer/feed" },
-  { cmd: "POST", desc: "Job postings", href: "/employer/postings" },
-  { cmd: "SENT", desc: "Sent pitches", href: "/employer/matches" },
+  { cmd: "DASH", desc: "Market overview", href: "/recruiter/terminal" },
+  { cmd: "FEED", desc: "Ranked candidate feed", href: "/recruiter/feed" },
+  { cmd: "POST", desc: "Job postings", href: "/recruiter/postings" },
   { cmd: "HELP", desc: "Command reference", action: "help" },
-  { cmd: "SET", desc: "Settings & company", href: "/employer/settings" },
+  { cmd: "SET", desc: "Settings & company", href: "/recruiter/settings" },
 ];
 
 export const EMPLOYER_FKEYS: [string, CommandDef][] = [
   ["F1", EMPLOYER_COMMANDS[0]],
   ["F2", EMPLOYER_COMMANDS[1]],
   ["F3", EMPLOYER_COMMANDS[2]],
-  ["F4", EMPLOYER_COMMANDS[3]],
-  ["F6", EMPLOYER_COMMANDS[4]],
-  ["F7", EMPLOYER_COMMANDS[5]],
+  ["F6", EMPLOYER_COMMANDS[3]],
+  ["F7", EMPLOYER_COMMANDS[4]],
 ];
 
 export const PUBLIC_COMMANDS: CommandDef[] = [

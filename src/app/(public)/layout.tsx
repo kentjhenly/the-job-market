@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/terminal/TopBar";
 import { CommandBar } from "@/components/terminal/CommandBar";
 import { StatusBar } from "@/components/terminal/StatusBar";
-import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
+import { MatchTickerTapeLazy as MatchTickerTape } from "@/components/terminal/MatchTickerTapeLazy";
 import { CommandHelpModal } from "@/components/terminal/CommandHelpModal";
 import { CommandConsoleProvider } from "@/components/terminal/CommandConsoleContext";
 import { PublicTabBar } from "@/components/terminal/PublicTabBar";

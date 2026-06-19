@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { JobPostingForm } from "../JobPostingForm";
+import { PostingViewClient } from "./PostingViewClient";
 import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
 const MAX_POSTINGS = 10;
@@ -19,34 +20,34 @@ export default async function JobPostingPage({
   const supabase = getSupabaseServiceClient();
   const isNew = postingId === "new";
 
-  const [{ data: candidate }, { data: profile }, { data: projects }] = await Promise.all([
-    supabase
-      .from("candidates")
-      .select("years_exp_claimed, location, citizenship")
-      .eq("id", session.user.id)
-      .single(),
-    supabase.from("profiles").select("vertical").eq("id", session.user.id).single(),
-    supabase
-      .from("candidate_portfolio_projects")
-      .select("skills")
-      .eq("candidate_id", session.user.id),
-  ]);
-
-  const skillToVertical = new Map(SKILLS.map((s) => [s.name, s.vertical]));
-  const verifiedVerticals = Array.from(
-    new Set(
-      (projects ?? [])
-        .flatMap((p) => p.skills)
-        .map((s) => skillToVertical.get(s))
-        .filter((v): v is VerticalType => !!v)
-    )
-  );
-
   if (isNew) {
-    const { count } = await supabase
-      .from("candidate_job_postings")
-      .select("id", { count: "exact", head: true })
-      .eq("candidate_id", session.user.id);
+    const [{ data: candidate }, { data: profile }, { data: projects }, { count }] =
+      await Promise.all([
+        supabase
+          .from("candidates")
+          .select("years_exp_claimed, location, citizenship")
+          .eq("id", session.user.id)
+          .single(),
+        supabase.from("profiles").select("vertical").eq("id", session.user.id).single(),
+        supabase
+          .from("candidate_portfolio_projects")
+          .select("skills")
+          .eq("candidate_id", session.user.id),
+        supabase
+          .from("candidate_job_postings")
+          .select("id", { count: "exact", head: true })
+          .eq("candidate_id", session.user.id),
+      ]);
+
+    const skillToVertical = new Map(SKILLS.map((s) => [s.name, s.vertical]));
+    const verifiedVerticals = Array.from(
+      new Set(
+        (projects ?? [])
+          .flatMap((p) => p.skills)
+          .map((s) => skillToVertical.get(s))
+          .filter((v): v is VerticalType => !!v)
+      )
+    );
 
     if ((count ?? 0) >= MAX_POSTINGS) {
       return (
@@ -85,14 +86,5 @@ export default async function JobPostingPage({
 
   if (!posting) notFound();
 
-  return (
-    <JobPostingForm
-      initial={posting}
-      candYears={candidate?.years_exp_claimed ?? undefined}
-      candLocation={candidate?.location ?? undefined}
-      candCitizenship={candidate?.citizenship ?? undefined}
-      vertical={profile?.vertical ?? undefined}
-      verifiedVerticals={verifiedVerticals}
-    />
-  );
+  return <PostingViewClient posting={posting} />;
 }

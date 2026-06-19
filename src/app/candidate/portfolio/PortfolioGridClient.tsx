@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/Badge";
+import { SkillBadges } from "@/components/ui/SkillBadges";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
@@ -96,9 +96,6 @@ export function PortfolioGridClient({ initialProjects }: { initialProjects: Port
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {projects.map((project) => {
-          const visibleSkills = project.skills.slice(0, 3);
-          const extraSkills = project.skills.length - visibleSkills.length;
-
           return (
             <div key={project.id} className="panel flex min-h-[220px] flex-col overflow-hidden">
               <div style={{ borderBottom: "1px solid var(--border-soft)" }}>
@@ -117,23 +114,14 @@ export function PortfolioGridClient({ initialProjects }: { initialProjects: Port
                   )}
                 </div>
 
-                {project.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {visibleSkills.map((skill) => (
-                      <Badge key={skill} variant="outline">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {extraSkills > 0 && <Badge variant="outline">+{extraSkills} MORE</Badge>}
-                  </div>
-                )}
+                <SkillBadges skills={project.skills} />
 
                 <div
                   className="mt-auto flex items-center justify-between pt-2"
                   style={{ borderTop: "1px solid var(--border-soft)" }}
                 >
                   <Link href={`/candidate/portfolio/${project.id}`} className="link-up mono" style={{ fontSize: 11 }}>
-                    EDIT
+                    VIEW
                   </Link>
                   <button
                     onClick={() => setDeleteTarget(project)}

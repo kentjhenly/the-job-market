@@ -211,9 +211,8 @@ export function SalaryScatter({
       </svg>
 
       {marginalPerYear != null && marginalPerYear > 0 && (
-        <p className="mono mt-2" style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.5 }}>
-          <span style={{ color: accent }}>≈ +{formatSalary(marginalPerYear)}</span> /mo per additional year of
-          experience.
+        <p className="mono mt-2" style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.5, textAlign: "center" }}>
+          <span style={{ color: accent }}>≈ +{formatSalary(marginalPerYear)}</span> /MO PER ADDITIONAL YEAR OF EXPERIENCE
         </p>
       )}
     </div>

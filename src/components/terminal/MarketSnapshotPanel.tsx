@@ -61,6 +61,9 @@ export function MarketSnapshotPanel({ initial }: { initial: MarketSnapshot }) {
 
   useEffect(() => {
     const id = setInterval(async () => {
+      // Skip the poll while the tab is backgrounded; the snapshot only matters
+      // when someone is looking at it.
+      if (document.hidden) return;
       try {
         const res = await fetch("/api/market-snapshot");
         if (!res.ok) return;

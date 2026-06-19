@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { TopBar } from "@/components/terminal/TopBar";
 import { Sidebar } from "@/components/terminal/Sidebar";
-import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
+import { MatchTickerTapeLazy as MatchTickerTape } from "@/components/terminal/MatchTickerTapeLazy";
 import { CommandBar } from "@/components/terminal/CommandBar";
 import { StatusBar } from "@/components/terminal/StatusBar";
 import { CommandHelpModal } from "@/components/terminal/CommandHelpModal";
@@ -27,7 +27,7 @@ export default async function CandidateLayout({
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "candidate") redirect("/employer/terminal");
+  if (role !== "candidate") redirect("/recruiter/terminal");
 
   const supabase = getSupabaseServiceClient();
   const { data: candidate } = await supabase

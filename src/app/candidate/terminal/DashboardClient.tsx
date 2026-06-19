@@ -226,7 +226,12 @@ export function DashboardClient({
     };
 
     fetchScore();
-    const interval = setInterval(fetchScore, POLL_INTERVAL_MS);
+    // Skip polling while the tab is backgrounded — no point refetching a score
+    // nobody is looking at. The next visible tick catches up within the interval.
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      fetchScore();
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [candidateId]);
 

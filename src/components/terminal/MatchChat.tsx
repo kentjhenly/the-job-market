@@ -96,10 +96,20 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
     }
 
     load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
+    // Pause polling while the tab is hidden; refetch immediately on return so
+    // new messages show up at once instead of waiting for the next tick.
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      load();
+    }, POLL_INTERVAL_MS);
+    const onVisible = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [matchId]);
 

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { TopBar } from "@/components/terminal/TopBar";
 import { Sidebar } from "@/components/terminal/Sidebar";
-import { MatchTickerTape } from "@/components/terminal/MatchTickerTape";
+import { MatchTickerTapeLazy as MatchTickerTape } from "@/components/terminal/MatchTickerTapeLazy";
 import { CommandBar } from "@/components/terminal/CommandBar";
 import { StatusBar } from "@/components/terminal/StatusBar";
 import { CommandHelpModal } from "@/components/terminal/CommandHelpModal";
@@ -14,8 +14,7 @@ import { repVar } from "@/lib/utils/score";
 const NAV = [
   { href: "/employer/terminal", label: "TERMINAL" },
   { href: "/employer/feed", label: "FEED" },
-  { href: "/employer/postings", label: "POSTINGS" },
-  { href: "/employer/matches", label: "PITCHES" },
+  { href: "/employer/postings", label: "OPENINGS" },
   { href: "/employer/settings", label: "SETTINGS" },
 ];
 

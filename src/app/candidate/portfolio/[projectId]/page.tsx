@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { PortfolioForm } from "../PortfolioForm";
+import { ProjectViewClient } from "./ProjectViewClient";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 
 export default async function PortfolioProjectPage({
@@ -51,5 +52,5 @@ export default async function PortfolioProjectPage({
 
   if (!project) notFound();
 
-  return <PortfolioForm initial={project} />;
+  return <ProjectViewClient project={project} />;
 }

@@ -92,9 +92,13 @@ export function JobPostingForm({
   const [nPoints, setNPoints] = useState<number | undefined>(undefined);
   const [marginalPerYear, setMarginalPerYear] = useState<number | undefined>(undefined);
   const [expYears, setExpYears] = useState(
-    initial?.years_exp != null ? initial.years_exp.toString() : candYears != null ? candYears.toString() : ""
+    initial?.years_exp != null ? Math.floor(initial.years_exp).toString() : ""
   );
-  const [expMonths, setExpMonths] = useState("");
+  const [expMonths, setExpMonths] = useState(() => {
+    if (initial?.years_exp == null) return "";
+    const m = Math.round((initial.years_exp % 1) * 12);
+    return m > 0 ? m.toString() : "";
+  });
 
   const expTotal =
     (expYears ? parseInt(expYears) || 0 : 0) + (expMonths ? (parseInt(expMonths) || 0) / 12 : 0);
@@ -215,7 +219,7 @@ export function JobPostingForm({
         : null,
       skills: form.skills,
       available_from: form.available_from,
-      years_exp: expYears ? parseInt(expYears) : null,
+      years_exp: expYears ? parseInt(expYears) + (parseInt(expMonths) || 0) / 12 : null,
       work_eligible:
         candCitizenship && form.location && candCitizenship !== form.location ? form.work_eligible : null,
     };
@@ -230,7 +234,14 @@ export function JobPostingForm({
     );
 
     setSaving(false);
-    if (res.ok) router.push("/candidate/postings");
+    if (res.ok) {
+      if (isEditing) {
+        router.push(`/candidate/postings/${initial.id}`);
+      } else {
+        const { id } = await res.json();
+        router.push(`/candidate/postings/${id}`);
+      }
+    }
   }
 
   async function confirmDelete() {
@@ -264,8 +275,12 @@ export function JobPostingForm({
   return (
     <div className="view-enter space-y-6">
       <div>
-        <Link href="/candidate/postings" className="link-up mono" style={{ fontSize: 11 }}>
-          ← BACK TO POSTINGS
+        <Link
+          href={isEditing ? `/candidate/postings/${initial.id}` : "/candidate/postings"}
+          className="link-up mono"
+          style={{ fontSize: 11 }}
+        >
+          {isEditing ? "← BACK TO POSTING" : "← BACK TO POSTINGS"}
         </Link>
         <h1 className="mono mt-2" style={{ color: "var(--up)", fontSize: 14, letterSpacing: "0.16em" }}>
           {isEditing ? "EDIT JOB POSTING" : "CREATE JOB POSTING"}
@@ -384,7 +399,6 @@ export function JobPostingForm({
                 value={expMonths}
                 onChange={(e) => setExpMonths(e.target.value)}
                 className="field"
-                required
               />
             </div>
           </div>
@@ -474,7 +488,11 @@ export function JobPostingForm({
           <Button type="submit" loading={saving}>
             SAVE POSTING
           </Button>
-          <Button type="button" variant="ghost" onClick={() => router.push("/candidate/postings")}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => router.push(isEditing ? `/candidate/postings/${initial.id}` : "/candidate/postings")}
+          >
             CANCEL
           </Button>
           {isEditing && (
@@ -589,7 +607,6 @@ export function JobPostingForm({
                 color="gold"
               />
               <DataRow label="STD DEVIATION" value={stdDev != null ? `±${formatSalary(stdDev)}` : "—"} />
-              <DataRow label="OBSERVATIONS" value={marketPoints.length || "—"} />
             </div>
           )}
         </div>

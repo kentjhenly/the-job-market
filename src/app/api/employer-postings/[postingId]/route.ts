@@ -43,6 +43,23 @@ export async function PATCH(
   }
   const supabase = getSupabaseServiceClient();
 
+  // Editing openings requires an active subscription (even for free-trial
+  // openings -- they can only be edited once the employer subscribes).
+  if (body.status === undefined || body.status !== "closed") {
+    const { data: employer } = await supabase
+      .from("employers")
+      .select("subscription_status")
+      .eq("id", session.user.id)
+      .single();
+
+    if (employer?.subscription_status !== "active") {
+      return NextResponse.json(
+        { error: "An active subscription is required to edit openings" },
+        { status: 402 }
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("employer_job_postings")
     .update({

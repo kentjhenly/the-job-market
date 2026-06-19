@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendPitchNotification } from "@/lib/email/send";
+import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   const { data: employer } = await supabase
     .from("employers")
-    .select("company_name, subscription_status")
+    .select("company_name, subscription_tier, subscription_status")
     .eq("id", session.user.id)
     .single();
 
@@ -29,15 +30,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Employer profile not found" }, { status: 404 });
   }
 
-  // TODO(stripe): subscription_status is manually-settable until billing is
-  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
-  // should keep employers.subscription_status/subscription_tier/
-  // subscription_period_end in sync going forward.
+  // Free trial: employers who have never subscribed (tier = 'none') can pitch
+  // from their first FREE_JOB_POSTINGS openings without paying. Once a
+  // subscription has been activated and later lapses, pitching requires renewal.
   if (employer.subscription_status !== "active") {
-    return NextResponse.json(
-      { error: "An active subscription is required to send pitches" },
-      { status: 402 }
-    );
+    let allowed = false;
+    if (employer.subscription_tier === "none" && posting_id) {
+      const { data: freePostings } = await supabase
+        .from("employer_job_postings")
+        .select("id")
+        .eq("employer_id", session.user.id)
+        .order("created_at", { ascending: true })
+        .limit(FREE_JOB_POSTINGS);
+      const freeIds = new Set((freePostings ?? []).map((p) => p.id));
+      allowed = freeIds.has(posting_id);
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "An active subscription is required to send pitches" },
+        { status: 402 }
+      );
+    }
   }
 
   // If pitching from a posting, enforce its candidate capacity
@@ -67,6 +80,34 @@ export async function POST(request: NextRequest) {
         { error: `Posting has reached its candidate capacity (${posting.max_candidates})` },
         { status: 409 }
       );
+    }
+  }
+
+  // Offered salary must fall within the candidate's desired range
+  if (offered_salary != null) {
+    const { data: candidatePostings } = await supabase
+      .from("candidate_job_postings")
+      .select("desired_salary_min, desired_salary_max")
+      .eq("candidate_id", candidate_id);
+
+    const hasRange = (candidatePostings ?? []).some(
+      (p) => p.desired_salary_min != null && p.desired_salary_max != null
+    );
+
+    if (hasRange) {
+      const inRange = (candidatePostings ?? []).some(
+        (p) =>
+          p.desired_salary_min != null &&
+          p.desired_salary_max != null &&
+          offered_salary >= p.desired_salary_min &&
+          offered_salary <= p.desired_salary_max
+      );
+      if (!inRange) {
+        return NextResponse.json(
+          { error: "Offered salary must be within the candidate's desired range" },
+          { status: 400 }
+        );
+      }
     }
   }
 

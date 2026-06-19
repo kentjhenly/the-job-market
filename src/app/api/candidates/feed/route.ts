@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data: candidates } = await supabase
     .from("candidates")
-    .select("*, profiles(display_name)")
+    .select("*, profiles(display_name), candidate_job_postings(title)")
     .eq("is_visible", true)
     .order("composite_score", { ascending: false })
     .limit(100);
