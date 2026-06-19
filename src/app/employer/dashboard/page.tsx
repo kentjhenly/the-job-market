@@ -8,7 +8,7 @@ import { LiveDot } from "@/components/terminal/LiveDot";
 import { ScoreTicker } from "@/components/terminal/ScoreTicker";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { formatSalary, formatShortDate, formatPercentile } from "@/lib/utils/formatters";
-import { SalaryCurve } from "@/components/charts/SalaryCurve";
+import { SalaryBenchmarkCarousel, type BenchmarkSlide } from "@/components/terminal/SalaryBenchmarkCarousel";
 import { repVar, scoreBadgeVariant } from "@/lib/utils/score";
 
 type MatchRow = {
@@ -77,7 +77,7 @@ export default async function EmployerDashboardPage() {
     supabase.from("employer_job_postings").select("title, skills").eq("employer_id", session.user.id),
     supabase.from("employers").select("id", { count: "exact", head: true }).gt("reputation_score", repScore),
     supabase.from("employers").select("id", { count: "exact", head: true }),
-    supabase.from("employer_job_postings").select("id, title").eq("employer_id", session.user.id).eq("status", "open"),
+    supabase.from("employer_job_postings").select("id, title, vertical").eq("employer_id", session.user.id).eq("status", "open"),
     supabase
       .from("matches")
       .select("id, expires_at, employer_job_postings(title), candidates(profiles(display_name))")
@@ -154,22 +154,31 @@ export default async function EmployerDashboardPage() {
     .sort((a, b) => b.match_score - a.match_score)
     .slice(0, 5);
 
-  // Wave 3: fetch candidate details for top 5 + salary regression (parallel)
+  // Wave 3: fetch candidate details for top 5
   const topCandidateIds = topEntries.map(e => e.candidate_id);
   const topCandPostingIds = topEntries.map(e => e.candidate_posting_id);
 
-  // Determine salary regression anchor: top match candidate
-  // We'll fetch details first, then use them for the regression call.
-  let topCandDetails: Array<{
+  type CandDetailRow = {
     id: string;
     display_name: string;
     years_exp_claimed: number;
     desired_salary_max: number | null;
-  }> = [];
+    posting_role: string | null;
+    posting_years_exp: number | null;
+    posting_location: string | null;
+  };
+  let topCandDetails: CandDetailRow[] = [];
 
   if (topCandidateIds.length > 0) {
     type CandRow = { id: string; years_exp_claimed: number | null; profiles: { display_name: string } | null };
-    type CandPostingRow = { id: string; candidate_id: string; desired_salary_max: number | null };
+    type CandPostingRow = {
+      id: string;
+      candidate_id: string;
+      desired_salary_max: number | null;
+      title: string;
+      years_exp: number | null;
+      location: string | null;
+    };
     const [candResult, candPostingResult] = await Promise.all([
       supabase
         .from("candidates")
@@ -177,63 +186,89 @@ export default async function EmployerDashboardPage() {
         .in("id", topCandidateIds),
       supabase
         .from("candidate_job_postings")
-        .select("id, candidate_id, desired_salary_max")
+        .select("id, candidate_id, desired_salary_max, title, years_exp, location")
         .in("id", topCandPostingIds),
     ]);
     const candRows = (candResult.data ?? []) as unknown as CandRow[];
     const candPostingRows = (candPostingResult.data ?? []) as unknown as CandPostingRow[];
-    topCandDetails = candRows.map(c => ({
-      id: c.id,
-      display_name:
-        c.profiles?.display_name ?? `CAND-${c.id.slice(0, 6).toUpperCase()}`,
-      years_exp_claimed: c.years_exp_claimed ?? 0,
-      desired_salary_max:
-        candPostingRows.find(p => p.candidate_id === c.id)?.desired_salary_max ?? null,
-    }));
+    topCandDetails = candRows.map(c => {
+      const posting = candPostingRows.find(p => p.candidate_id === c.id);
+      return {
+        id: c.id,
+        display_name: c.profiles?.display_name ?? `CAND-${c.id.slice(0, 6).toUpperCase()}`,
+        years_exp_claimed: c.years_exp_claimed ?? 0,
+        desired_salary_max: posting?.desired_salary_max ?? null,
+        posting_role: posting?.title ?? null,
+        posting_years_exp: posting?.years_exp ?? null,
+        posting_location: posting?.location ?? null,
+      };
+    });
   }
+
+  // Build openPostingMap to attach employer posting's vertical to each top match
+  type OpenPosting = { id: string; title: string; vertical: string };
+  const openPostingMap = new Map((openPostings ?? []).map(p => [p.id, p as OpenPosting]));
 
   const topMatches = topEntries.map(e => ({
     ...e,
+    employer_vertical: openPostingMap.get(e.posting_id)?.vertical ?? null,
     candidate: topCandDetails.find(c => c.id === e.candidate_id) ?? {
       id: e.candidate_id,
       display_name: `CAND-${e.candidate_id.slice(0, 6).toUpperCase()}`,
       years_exp_claimed: 0,
       desired_salary_max: null,
+      posting_role: null,
+      posting_years_exp: null,
+      posting_location: null,
     },
   }));
 
-  const topMatch = topMatches[0];
+  // Wave 4: pre-fetch role-anchored salary-regression for top 3 candidates (parallel)
+  const benchmarkSlides: BenchmarkSlide[] = await Promise.all(
+    topMatches.slice(0, 3).map(async (m): Promise<BenchmarkSlide> => {
+      const role = m.candidate.posting_role ?? m.posting_title;
+      const vertical = m.employer_vertical ?? null;
+      const yearsExp = m.candidate.posting_years_exp ?? m.candidate.years_exp_claimed;
+      const location = m.candidate.posting_location ?? null;
+      const candSalary = m.candidate.desired_salary_max ?? null;
 
-  // ---- salary benchmark anchored to top match ----
-  const candYears = topMatch?.candidate.years_exp_claimed ?? 5;
-  const candSalary = topMatch?.candidate.desired_salary_max ?? null;
+      const body: Record<string, unknown> = { years_exp: yearsExp };
+      if (role) body.role = role;
+      if (vertical) body.vertical = vertical;
+      if (location) body.location = location;
+      if (candSalary) body.monthly_salary = candSalary;
 
-  type CurvePoint = { years_exp: number; p25: number; p50: number; p75: number; p90: number };
-  let salaryCurve: CurvePoint[] = [];
-  let salaryNPoints = 0;
-  let offerPercentile: number | undefined;
-  let marginalPerYear: number | undefined;
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/salary-regression`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ years_exp: candYears, ...(candSalary ? { monthly_salary: candSalary } : {}) }),
-        cache: "no-store",
-      }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      salaryCurve = data.curve ?? [];
-      salaryNPoints = (data.n_points ?? (data.points?.length ?? 0)) as number;
-      offerPercentile = candSalary ? (data.candidate_percentile as number | undefined) : undefined;
-      marginalPerYear = data.marginal_per_year as number | undefined;
-    }
-  } catch { /* edge function unavailable */ }
+      type CurvePoint = { years_exp: number; p25: number; p50: number; p75: number; p90: number };
+      let curve: CurvePoint[] = [];
+      let nPoints = 0;
+      let offerPercentile: number | undefined;
+      let marginalPerYear: number | undefined;
+
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/salary-regression`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+            cache: "no-store",
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          curve = data.curve ?? [];
+          nPoints = (data.n_points ?? (data.points?.length ?? 0)) as number;
+          offerPercentile = candSalary ? (data.candidate_percentile as number | undefined) : undefined;
+          marginalPerYear = data.marginal_per_year as number | undefined;
+        }
+      } catch { /* edge function unavailable */ }
+
+      return { candidateName: m.candidate.display_name, roleTitle: role, location, yearsExp, candSalary, curve, nPoints, offerPercentile, marginalPerYear };
+    })
+  );
 
   // ---- reputation history ----
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -539,39 +574,7 @@ export default async function EmployerDashboardPage() {
 
         {/* SALARY BENCHMARK */}
         <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">SALARY BENCHMARK</span>
-            {offerPercentile != null && (
-              <span className="mono tnum" style={{ fontSize: 11, color: "var(--info)" }}>
-                {formatPercentile(offerPercentile).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="p-4">
-            {topMatch && (
-              <p className="mono mb-3" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                BENCHMARKING: <span style={{ color: "var(--text-2)" }}>{topMatch.candidate.display_name}</span>
-                {" · "}
-                <span style={{ color: "var(--dim)" }}>{topMatch.posting_title}</span>
-              </p>
-            )}
-            <SalaryCurve
-              curve={salaryCurve.map(c => ({
-                years_exp: c.years_exp,
-                p25: c.p25,
-                p50: c.p50,
-                p75: c.p75,
-                p90: c.p90,
-              }))}
-              nPoints={salaryNPoints}
-              candYears={candYears}
-              candSalary={candSalary ?? undefined}
-              candPercentile={offerPercentile}
-              marginalPerYear={marginalPerYear}
-              tone="employer"
-              height={265}
-            />
-          </div>
+          <SalaryBenchmarkCarousel slides={benchmarkSlides} />
         </div>
 
         {/* PITCH PIPELINE */}
