@@ -484,7 +484,7 @@ export default async function EmployerDashboardPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
         {/* TOP MATCHES */}
-        <div className="panel">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">TOP MATCHES</span>
             {topMatches.length > 0 && (
@@ -499,7 +499,7 @@ export default async function EmployerDashboardPage() {
             )}
           </div>
           {topMatches.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 py-10">
               <p className="kicker text-center">NO OPEN POSTINGS</p>
               <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
                 CREATE POSTING →
