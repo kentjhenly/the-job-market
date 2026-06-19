@@ -88,7 +88,7 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
       <div
         className="mt-3"
         style={{
-          minHeight: 64,
+          minHeight: 80,
           border: "1px solid var(--border-soft)",
           background: "var(--surface-2)",
           borderRadius: "var(--r)",

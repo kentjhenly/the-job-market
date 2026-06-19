@@ -15,8 +15,12 @@ const pool =
   globalForPool.__betterAuthPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL!,
-    max: 10,
-    idleTimeoutMillis: 30_000,
+    // Turbopack spawns multiple workers each with their own globalThis, so the
+    // singleton only helps within one worker. Keep max low enough that even
+    // several workers combined stay under Supabase session-mode's 15-client cap.
+    max: 3,
+    min: 0,
+    idleTimeoutMillis: 10_000,
   });
 if (process.env.NODE_ENV !== "production") globalForPool.__betterAuthPool = pool;
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
+import { repBadgeVariant } from "@/lib/utils/score";
 import { MatchChat } from "@/components/terminal/MatchChat";
 import type { OfferStatus } from "@/lib/supabase/types";
 
@@ -348,13 +349,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 <DataRow
                   label="REPUTATION"
                   value={selected.employers.reputation_score.toFixed(0)}
-                  color={
-                    selected.employers.reputation_score >= 80
-                      ? "up"
-                      : selected.employers.reputation_score >= 50
-                        ? "gold"
-                        : "down"
-                  }
+                  color={repBadgeVariant(selected.employers.reputation_score)}
                 />
               )}
               {selected.offered_salary != null && (

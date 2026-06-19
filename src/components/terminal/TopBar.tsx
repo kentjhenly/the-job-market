@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Clock } from "./Clock";
 import { SignOutButton } from "./SignOutButton";
 
-type Stat = { label: string; value: string };
+type Stat = { label: string; value: string; color?: string; href?: string };
 
 interface TopBarProps {
   homeHref: string;
@@ -31,7 +31,14 @@ export function TopBar({ homeHref, stat, showSignOut = true }: TopBarProps) {
       <div className="flex shrink-0 items-center gap-4">
         {stats.map((s) => (
           <span key={s.label} className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-            {s.label} <span style={{ color: "var(--up)", fontWeight: 600 }}>{s.value}</span>
+            {s.label}{" "}
+            {s.href ? (
+              <Link href={s.href} style={{ color: s.color ?? "var(--up)", fontWeight: 600 }}>
+                {s.value} →
+              </Link>
+            ) : (
+              <span style={{ color: s.color ?? "var(--up)", fontWeight: 600 }}>{s.value}</span>
+            )}
           </span>
         ))}
         <Clock />

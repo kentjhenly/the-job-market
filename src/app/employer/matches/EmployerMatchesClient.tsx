@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatRelativeTime, formatPercentile, formatScore } from "@/lib/utils/formatters";
+import { scoreBadgeVariant } from "@/lib/utils/score";
 import { MatchChat } from "@/components/terminal/MatchChat";
 import type { Database } from "@/lib/supabase/types";
 
@@ -172,7 +173,7 @@ export function EmployerMatchesClient({ matches: initial }: { matches: MatchWith
                 <DataRow label="SCORE" value={selected.candidates.composite_score.toFixed(1)} color="up" />
               )}
               {selected.candidates?.percentile_rank != null && (
-                <DataRow label="PERCENTILE" value={formatPercentile(selected.candidates.percentile_rank)} color="gold" />
+                <DataRow label="PERCENTILE" value={formatPercentile(selected.candidates.percentile_rank)} color={scoreBadgeVariant(selected.candidates.percentile_rank)} />
               )}
               {selected.offered_salary != null && (
                 <DataRow label="OFFERED SALARY" value={formatSalary(selected.offered_salary)} color="up" />

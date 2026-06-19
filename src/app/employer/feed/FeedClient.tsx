@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { Badge } from "@/components/ui/Badge";
 import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
-import { scoreBadgeVariant } from "@/lib/utils/score";
+import { scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import type { Database } from "@/lib/supabase/types";
 
 export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
@@ -112,8 +112,8 @@ export function FeedClient({ initialCandidates }: Props) {
             </div>
 
             <div>
-              <DataRow label="COMPOSITE SCORE" value={selected.composite_score.toFixed(1)} color="up" />
-              <DataRow label="PERCENTILE" value={formatPercentile(selected.percentile_rank)} color="gold" />
+              <DataRow label="COMPOSITE SCORE" value={selected.composite_score.toFixed(1)} color={scoreBadgeVariant(selected.composite_score)} />
+              <DataRow label="PERCENTILE" value={formatPercentile(selected.percentile_rank)} color={scoreBadgeVariant(selected.percentile_rank)} />
               <DataRow
                 label="EXPERIENCE"
                 value={
@@ -136,7 +136,7 @@ export function FeedClient({ initialCandidates }: Props) {
                 value={selected.remote_only ? "YES" : "NO"}
                 color={selected.remote_only ? "up" : undefined}
               />
-              <DataRow label="REPUTATION" value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`} />
+              <DataRow label="REPUTATION" value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`} color={repBadgeVariant(selected.reputation_score ?? 100)} />
             </div>
           </div>
 

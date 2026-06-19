@@ -102,18 +102,6 @@ export function SalaryCurve({
 
   return (
     <div className="w-full">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="kicker" style={{ color: "var(--dim)" }}>
-          MODELED ESTIMATE
-        </span>
-        <span
-          className="kicker"
-          style={{ color: lowConf ? "var(--gold)" : "var(--dim)" }}
-        >
-          {lowConf ? `LOW CONFIDENCE · MODELED FROM ${nPoints} DATA POINTS` : `MODELED FROM ${nPoints} DATA POINTS`}
-        </span>
-      </div>
-
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
         {Array.from({ length: yTicks + 1 }).map((_, i) => {
           const v = ymin + (i / yTicks) * (ymax - ymin);
@@ -197,10 +185,35 @@ export function SalaryCurve({
         )}
       </svg>
 
+      {/* Legend */}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+        <span className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5 }}>
+          <svg width="18" height="10" style={{ flexShrink: 0 }}>
+            <line x1="0" y1="5" x2="18" y2="5" stroke={accent} strokeWidth="2" strokeDasharray="4 3" />
+          </svg>
+          MARKET REGRESSION
+        </span>
+        {candYears != null && candSalary != null && (
+          <span className="mono" style={{ fontSize: 10.5, color: "var(--gold)", display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="10" height="10" style={{ flexShrink: 0 }}>
+              <circle cx="5" cy="5" r="4" fill="var(--gold)" />
+            </svg>
+            YOUR FLOOR @ {candYears}Y
+          </span>
+        )}
+        {candYears != null && candRange && (
+          <span className="mono" style={{ fontSize: 10.5, color: "var(--gold)", display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="10" height="10" style={{ flexShrink: 0 }}>
+              <circle cx="5" cy="5" r="4" fill="var(--gold)" />
+            </svg>
+            OFFER @ {candYears}Y
+          </span>
+        )}
+      </div>
+
       {marginalPerYear != null && marginalPerYear > 0 && (
-        <p className="mono mt-2" style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.5 }}>
-          <span style={{ color: accent }}>≈ +{formatSalary(marginalPerYear)}</span> /mo per additional year of
-          experience{tone === "candidate" ? " · think at the margin." : "."}
+        <p className="mono mt-2" style={{ fontSize: 10.5, color: "var(--muted)", lineHeight: 1.5, textAlign: "center" }}>
+          <span style={{ color: accent }}>≈ +{formatSalary(marginalPerYear)}</span> /MO PER ADDITIONAL YEAR OF EXPERIENCE
         </p>
       )}
     </div>

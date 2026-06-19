@@ -9,6 +9,7 @@ import { CommandConsoleProvider } from "@/components/terminal/CommandConsoleCont
 import { EMPLOYER_COMMANDS, EMPLOYER_FKEYS } from "@/lib/utils/commands";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { repVar } from "@/lib/utils/score";
 
 const NAV = [
   { href: "/employer/dashboard", label: "DASHBOARD" },
@@ -37,7 +38,7 @@ export default async function EmployerLayout({
   const supabase = getSupabaseServiceClient();
   const { data: employer } = await supabase
     .from("employers")
-    .select("subscription_tier, reputation_score")
+    .select("subscription_tier, reputation_score, company_name")
     .eq("id", session.user.id)
     .single();
 
@@ -47,15 +48,15 @@ export default async function EmployerLayout({
         <TopBar
           homeHref="/employer/dashboard"
           stat={[
-            { label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase() },
-            { label: "REPUTATION", value: `${(employer?.reputation_score ?? 100).toFixed(0)}/100` },
+            { label: "PLAN", value: (employer?.subscription_tier ?? "none").toUpperCase(), ...((employer?.subscription_tier ?? "none") === "none" ? { href: "/employer/feed" } : {}) },
+            { label: "REPUTATION", value: `${(employer?.reputation_score ?? 100).toFixed(0)}/100`, color: repVar(employer?.reputation_score ?? 100) },
           ]}
         />
         <CommandBar commands={EMPLOYER_COMMANDS} />
         <MatchTickerTape />
 
         <div className="flex flex-1 overflow-hidden">
-          <Sidebar nav={NAV} role="employer" />
+          <Sidebar nav={NAV} role="employer" label={employer?.company_name?.toUpperCase() || undefined} />
           <main className="flex-1 overflow-auto p-6">{children}</main>
         </div>
 

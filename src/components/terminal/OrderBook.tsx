@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils/cn";
 import { formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
+import { scoreVar } from "@/lib/utils/score";
 import { ScoreBar } from "@/components/charts/ScoreBar";
 import { DepthBar } from "@/components/charts/DepthBar";
 import { Badge } from "@/components/ui/Badge";
@@ -105,7 +106,7 @@ function OrderBookRow({
           : "—"}
       </span>
 
-      <span className="mono tnum" style={{ fontSize: 11, color: rank <= 3 ? "var(--gold)" : "var(--muted)" }}>
+      <span className="mono tnum" style={{ fontSize: 11, color: scoreVar(candidate.percentile_rank) }}>
         {formatPercentile(candidate.percentile_rank)}
       </span>
     </div>

@@ -1,15 +1,16 @@
-import { SCORE_TIERS } from "./constants";
-
+// Green = high (≥80), gold = medium (≥50), red = low — applies to both
+// composite score and reputation score.
 export function scoreVar(score: number): string {
-  if (score >= SCORE_TIERS.gold) return "var(--gold)";
-  if (score >= SCORE_TIERS.green) return "var(--up)";
-  if (score < SCORE_TIERS.red) return "var(--down)";
-  return "var(--muted)";
+  if (score >= 80) return "var(--up)";
+  if (score >= 50) return "var(--gold)";
+  return "var(--down)";
 }
 
-export function scoreBadgeVariant(score: number): "gold" | "up" | "down" | "muted" {
-  if (score >= SCORE_TIERS.gold) return "gold";
-  if (score >= SCORE_TIERS.green) return "up";
-  if (score < SCORE_TIERS.red) return "down";
-  return "muted";
+export function scoreBadgeVariant(score: number): "up" | "gold" | "down" {
+  if (score >= 80) return "up";
+  if (score >= 50) return "gold";
+  return "down";
 }
+
+export const repVar = scoreVar;
+export const repBadgeVariant = scoreBadgeVariant;

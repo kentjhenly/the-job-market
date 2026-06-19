@@ -9,6 +9,7 @@ interface ScoreTickerProps {
   size?: "xl" | "lg" | "md";
   decimals?: number;
   suffix?: string;
+  color?: string;
   className?: string;
 }
 
@@ -18,14 +19,14 @@ const SIZES: Record<NonNullable<ScoreTickerProps["size"]>, number> = {
   md: 28,
 };
 
-export function ScoreTicker({ score, size = "lg", decimals = 1, suffix, className }: ScoreTickerProps) {
+export function ScoreTicker({ score, size = "lg", decimals = 1, suffix, color, className }: ScoreTickerProps) {
   const value = useCountUp(score, 1000);
   const fontSize = SIZES[size];
 
   return (
     <span
       className={cn("mono tnum", className)}
-      style={{ fontSize, fontWeight: 700, color: scoreVar(score), lineHeight: 1, letterSpacing: "-0.01em" }}
+      style={{ fontSize, fontWeight: 700, color: color ?? scoreVar(score), lineHeight: 1, letterSpacing: "-0.01em" }}
     >
       {value.toFixed(decimals)}
       {suffix && (

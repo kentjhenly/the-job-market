@@ -15,7 +15,6 @@ export default async function DashboardPage() {
     { data: projects },
     { data: scoreHistory },
     { count: totalVisible },
-    { data: recentMatches },
     { data: postings },
     { data: allMatches },
     { data: openPostings },
@@ -38,20 +37,14 @@ export default async function DashboardPage() {
       .limit(30),
     supabase.from("candidates").select("id", { count: "exact", head: true }).eq("is_visible", true),
     supabase
-      .from("matches")
-      .select("id, status, created_at, employers(company_name)")
-      .eq("candidate_id", session.user.id)
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
       .from("candidate_job_postings")
       .select("title, location, work_modes, desired_salary_min, desired_salary_max")
       .eq("candidate_id", session.user.id)
       .order("created_at", { ascending: true }),
-    // Full pitch history (lightweight) for the funnel + pending-expiry callout
+    // Full pitch history for the funnel, pending-expiry callout, and offer book
     supabase
       .from("matches")
-      .select("status, expires_at")
+      .select("status, expires_at, offered_salary, candidate_last_read_at")
       .eq("candidate_id", session.user.id),
     // Open employer roles drive the "in-demand skills" gap; vertical-filtered below
     supabase.from("employer_job_postings").select("skills, vertical").eq("status", "open"),
@@ -77,6 +70,7 @@ export default async function DashboardPage() {
     .sort();
   const pitchStats = {
     received: matchesList.length,
+    reviewed: matchesList.filter((m) => m.candidate_last_read_at != null).length,
     pending: matchesList.filter((m) => m.status === "pending").length,
     accepted: matchesList.filter((m) => m.status === "accepted").length,
     declined: matchesList.filter((m) => m.status === "declined").length,
@@ -119,14 +113,6 @@ export default async function DashboardPage() {
       projects={projects ?? []}
       scoreHistory={scoreHistory ?? []}
       totalVisible={totalVisible ?? 0}
-      recentMatches={
-        (recentMatches as unknown as {
-          id: string;
-          status: string;
-          created_at: string;
-          employers: { company_name: string } | null;
-        }[]) ?? []
-      }
     />
   );
 }

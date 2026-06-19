@@ -11,6 +11,7 @@ import { RadarChart } from "@/components/charts/RadarChart";
 import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { formatPercentile, formatSalary, formatSalaryBand, formatShortDate } from "@/lib/utils/formatters";
+import { scoreVar, scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
@@ -33,6 +34,7 @@ type PostingSummary = {
 };
 type PitchStats = {
   received: number;
+  reviewed: number;
   pending: number;
   accepted: number;
   declined: number;
@@ -41,13 +43,6 @@ type PitchStats = {
 };
 type SkillGap = { label: string; count: number };
 type ScorePoint = { composite_score: number; recorded_at: string };
-type RecentMatch = {
-  id: string;
-  status: string;
-  created_at: string;
-  employers: { company_name: string } | null;
-};
-
 interface Props {
   candidateId: string;
   candidate: Candidate | null;
@@ -58,7 +53,6 @@ interface Props {
   projects: PortfolioProject[];
   scoreHistory: ScorePoint[];
   totalVisible: number;
-  recentMatches: RecentMatch[];
 }
 
 // Human label for time until a pending pitch's 72h expiry.
@@ -93,12 +87,6 @@ interface SalaryData {
   n_points?: number;
 }
 
-interface ActivityItem {
-  date: Date;
-  label: string;
-  delta?: number;
-  tag?: string;
-}
 
 // Mirrors the signal breakdown returned by /api/candidates/me/score, which in
 // turn mirrors supabase/functions/recommendation-scorer/index.ts.
@@ -152,29 +140,45 @@ function MeterRow({ label, value, pct, color }: { label: string; value: string; 
 function PitchFunnel({ stats }: { stats: PitchStats }) {
   const replied = stats.accepted + stats.declined + stats.ghosted;
   const stages = [
-    { k: "RECEIVED", n: stats.received, col: "var(--info)" },
-    { k: "REPLIED",  n: replied,         col: "var(--gold)" },
-    { k: "ACCEPTED", n: stats.accepted,  col: "var(--up)" },
+    { k: "RECEIVED", n: stats.received, col: "var(--info)"          },
+    { k: "REVIEWED", n: stats.reviewed, col: "oklch(0.52 0.01 80)"  },
+    { k: "REPLIED",  n: replied,        col: "var(--gold)"           },
+    { k: "ACCEPTED", n: stats.accepted, col: "var(--up)"             },
   ];
   const maxN = stages[0].n || 1;
   return (
     <div className="flex flex-col gap-2.5 px-4 py-3">
       {stages.map((s, i) => {
         const widthPct = Math.max(8, (s.n / maxN) * 100);
-        const conv = i > 0 ? Math.round((s.n / (stages[i - 1].n || 1)) * 100) : null;
+        const prev = i > 0 ? stages[i - 1].n || 1 : null;
+        const conv = prev != null ? Math.round((s.n / prev) * 100) : null;
         return (
           <div key={s.k} className="grid items-center gap-3" style={{ gridTemplateColumns: "5rem 1fr 2.5rem" }}>
             <span className="kicker" style={{ color: "var(--muted)" }}>{s.k}</span>
             <div style={{ display: "flex", justifyContent: "center" }}>
               <div style={{
-                width: `${widthPct}%`, height: 28,
-                background: `color-mix(in oklch, ${s.col} 14%, transparent)`,
-                border: `1px solid ${s.col}`,
+                position: "relative",
+                overflow: "hidden",
+                width: `${widthPct}%`,
+                height: 28,
+                background: `color-mix(in oklch, ${s.col} 22%, transparent)`,
+                border: `1px solid color-mix(in oklch, ${s.col} 70%, transparent)`,
                 borderRadius: "var(--r)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "width .7s cubic-bezier(.2,.7,.3,1)",
               }}>
-                <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col }}>{s.n}</span>
+                <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col, position: "relative", zIndex: 1 }}>{s.n}</span>
+                <div
+                  className="bar-sheen"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "35%",
+                    height: "100%",
+                    background: "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.32) 50%, transparent 90%)",
+                  }}
+                />
               </div>
             </div>
             <span className="mono tnum" style={{ fontSize: 10.5, textAlign: "right", color: conv != null ? (conv >= 50 ? "var(--up)" : "var(--muted)") : "transparent" }}>
@@ -187,9 +191,9 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
   );
 }
 
+
 const BREADTH_TARGET = 5;
 const SKILL_COVERAGE_TARGET = 10;
-const ACTIVITY_LIMIT = 6;
 const POLL_INTERVAL_MS = 15000;
 
 export function DashboardClient({
@@ -202,7 +206,6 @@ export function DashboardClient({
   projects,
   scoreHistory: initialScoreHistory,
   totalVisible,
-  recentMatches,
 }: Props) {
   const [candidate, setCandidate] = useState<Candidate | null>(initial);
   const [scoreHistory, setScoreHistory] = useState<ScorePoint[]>(initialScoreHistory);
@@ -281,6 +284,9 @@ export function DashboardClient({
     sortedHistory.length >= 2
       ? +(sortedHistory[sortedHistory.length - 1].composite_score - sortedHistory[0].composite_score).toFixed(1)
       : 0;
+  const currentScore = candidate?.composite_score ?? 0;
+  const high30d = sparklineData.length > 0 ? Math.max(...sparklineData) : currentScore;
+  const low30d = sparklineData.length > 0 ? Math.min(...sparklineData) : currentScore;
 
   const percentile = candidate?.percentile_rank ?? 0;
   const rank = totalVisible > 0 ? Math.min(totalVisible, Math.max(1, Math.round(((100 - percentile) / 100) * totalVisible))) : null;
@@ -348,24 +354,6 @@ export function DashboardClient({
     .slice(0, 3)
     .map((s) => s.text);
 
-  // ACTIVITY LOG — merged from score history deltas, portfolio additions, and pitches
-  const activity: ActivityItem[] = [];
-  for (let i = 1; i < sortedHistory.length; i++) {
-    const delta = +(sortedHistory[i].composite_score - sortedHistory[i - 1].composite_score).toFixed(1);
-    if (delta !== 0) {
-      activity.push({ date: new Date(sortedHistory[i].recorded_at), label: "COMPOSITE SCORE UPDATED", delta });
-    }
-  }
-  for (const p of projects) {
-    activity.push({ date: new Date(p.created_at), label: `PROJECT ADDED — ${p.title.toUpperCase()}`, tag: "PORTFOLIO" });
-  }
-  for (const m of recentMatches) {
-    const company = (m.employers?.company_name ?? "EMPLOYER").toUpperCase();
-    activity.push({ date: new Date(m.created_at), label: `PITCH RECEIVED — ${company}`, tag: "PITCH" });
-  }
-  activity.sort((a, b) => b.date.getTime() - a.date.getTime());
-  const recentActivity = activity.slice(0, ACTIVITY_LIMIT);
-
   return (
     <div className="view-enter scroll-main space-y-6">
       <div className="flex items-end justify-between gap-3">
@@ -422,14 +410,22 @@ export function DashboardClient({
                       {d30.toFixed(1)}
                     </span>
                   )}
-                  <Badge variant="gold">{formatPercentile(percentile)}</Badge>
+                  <Badge variant={scoreBadgeVariant(percentile)}>{formatPercentile(percentile)}</Badge>
                 </div>
               </div>
               {rank != null && (
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-end gap-3">
+                <div className="flex flex-col items-end gap-1.5 pt-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="kicker">30D HIGH</span>
+                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 600, color: "var(--up)" }}>{high30d.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="kicker">30D LOW</span>
+                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 600, color: "var(--down)" }}>{low30d.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
                     <span className="kicker">RANK</span>
-                    <span className="mono tnum" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", minWidth: 60, textAlign: "right" }}>
+                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)" }}>
                       #{rank} OF {totalVisible}
                     </span>
                   </div>
@@ -450,7 +446,7 @@ export function DashboardClient({
                       </span>
                     )}
                   </div>
-                  <Sparkline data={sparklineData} w={620} h={110} className="flex-1" />
+                  <Sparkline data={sparklineData} w={620} h={110} color={scoreVar(candidate?.composite_score ?? 0)} className="flex-1" />
                   <div className="mt-1.5 flex justify-between">
                     <span className="mono" style={{ fontSize: 10, color: "var(--dim)" }}>
                       {formatShortDate(sortedHistory[0].recorded_at)} · {sortedHistory[0].composite_score.toFixed(0)}
@@ -469,7 +465,7 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="panel flex flex-col">
+        <div className="panel flex flex-col" style={{ borderTopWidth: 2 }}>
           <div className="panel-head">
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
@@ -478,24 +474,18 @@ export function DashboardClient({
               label="PERCENTILE"
               value={formatPercentile(percentile)}
               pct={percentile}
-              color="gold"
+              color={scoreBadgeVariant(percentile)}
             />
             <MeterRow
               label="REPUTATION"
               value={`${(candidate?.reputation_score ?? 100).toFixed(0)}/100`}
               pct={candidate?.reputation_score ?? 100}
-              color={(candidate?.reputation_score ?? 100) >= 80 ? "up" : (candidate?.reputation_score ?? 100) >= 50 ? "gold" : "down"}
+              color={repBadgeVariant(candidate?.reputation_score ?? 100)}
             />
             <DataRow label="PORTFOLIO" value={`${projectCount} / ${MAX_PORTFOLIO_PROJECTS}`} />
             <DataRow
               label="SALARY FLOOR"
-              value={
-                postingSummary.salaryMin && postingSummary.salaryMax
-                  ? formatSalaryBand(postingSummary.salaryMin, postingSummary.salaryMax)
-                  : postingSummary.salaryMin
-                    ? formatSalary(postingSummary.salaryMin)
-                    : "—"
-              }
+              value={candidate?.current_salary ? formatSalary(candidate.current_salary) : "—"}
             />
             <DataRow
               label="MARKET MEDIAN"
@@ -539,16 +529,8 @@ export function DashboardClient({
           <div className="panel-head">
             <span className="panel-title">SALARY POSITION</span>
             {salaryData && (
-              <span
-                className={`badge ${
-                  salaryData.candidate_percentile >= 75
-                    ? "badge-gold"
-                    : salaryData.candidate_percentile >= 40
-                      ? "badge-up"
-                      : "badge-down"
-                }`}
-              >
-                {formatPercentile(salaryData.candidate_percentile).toUpperCase()} PERCENTILE
+              <span className="mono tnum" style={{ fontSize: 11, color: "var(--up)" }}>
+                {formatPercentile(salaryData.candidate_percentile).toUpperCase()}
               </span>
             )}
           </div>
@@ -569,7 +551,7 @@ export function DashboardClient({
                   candPercentile={salaryData.candidate_percentile}
                   marginalPerYear={salaryData.marginal_per_year}
                   tone="candidate"
-                  height={210}
+                  height={285}
                 />
               </>
             ) : (
@@ -590,17 +572,14 @@ export function DashboardClient({
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">PITCH PIPELINE</span>
-            <Link href="/candidate/matches" className="link-up mono" style={{ fontSize: 11 }}>
-              VIEW ALL
-            </Link>
           </div>
           <PitchFunnel stats={pitchStats} />
-          <div className="px-4 pb-3">
-            <DataRow
-              label="RESPONSE RATE"
-              value={pitchStats.received > 0 ? `${Math.round(effectiveSignals.response_rate * 100)}%` : "—"}
-              color={pitchStats.received > 0 ? "up" : undefined}
-            />
+          <div className="flex items-center justify-center gap-1.5 px-4 pb-3 pt-2.5">
+            <span className="kicker">ACCEPT RATE</span>
+            <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, color: "var(--up)" }}>
+              {pitchStats.received > 0 ? Math.round((pitchStats.accepted / pitchStats.received) * 100) : 0}%
+            </span>
+            <span className="kicker">· {pitchStats.accepted} OF {pitchStats.received} CLOSED</span>
           </div>
         </div>
 
@@ -610,19 +589,17 @@ export function DashboardClient({
           </div>
           <div className="flex flex-1 flex-col justify-center p-4">
             {skillGap.length > 0 ? (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {skillGap.map((s) => (
-                    <span
-                      key={s.label}
-                      className="badge badge-muted"
-                      title={`${s.count} open role${s.count > 1 ? "s" : ""} want this skill`}
-                    >
-                      {s.label} · {s.count}
-                    </span>
-                  ))}
-                </div>
-                </>
+              <div className="flex flex-wrap gap-2">
+                {skillGap.map((s) => (
+                  <span
+                    key={s.label}
+                    className="badge badge-muted"
+                    title={`${s.count} open role${s.count > 1 ? "s" : ""} want this skill`}
+                  >
+                    {s.label} · {s.count}
+                  </span>
+                ))}
+              </div>
             ) : (
               <div className="flex h-20 items-center justify-center px-4">
                 <p className="kicker text-center">YOUR PORTFOLIO COVERS THE TOP IN-DEMAND SKILLS</p>
@@ -632,38 +609,6 @@ export function DashboardClient({
         </div>
       </div>
 
-      {/* Activity log */}
-      <div className="panel">
-        <div className="panel-head">
-          <span className="panel-title">ACTIVITY LOG</span>
-        </div>
-        {recentActivity.length > 0 ? (
-          <div>
-            {recentActivity.map((a, i) => (
-              <div
-                key={i}
-                className="grid items-center gap-3.5 px-4 py-2.5"
-                style={{
-                  gridTemplateColumns: "4.5rem 1fr auto",
-                  borderBottom: i < recentActivity.length - 1 ? "1px solid var(--border-soft)" : "none",
-                }}
-              >
-                <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                  {formatShortDate(a.date)}
-                </span>
-                <span className="mono" style={{ fontSize: 11.5, color: "var(--text-2)" }}>
-                  {a.label}
-                </span>
-                {a.delta != null ? <Delta value={a.delta} /> : <span className="badge badge-muted">{a.tag}</span>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex h-20 items-center justify-center">
-            <p className="kicker">NO RECENT ACTIVITY</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
