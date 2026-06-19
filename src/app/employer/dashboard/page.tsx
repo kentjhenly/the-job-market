@@ -500,7 +500,7 @@ export default async function EmployerDashboardPage() {
           </div>
           {topMatches.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10">
-              <p className="kicker">NO OPEN POSTINGS</p>
+              <p className="kicker text-center">NO OPEN POSTINGS</p>
               <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
                 CREATE POSTING →
               </Link>
