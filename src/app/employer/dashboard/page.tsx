@@ -66,7 +66,7 @@ export default async function EmployerDashboardPage() {
     { data: urgentMatches },
     { data: visibleCandIds },
   ] = await Promise.all([
-    supabase.from("matches").select("status, offered_salary, created_at").eq("employer_id", session.user.id),
+    supabase.from("matches").select("status, offered_salary, created_at, candidate_last_read_at").eq("employer_id", session.user.id),
     supabase
       .from("matches")
       .select("id, status, created_at, offered_salary, employer_job_postings(title), candidates(years_exp_claimed, profiles(display_name))")
@@ -100,6 +100,7 @@ export default async function EmployerDashboardPage() {
   const ghosted = ms.filter(m => m.status === "ghosted").length;
   const responded = accepted + declined + ghosted;
   const acceptanceRate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+  const reviewed = ms.filter(m => (m as { candidate_last_read_at?: string | null }).candidate_last_read_at != null).length;
   const offeredSalaries = ms.filter(m => m.offered_salary).map(m => m.offered_salary as number);
   const avgOffered = offeredSalaries.length > 0
     ? Math.round(offeredSalaries.reduce((a, b) => a + b, 0) / offeredSalaries.length)
@@ -571,9 +572,10 @@ export default async function EmployerDashboardPage() {
           </div>
           <div className="flex flex-col gap-2.5 px-4 py-3">
             {[
-              { k: "SENT",      n: sent,      col: "var(--info)" },
-              { k: "RESPONDED", n: responded, col: "var(--gold)" },
-              { k: "ACCEPTED",  n: accepted,  col: "var(--up)"   },
+              { k: "SENT",      n: sent,      col: "var(--info)"         },
+              { k: "REVIEWED",  n: reviewed,  col: "oklch(0.52 0.01 80)" },
+              { k: "RESPONDED", n: responded, col: "var(--gold)"         },
+              { k: "ACCEPTED",  n: accepted,  col: "var(--up)"           },
             ].map((s, i, arr) => {
               const maxN = arr[0].n || 1;
               const prev = i > 0 ? arr[i - 1].n || 1 : null;
@@ -594,10 +596,17 @@ export default async function EmployerDashboardPage() {
                       transition: "width .7s cubic-bezier(.2,.7,.3,1)",
                     }}>
                       <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col, position: "relative", zIndex: 1 }}>{s.n}</span>
-                      <div style={{
-                        position: "absolute", top: 0, left: 0, width: "35%", height: "100%",
-                        background: "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.32) 50%, transparent 90%)",
-                      }} />
+                      <div
+                        className="bar-sheen"
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "35%",
+                          height: "100%",
+                          background: "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.32) 50%, transparent 90%)",
+                        }}
+                      />
                     </div>
                   </div>
                   <span className="mono tnum" style={{ fontSize: 10.5, textAlign: "right", color: conv != null ? (conv >= 50 ? "var(--up)" : "var(--muted)") : "transparent" }}>
