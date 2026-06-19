@@ -20,6 +20,15 @@ type MatchRow = {
   candidates: { years_exp_claimed: number | null; profiles: { display_name: string } | null } | null;
 };
 
+type MatcherEntry = {
+  candidate_id: string;
+  candidate_posting_id: string;
+  match_score: number;
+  match_percentile: number;
+  posting_id: string;
+  posting_title: string;
+};
+
 const EXP_BUCKETS = [
   { label: "0-2Y", min: 0, max: 3 },
   { label: "3-4Y", min: 3, max: 5 },
@@ -32,6 +41,11 @@ export default async function EmployerDashboardPage() {
   if (!session) return null;
   const supabase = getSupabaseServiceClient();
 
+  const now = new Date();
+  const in24h = new Date(now.getTime() + 24 * 3600 * 1000).toISOString();
+  const nowIso = now.toISOString();
+
+  // Fetch employer first — repScore is needed for the percentile queries below
   const { data: employer } = await supabase
     .from("employers")
     .select("*")
@@ -40,6 +54,7 @@ export default async function EmployerDashboardPage() {
 
   const repScore = employer?.reputation_score ?? 100;
 
+  // Wave 1: all remaining independent DB queries in parallel
   const [
     { data: allMatches },
     { data: rawMatchDetail },
@@ -47,6 +62,9 @@ export default async function EmployerDashboardPage() {
     { data: employerPostings },
     { count: higherRepCount },
     { count: totalEmployers },
+    { data: openPostings },
+    { data: urgentMatches },
+    { data: visibleCandIds },
   ] = await Promise.all([
     supabase.from("matches").select("status, offered_salary, created_at").eq("employer_id", session.user.id),
     supabase
@@ -59,17 +77,136 @@ export default async function EmployerDashboardPage() {
     supabase.from("employer_job_postings").select("title, skills").eq("employer_id", session.user.id),
     supabase.from("employers").select("id", { count: "exact", head: true }).gt("reputation_score", repScore),
     supabase.from("employers").select("id", { count: "exact", head: true }),
+    supabase.from("employer_job_postings").select("id, title").eq("employer_id", session.user.id).eq("status", "open"),
+    supabase
+      .from("matches")
+      .select("id, expires_at, employer_job_postings(title), candidates(profiles(display_name))")
+      .eq("employer_id", session.user.id)
+      .eq("status", "pending")
+      .gt("expires_at", nowIso)
+      .lt("expires_at", in24h)
+      .order("expires_at", { ascending: true }),
+    supabase.from("candidates").select("id").eq("is_visible", true).limit(3000),
   ]);
 
   const matchDetail = (rawMatchDetail ?? []) as unknown as MatchRow[];
 
-  // ---- salary benchmark ----
-  const candYearsAll = matchDetail
-    .map(m => (m.candidates as { years_exp_claimed?: number | null } | null)?.years_exp_claimed)
-    .filter((y): y is number => y != null);
-  const avgCandYears = candYearsAll.length > 0
-    ? Math.round(candYearsAll.reduce((a, b) => a + b, 0) / candYearsAll.length)
-    : 5;
+  // ---- pitch stats (computed before salary fetch to fix ordering) ----
+  const ms = allMatches ?? [];
+  const sent = ms.length;
+  const pending = ms.filter(m => m.status === "pending").length;
+  const accepted = ms.filter(m => m.status === "accepted").length;
+  const declined = ms.filter(m => m.status === "declined").length;
+  const ghosted = ms.filter(m => m.status === "ghosted").length;
+  const responded = accepted + declined + ghosted;
+  const acceptanceRate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+  const offeredSalaries = ms.filter(m => m.offered_salary).map(m => m.offered_salary as number);
+  const avgOffered = offeredSalaries.length > 0
+    ? Math.round(offeredSalaries.reduce((a, b) => a + b, 0) / offeredSalaries.length)
+    : null;
+
+  // Wave 2: candidate-matcher calls (parallel per posting) + market supply query
+  const postingList = openPostings ?? [];
+  const visibleSet = new Set((visibleCandIds ?? []).map(c => c.id));
+
+  const [matcherSettled, { data: supplyRaw }] = await Promise.all([
+    Promise.allSettled(
+      postingList.slice(0, 10).map(async (posting) => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/candidate-matcher`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ posting_id: posting.id }),
+            cache: "no-store",
+          }
+        );
+        if (!res.ok) return [] as MatcherEntry[];
+        const data = await res.json();
+        return ((data.matches ?? []) as Array<{
+          candidate_id: string;
+          candidate_posting_id: string;
+          match_score: number;
+          match_percentile: number;
+        }>).map(m => ({ ...m, posting_id: posting.id, posting_title: posting.title }));
+      })
+    ),
+    supabase
+      .from("candidate_job_postings")
+      .select("title, years_exp, candidate_id")
+      .limit(3000),
+  ]);
+
+  // ---- top matches: dedupe by candidate, take top 5 ----
+  const allMatcherEntries: MatcherEntry[] = [];
+  for (const r of matcherSettled) {
+    if (r.status === "fulfilled") allMatcherEntries.push(...r.value);
+  }
+  const bestByCandidate = new Map<string, MatcherEntry>();
+  for (const m of allMatcherEntries) {
+    const existing = bestByCandidate.get(m.candidate_id);
+    if (!existing || m.match_score > existing.match_score) bestByCandidate.set(m.candidate_id, m);
+  }
+  const topEntries = [...bestByCandidate.values()]
+    .sort((a, b) => b.match_score - a.match_score)
+    .slice(0, 5);
+
+  // Wave 3: fetch candidate details for top 5 + salary regression (parallel)
+  const topCandidateIds = topEntries.map(e => e.candidate_id);
+  const topCandPostingIds = topEntries.map(e => e.candidate_posting_id);
+
+  // Determine salary regression anchor: top match candidate
+  // We'll fetch details first, then use them for the regression call.
+  let topCandDetails: Array<{
+    id: string;
+    display_name: string;
+    years_exp_claimed: number;
+    desired_salary_max: number | null;
+  }> = [];
+
+  if (topCandidateIds.length > 0) {
+    type CandRow = { id: string; years_exp_claimed: number | null; profiles: { display_name: string } | null };
+    type CandPostingRow = { id: string; candidate_id: string; desired_salary_max: number | null };
+    const [candResult, candPostingResult] = await Promise.all([
+      supabase
+        .from("candidates")
+        .select("id, years_exp_claimed, profiles(display_name)")
+        .in("id", topCandidateIds),
+      supabase
+        .from("candidate_job_postings")
+        .select("id, candidate_id, desired_salary_max")
+        .in("id", topCandPostingIds),
+    ]);
+    const candRows = (candResult.data ?? []) as unknown as CandRow[];
+    const candPostingRows = (candPostingResult.data ?? []) as unknown as CandPostingRow[];
+    topCandDetails = candRows.map(c => ({
+      id: c.id,
+      display_name:
+        c.profiles?.display_name ?? `CAND-${c.id.slice(0, 6).toUpperCase()}`,
+      years_exp_claimed: c.years_exp_claimed ?? 0,
+      desired_salary_max:
+        candPostingRows.find(p => p.candidate_id === c.id)?.desired_salary_max ?? null,
+    }));
+  }
+
+  const topMatches = topEntries.map(e => ({
+    ...e,
+    candidate: topCandDetails.find(c => c.id === e.candidate_id) ?? {
+      id: e.candidate_id,
+      display_name: `CAND-${e.candidate_id.slice(0, 6).toUpperCase()}`,
+      years_exp_claimed: 0,
+      desired_salary_max: null,
+    },
+  }));
+
+  const topMatch = topMatches[0];
+
+  // ---- salary benchmark anchored to top match ----
+  const candYears = topMatch?.candidate.years_exp_claimed ?? 5;
+  const candSalary = topMatch?.candidate.desired_salary_max ?? null;
 
   type CurvePoint = { years_exp: number; p25: number; p50: number; p75: number; p90: number };
   let salaryCurve: CurvePoint[] = [];
@@ -85,7 +222,7 @@ export default async function EmployerDashboardPage() {
           Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ years_exp: avgCandYears, ...(avgOffered ? { monthly_salary: avgOffered } : {}) }),
+        body: JSON.stringify({ years_exp: candYears, ...(candSalary ? { monthly_salary: candSalary } : {}) }),
         cache: "no-store",
       }
     );
@@ -93,25 +230,10 @@ export default async function EmployerDashboardPage() {
       const data = await res.json();
       salaryCurve = data.curve ?? [];
       salaryNPoints = (data.n_points ?? (data.points?.length ?? 0)) as number;
-      offerPercentile = avgOffered ? (data.candidate_percentile as number | undefined) : undefined;
+      offerPercentile = candSalary ? (data.candidate_percentile as number | undefined) : undefined;
       marginalPerYear = data.marginal_per_year as number | undefined;
     }
-  } catch { /* edge function unavailable — chart will show empty state */ }
-
-  // ---- pitch stats ----
-  const ms = allMatches ?? [];
-  const sent = ms.length;
-  const pending = ms.filter(m => m.status === "pending").length;
-  const accepted = ms.filter(m => m.status === "accepted").length;
-  const declined = ms.filter(m => m.status === "declined").length;
-  const ghosted = ms.filter(m => m.status === "ghosted").length;
-  const responded = accepted + declined + ghosted;
-  const acceptanceRate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
-
-  const offeredSalaries = ms.filter(m => m.offered_salary).map(m => m.offered_salary as number);
-  const avgOffered = offeredSalaries.length > 0
-    ? Math.round(offeredSalaries.reduce((a, b) => a + b, 0) / offeredSalaries.length)
-    : null;
+  } catch { /* edge function unavailable */ }
 
   // ---- reputation history ----
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -137,24 +259,9 @@ export default async function EmployerDashboardPage() {
   const rank = (higherRepCount ?? 0) + 1;
   const total = totalEmployers ?? 1;
 
-  // ---- role demand grid ----
-  const roles = [...new Set(matchDetail.map(m => m.employer_job_postings?.title).filter(Boolean) as string[])].slice(0, 5);
-  const roleDemand = roles.map(role => ({
-    role,
-    buckets: EXP_BUCKETS.map(bk => ({
-      label: bk.label,
-      count: matchDetail.filter(m =>
-        m.employer_job_postings?.title === role &&
-        (m.candidates?.years_exp_claimed ?? 0) >= bk.min &&
-        (m.candidates?.years_exp_claimed ?? 0) < bk.max
-      ).length,
-    })),
-  }));
-
   // ---- focus areas ----
   const skillFreq = new Map<string, number>();
   (employerPostings ?? []).flatMap(p => p.skills ?? []).forEach(s => skillFreq.set(s, (skillFreq.get(s) ?? 0) + 1));
-  const focusAreas = [...skillFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([s]) => s);
 
   // ---- subscription ----
   const subscriptionActive = employer?.subscription_status === "active";
@@ -169,6 +276,37 @@ export default async function EmployerDashboardPage() {
   const repColor = repVar(repScore);
   const employerPercentile = total > 1 ? Math.round(((total - rank) / (total - 1)) * 100) : 100;
 
+  // ---- market supply heatmap ----
+  const filteredSupply = (supplyRaw ?? []).filter(p => visibleSet.has(p.candidate_id));
+  const titleCounts = new Map<string, number>();
+  for (const p of filteredSupply) {
+    titleCounts.set(p.title, (titleCounts.get(p.title) ?? 0) + 1);
+  }
+  const supplyRoles = [...titleCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([title]) => title);
+
+  const marketSupply = supplyRoles.map(role => ({
+    role,
+    buckets: EXP_BUCKETS.map(bk => ({
+      label: bk.label,
+      count: filteredSupply.filter(p =>
+        p.title === role &&
+        (p.years_exp ?? 0) >= bk.min &&
+        (p.years_exp ?? 0) < bk.max
+      ).length,
+    })),
+  }));
+
+  // ---- needs action ----
+  const urgentList = (urgentMatches ?? []) as Array<{
+    id: string;
+    expires_at: string;
+    employer_job_postings: { title: string } | null;
+    candidates: { profiles: { display_name: string } | null } | null;
+  }>;
+
   return (
     <div className="view-enter scroll-main space-y-6">
       {/* Page header */}
@@ -181,7 +319,99 @@ export default async function EmployerDashboardPage() {
         {employer?.verified && <Badge variant="gold">VERIFIED EMPLOYER</Badge>}
       </div>
 
-      {/* ROW 1 — asymmetric hero (identical proportions to candidate COMPOSITE SCORE row) */}
+      {/* ROW 0 — TOP MATCHES */}
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">TOP MATCHES</span>
+          {topMatches.length > 0 && (
+            <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+              ACROSS {postingList.length} OPEN POSTING{postingList.length !== 1 ? "S" : ""}
+            </span>
+          )}
+          {postingList.length > 0 && (
+            <Link href="/employer/feed" className="link-up mono ml-auto" style={{ fontSize: 11 }}>
+              FULL FEED
+            </Link>
+          )}
+        </div>
+        {topMatches.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-10">
+            <p className="kicker">NO OPEN POSTINGS — CREATE A ROLE TO SEE TOP CANDIDATES</p>
+            <Link href="/employer/postings" className="link-up mono mt-1" style={{ fontSize: 11 }}>
+              CREATE POSTING →
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Column headers */}
+            <div
+              className="grid items-center gap-3 px-4 py-2"
+              style={{
+                gridTemplateColumns: "1.4rem 1fr 4.5rem 3.5rem 7rem 5.5rem",
+                borderBottom: "1px solid var(--border-soft)",
+              }}
+            >
+              {["#", "CANDIDATE", "MATCH", "EXP", "SALARY ASK", ""].map((h, i) => (
+                <span key={i} className="kicker">{h}</span>
+              ))}
+            </div>
+            {topMatches.map((m, idx) => (
+              <div
+                key={m.candidate_id}
+                className="grid items-center gap-3 px-4 py-3"
+                style={{
+                  gridTemplateColumns: "1.4rem 1fr 4.5rem 3.5rem 7rem 5.5rem",
+                  borderBottom: idx < topMatches.length - 1 ? "1px solid var(--border-soft)" : "none",
+                  borderLeft: `2px solid ${idx === 0 ? "var(--up)" : "transparent"}`,
+                }}
+              >
+                <span className="mono tnum" style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)", fontWeight: idx === 0 ? 600 : 400 }}>
+                    {m.candidate.display_name}
+                  </p>
+                  <p className="mono truncate mt-0.5" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                    {m.posting_title}
+                  </p>
+                </div>
+                <span
+                  className="mono tnum"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: m.match_score >= 70 ? "var(--up)" : m.match_score >= 45 ? "var(--gold)" : "var(--muted)",
+                  }}
+                >
+                  {m.match_score.toFixed(0)}%
+                </span>
+                <span className="mono tnum" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                  {m.candidate.years_exp_claimed > 0 ? `${m.candidate.years_exp_claimed}Y` : "—"}
+                </span>
+                <span className="mono tnum" style={{ fontSize: 11, color: "var(--text-2)" }}>
+                  {m.candidate.desired_salary_max ? formatSalary(m.candidate.desired_salary_max) : "—"}
+                </span>
+                <Link
+                  href={`/employer/postings/${m.posting_id}`}
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--up)",
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textDecoration: "none",
+                  }}
+                >
+                  PITCH →
+                </Link>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ROW 1 — asymmetric hero: EMPLOYER REPUTATION + POSITION SUMMARY */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
 
         {/* EMPLOYER REPUTATION */}
@@ -243,6 +473,25 @@ export default async function EmployerDashboardPage() {
             <span className="panel-title">POSITION SUMMARY</span>
           </div>
           <div className="flex flex-1 flex-col p-4">
+            {/* NEEDS ACTION strip */}
+            {urgentList.length > 0 && (
+              <Link
+                href="/employer/matches"
+                className="mb-3 flex items-center justify-between gap-2"
+                style={{
+                  background: "color-mix(in oklch, var(--down) 12%, transparent)",
+                  border: "1px solid color-mix(in oklch, var(--down) 45%, transparent)",
+                  borderRadius: "var(--r)",
+                  padding: "8px 11px",
+                  textDecoration: "none",
+                }}
+              >
+                <span className="mono" style={{ fontSize: 11, color: "var(--down)", fontWeight: 600, letterSpacing: "0.08em" }}>
+                  ▲ {urgentList.length} PITCH{urgentList.length > 1 ? "ES" : ""} EXPIRING &lt;24H
+                </span>
+                <span className="mono" style={{ fontSize: 10.5, color: "var(--down)" }}>RESPOND →</span>
+              </Link>
+            )}
             {/* meter: acceptance rate */}
             <div className="py-2.5" style={{ borderBottom: "1px solid var(--border-soft)" }}>
               <div className="mb-1.5 flex items-center justify-between">
@@ -299,6 +548,13 @@ export default async function EmployerDashboardPage() {
             )}
           </div>
           <div className="p-4">
+            {topMatch && (
+              <p className="mono mb-3" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                BENCHMARKING: <span style={{ color: "var(--text-2)" }}>{topMatch.candidate.display_name}</span>
+                {" · "}
+                <span style={{ color: "var(--dim)" }}>{topMatch.posting_title}</span>
+              </p>
+            )}
             <SalaryCurve
               curve={salaryCurve.map(c => ({
                 years_exp: c.years_exp,
@@ -308,12 +564,12 @@ export default async function EmployerDashboardPage() {
                 p90: c.p90,
               }))}
               nPoints={salaryNPoints}
-              candYears={avgCandYears}
-              candSalary={avgOffered ?? undefined}
+              candYears={candYears}
+              candSalary={candSalary ?? undefined}
               candPercentile={offerPercentile}
               marginalPerYear={marginalPerYear}
               tone="employer"
-              height={285}
+              height={265}
             />
           </div>
         </div>
@@ -372,24 +628,29 @@ export default async function EmployerDashboardPage() {
         </div>
       </div>
 
-      {/* ROLE DEMAND */}
+      {/* ROW 3 — MARKET SUPPLY */}
       <div className="panel">
         <div className="panel-head">
-          <span className="panel-title">ROLE DEMAND</span>
+          <span className="panel-title">MARKET SUPPLY</span>
+          {filteredSupply.length > 0 && (
+            <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+              {filteredSupply.length} VISIBLE POSTINGS
+            </span>
+          )}
         </div>
         <div className="p-4">
-          {roles.length > 0 ? (
+          {supplyRoles.length > 0 ? (
             <>
-              <div className="mb-2 grid" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
-                <span />
+              <div className="mb-2 grid" style={{ gridTemplateColumns: "6rem 1fr 1fr 1fr 1fr" }}>
+                <span className="kicker" style={{ color: "var(--dim)" }}>ROLE</span>
                 {EXP_BUCKETS.map(b => <span key={b.label} className="kicker text-center">{b.label}</span>)}
               </div>
-              {roleDemand.map(r => {
+              {marketSupply.map(r => {
                 const maxC = Math.max(...r.buckets.map(b => b.count), 1);
                 return (
-                  <div key={r.role} className="mb-1 grid items-center" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
+                  <div key={r.role} className="mb-1 grid items-center" style={{ gridTemplateColumns: "6rem 1fr 1fr 1fr 1fr" }}>
                     <span className="mono truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                      {r.role.toUpperCase().slice(0, 10)}
+                      {r.role.toUpperCase().slice(0, 11)}
                     </span>
                     {r.buckets.map(b => (
                       <div key={b.label} className="p-0.5">
@@ -418,7 +679,7 @@ export default async function EmployerDashboardPage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-10">
-              <p className="kicker">SEND PITCHES TO SEE ROLE DEMAND</p>
+              <p className="kicker">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
             </div>
           )}
         </div>
