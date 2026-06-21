@@ -3,6 +3,8 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { sendPitchNotification } from "@/lib/email/send";
+import { MAX_PITCH_MESSAGE_LEN } from "@/lib/utils/constants";
+import { parseSalaryCents, clampText } from "@/lib/utils/security";
 
 // Mirrors POST /api/matches, but lets the admin create a pitch on behalf of
 // any employer (employer_id is supplied explicitly) -- gated by the admin
@@ -16,6 +18,15 @@ export async function POST(request: NextRequest) {
   const { employer_id, candidate_id, posting_id, pitch_message, offered_salary } = await request.json();
   if (!employer_id || !candidate_id) {
     return NextResponse.json({ error: "employer_id and candidate_id required" }, { status: 400 });
+  }
+
+  const pitchMessage = clampText(pitch_message, MAX_PITCH_MESSAGE_LEN);
+  let offeredSalary: number | null = null;
+  if (offered_salary != null) {
+    offeredSalary = parseSalaryCents(offered_salary);
+    if (offeredSalary == null) {
+      return NextResponse.json({ error: "Invalid offered salary" }, { status: 400 });
+    }
   }
 
   const supabase = getSupabaseServiceClient();
@@ -67,8 +78,8 @@ export async function POST(request: NextRequest) {
       employer_id,
       candidate_id,
       posting_id: posting_id ?? null,
-      pitch_message: pitch_message ?? null,
-      offered_salary: offered_salary ?? null,
+      pitch_message: pitchMessage,
+      offered_salary: offeredSalary,
     })
     .select("id")
     .single();
@@ -94,8 +105,8 @@ export async function POST(request: NextRequest) {
     sendPitchNotification({
       to: candidateProfile.email,
       companyName: employer.company_name,
-      pitchMessage: pitch_message ?? null,
-      offeredSalary: offered_salary ?? null,
+      pitchMessage: pitchMessage,
+      offeredSalary: offeredSalary,
     }).catch((err) => console.error("sendPitchNotification failed:", err));
   }
 

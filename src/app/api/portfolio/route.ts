@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
+import { MAX_PORTFOLIO_PROJECTS, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "@/lib/utils/constants";
 import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
+import { sanitizeStorageFileName, isSafeHttpUrl, clampText } from "@/lib/utils/security";
 
 function parseSkills(raw: FormDataEntryValue | null): string[] {
   if (typeof raw !== "string") return [];
@@ -54,17 +55,23 @@ export async function POST(request: NextRequest) {
   const linkUrl = formData.get("link_url");
   const file = formData.get("file");
 
-  if (typeof title !== "string" || !title.trim()) {
+  const cleanTitle = clampText(title, MAX_TITLE_LEN);
+  if (!cleanTitle) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
+
+  const linkValue = typeof linkUrl === "string" ? linkUrl.trim() : "";
+  if (linkValue && !isSafeHttpUrl(linkValue)) {
+    return NextResponse.json({ error: "Link must be a valid http(s) URL" }, { status: 400 });
   }
 
   const { data: inserted, error: insertError } = await supabase
     .from("candidate_portfolio_projects")
     .insert({
       candidate_id: session.user.id,
-      title: title.trim(),
-      description: typeof description === "string" && description.trim() ? description.trim() : null,
-      link_url: typeof linkUrl === "string" && linkUrl.trim() ? linkUrl.trim() : null,
+      title: cleanTitle,
+      description: clampText(description, MAX_DESCRIPTION_LEN),
+      link_url: linkValue || null,
       skills: parseSkills(formData.get("skills")),
     })
     .select("id")
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest) {
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
   if (file instanceof File && file.size > 0) {
-    const filePath = `${session.user.id}/${inserted.id}/${file.name}`;
+    const filePath = `${session.user.id}/${inserted.id}/${sanitizeStorageFileName(file.name)}`;
     const { error: uploadError } = await supabase.storage
       .from("portfolio-files")
       .upload(filePath, file, { contentType: file.type, upsert: true });

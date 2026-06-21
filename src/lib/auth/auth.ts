@@ -30,6 +30,24 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+  // Throttle auth endpoints to blunt credential brute-forcing and signup/abuse.
+  // `enabled: true` forces it on in dev too (Better Auth only enables it in
+  // production by default). The default in-memory store is per-instance; move
+  // to a shared store (e.g. secondaryStorage) if running multiple instances.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 5 },
+      "/change-password": { window: 60, max: 5 },
+      "/change-email": { window: 60, max: 5 },
+      "/delete-user": { window: 60, max: 5 },
+      "/forget-password": { window: 60, max: 3 },
+      "/reset-password": { window: 60, max: 5 },
+    },
+  },
   session: {
     // Cache the session in a signed, short-lived cookie so the common case
     // (getServerSession on the proxy + layout + page of every navigation)

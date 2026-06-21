@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { Database } from "@/lib/supabase/types";
+import { isSafeHttpUrl } from "@/lib/utils/security";
 
 type PortfolioProject = Omit<
   Database["public"]["Tables"]["candidate_portfolio_projects"]["Row"],
@@ -73,7 +74,7 @@ export function ProjectViewClient({ project }: Props) {
             </div>
           )}
 
-          {project.link_url && (
+          {project.link_url && isSafeHttpUrl(project.link_url) && (
             <div className="px-4 pb-3">
               <a
                 href={project.link_url}

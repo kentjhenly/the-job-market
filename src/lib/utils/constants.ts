@@ -40,6 +40,13 @@ export const CHAT_GHOST_HOURS = 72;
 // match-files bucket enforces the hard 10MB limit server-side
 export const MAX_CHAT_FILE_SIZE_MB = 10;
 
+// Maximum stored lengths for free-text fields, enforced server-side to keep
+// payloads bounded (storage abuse / DoS defense). Generous but finite.
+export const MAX_TITLE_LEN = 200;
+export const MAX_DESCRIPTION_LEN = 5000;
+export const MAX_PITCH_MESSAGE_LEN = 2000;
+export const MAX_CHAT_MESSAGE_LEN = 4000;
+
 // Employers can create this many job postings without an active subscription;
 // beyond this, POST /api/recruiter-postings requires subscription_status = 'active'
 export const FREE_JOB_POSTINGS = 3;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { MAX_POSTING_SKILLS, FREE_JOB_POSTINGS } from "@/lib/utils/constants";
+import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
+import { validateEmployerPosting } from "@/lib/utils/postingValidation";
 
 export async function GET() {
   const session = await getServerSession();
@@ -31,12 +32,11 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
   const body = await request.json();
 
-  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
-    return NextResponse.json(
-      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
-      { status: 400 }
-    );
+  const validated = validateEmployerPosting(body);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
+  const fields = validated.value;
 
   const { data: employer, error: employerError } = await supabase
     .from("employers")
@@ -75,17 +75,17 @@ export async function POST(request: NextRequest) {
     .from("employer_job_postings")
     .insert({
       employer_id: session.user.id,
-      title: body.title,
-      description: body.description ?? null,
+      title: fields.title,
+      description: fields.description,
       vertical: body.vertical ?? "tech",
-      years_exp_min: body.years_exp_min ?? null,
-      years_exp_max: body.years_exp_max ?? null,
+      years_exp_min: fields.years_exp_min,
+      years_exp_max: fields.years_exp_max,
       location: body.location ?? null,
       work_modes: body.work_modes ?? [],
-      salary_min: body.salary_min ?? null,
-      salary_max: body.salary_max ?? null,
-      skills: body.skills ?? [],
-      max_candidates: body.max_candidates ?? 5,
+      salary_min: fields.salary_min,
+      salary_max: fields.salary_max,
+      skills: fields.skills,
+      max_candidates: fields.max_candidates,
       status: body.status ?? "open",
     })
     .select("id")

@@ -58,9 +58,9 @@ export async function POST(
     }
 
     const offeredSalary = Math.round(Number(body.offered_salary));
-    if (!Number.isFinite(offeredSalary) || offeredSalary <= 0) {
+    if (!Number.isFinite(offeredSalary) || offeredSalary <= 0 || offeredSalary > 100_000_000) {
       return NextResponse.json(
-        { error: "offered_salary must be a positive number" },
+        { error: "offered_salary must be a positive number within range" },
         { status: 400 }
       );
     }

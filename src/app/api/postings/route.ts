@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { MAX_POSTING_SKILLS } from "@/lib/utils/constants";
+import { validateCandidatePosting } from "@/lib/utils/postingValidation";
 
 const MAX_POSTINGS = 10;
 
@@ -38,25 +38,24 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
 
-  if (Array.isArray(body.skills) && body.skills.length > MAX_POSTING_SKILLS) {
-    return NextResponse.json(
-      { error: `Maximum of ${MAX_POSTING_SKILLS} skills per posting` },
-      { status: 400 }
-    );
+  const validated = validateCandidatePosting(body);
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, { status: 400 });
   }
+  const fields = validated.value;
 
   const { data, error } = await supabase
     .from("candidate_job_postings")
     .insert({
       candidate_id: session.user.id,
-      title: body.title,
+      title: fields.title,
       location: body.location ?? null,
       work_modes: body.work_modes ?? [],
-      desired_salary_min: body.desired_salary_min ?? null,
-      desired_salary_max: body.desired_salary_max ?? null,
-      skills: body.skills ?? [],
+      desired_salary_min: fields.desired_salary_min,
+      desired_salary_max: fields.desired_salary_max,
+      skills: fields.skills,
       available_from: body.available_from ?? null,
-      years_exp: body.years_exp ?? null,
+      years_exp: fields.years_exp,
       work_eligible: body.work_eligible ?? null,
     })
     .select("id")

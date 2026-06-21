@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { readColumnUpdate } from "@/lib/utils/matchReads";
-import { MAX_CHAT_FILE_SIZE_MB } from "@/lib/utils/constants";
+import { MAX_CHAT_FILE_SIZE_MB, MAX_CHAT_MESSAGE_LEN } from "@/lib/utils/constants";
+import { sanitizeStorageFileName } from "@/lib/utils/security";
 
 async function loadParticipantMatch(
   supabase: ReturnType<typeof getSupabaseServiceClient>,
@@ -83,7 +84,7 @@ export async function POST(
 
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-    const filePath = `${matchId}/${inserted.id}-${file.name}`;
+    const filePath = `${matchId}/${inserted.id}-${sanitizeStorageFileName(file.name)}`;
     const { error: uploadError } = await supabase.storage
       .from("match-files")
       .upload(filePath, file, { contentType: file.type });
@@ -102,13 +103,13 @@ export async function POST(
   } else {
     const { body } = await request.json();
 
-    if (!body || !body.trim()) {
+    if (typeof body !== "string" || !body.trim()) {
       return NextResponse.json({ error: "Message body required" }, { status: 400 });
     }
 
     const { data: inserted, error } = await supabase
       .from("match_messages")
-      .insert({ match_id: matchId, sender_id: session.user.id, body: body.trim() })
+      .insert({ match_id: matchId, sender_id: session.user.id, body: body.trim().slice(0, MAX_CHAT_MESSAGE_LEN) })
       .select("*")
       .single();
 

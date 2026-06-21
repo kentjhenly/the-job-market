@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendPitchNotification } from "@/lib/email/send";
-import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
+import { FREE_JOB_POSTINGS, MAX_PITCH_MESSAGE_LEN } from "@/lib/utils/constants";
+import { parseSalaryCents, clampText } from "@/lib/utils/security";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
@@ -14,8 +15,17 @@ export async function POST(request: NextRequest) {
   }
 
   const { candidate_id, pitch_message, offered_salary, posting_id } = await request.json();
-  if (!candidate_id) {
+  if (!candidate_id || typeof candidate_id !== "string") {
     return NextResponse.json({ error: "candidate_id required" }, { status: 400 });
+  }
+
+  const pitchMessage = clampText(pitch_message, MAX_PITCH_MESSAGE_LEN);
+  let offeredSalary: number | null = null;
+  if (offered_salary != null) {
+    offeredSalary = parseSalaryCents(offered_salary);
+    if (offeredSalary == null) {
+      return NextResponse.json({ error: "Invalid offered salary" }, { status: 400 });
+    }
   }
 
   const supabase = getSupabaseServiceClient();
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Offered salary must fall within the candidate's desired range
-  if (offered_salary != null) {
+  if (offeredSalary != null) {
     const { data: candidatePostings } = await supabase
       .from("candidate_job_postings")
       .select("desired_salary_min, desired_salary_max")
@@ -99,8 +109,8 @@ export async function POST(request: NextRequest) {
         (p) =>
           p.desired_salary_min != null &&
           p.desired_salary_max != null &&
-          offered_salary >= p.desired_salary_min &&
-          offered_salary <= p.desired_salary_max
+          offeredSalary >= p.desired_salary_min &&
+          offeredSalary <= p.desired_salary_max
       );
       if (!inRange) {
         return NextResponse.json(
@@ -118,8 +128,8 @@ export async function POST(request: NextRequest) {
       employer_id: session.user.id,
       candidate_id,
       posting_id: posting_id ?? null,
-      pitch_message: pitch_message ?? null,
-      offered_salary: offered_salary ?? null,
+      pitch_message: pitchMessage,
+      offered_salary: offeredSalary,
     })
     .select("id")
     .single();
@@ -145,8 +155,8 @@ export async function POST(request: NextRequest) {
     sendPitchNotification({
       to: candidateProfile.email,
       companyName: employer.company_name,
-      pitchMessage: pitch_message ?? null,
-      offeredSalary: offered_salary ?? null,
+      pitchMessage: pitchMessage,
+      offeredSalary: offeredSalary,
     }).catch((err) => console.error("sendPitchNotification failed:", err));
   }
 

@@ -36,7 +36,16 @@ interface Match {
 }
 
 function normalizeUrl(url: string) {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  const candidate = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  // Defense-in-depth: only ever emit an http(s) href so a malformed/hostile
+  // stored value can't become a javascript:/data: link.
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return candidate;
+  } catch {
+    // fall through
+  }
+  return "#";
 }
 
 type ConfirmStep = "none" | "review" | "final";
