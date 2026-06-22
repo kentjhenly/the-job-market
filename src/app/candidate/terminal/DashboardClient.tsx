@@ -665,7 +665,7 @@ export function DashboardClient({
           <div className="panel-head">
             <span className="panel-title">SALARY POSITION</span>
             {salaryData && (
-              <span className="mono tnum" style={{ fontSize: 11, color: "var(--up)" }}>
+              <span className="mono tnum" style={{ fontSize: 11, color: scoreVar(salaryData.candidate_percentile) }}>
                 {formatPercentile(salaryData.candidate_percentile).toUpperCase()}
               </span>
             )}
