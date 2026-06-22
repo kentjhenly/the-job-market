@@ -206,20 +206,19 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
 }
 
 
-// SKILL DEMAND heatmap colour ramp: dark olive (cold) → terminal green (warm)
-// → gold (hot), interpolated in OKLCH so it reads as one continuous gradient.
+// SKILL DEMAND heatmap colour ramp: neutral gray (cold) → terminal green (hot),
+// matching the market supply palette used across the app.
 function rampLightness(t: number) {
-  return 0.32 + t * 0.46;
+  return 0.30 + t * 0.35;
 }
 function rampColor(t: number) {
   const l = rampLightness(t);
-  const c = 0.045 + t * 0.085;
-  const h = 152 - t * 66;
+  const c = t * 0.14;
+  const h = 155;
   return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
 }
-// Dark ink on bright (gold) cells, light text on the dark/cold ones.
 function rampFg(t: number) {
-  return rampLightness(t) > 0.58 ? "oklch(0.2 0.03 95)" : "var(--text)";
+  return rampLightness(t) > 0.55 ? "oklch(0.18 0.02 155)" : "var(--text)";
 }
 
 function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
@@ -276,7 +275,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
         ))}
       </div>
       <div className="flex items-center justify-center gap-1.5 pt-1">
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>SURPLUS</span>
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>LOW</span>
         {[0.18, 0.45, 0.7, 0.95].map((t) => (
           <span
             key={t}
@@ -289,7 +288,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
             }}
           />
         ))}
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>SCARCE</span>
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>HIGH</span>
       </div>
     </div>
   );
