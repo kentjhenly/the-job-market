@@ -18,6 +18,7 @@ export default async function DashboardPage() {
     { data: postings },
     { data: allMatches },
     { data: openPostings },
+    { data: allPortfolioProjects },
   ] = await Promise.all([
     supabase.from("candidates").select("*").eq("id", session.user.id).single(),
     supabase.from("profiles").select("display_name").eq("id", session.user.id).single(),
@@ -46,8 +47,10 @@ export default async function DashboardPage() {
       .from("matches")
       .select("status, expires_at, offered_salary, candidate_last_read_at")
       .eq("candidate_id", session.user.id),
-    // Open employer roles drive the "in-demand skills" gap; vertical-filtered below
+    // Open employer roles drive the skill demand heatmap
     supabase.from("employer_job_postings").select("skills, vertical").eq("status", "open"),
+    // All visible candidates' portfolio skills for supply-side of the heatmap
+    supabase.from("candidate_portfolio_projects").select("skills, candidate_id"),
   ]);
 
   // Location / salary / work-mode now live on the candidate's postings (set per
@@ -78,24 +81,35 @@ export default async function DashboardPage() {
     nextExpiry: pendingExpiries[0] ?? null,
   };
 
-  // SKILL DEMAND heatmap — across every open employer role, count how many in
-  // each vertical ask for each skill (skill × industry matrix). Rows lead with
-  // the candidate's own portfolio skills ("where your skills sell"); if none of
-  // those are in demand we fall back to the market's top in-demand skills so the
-  // panel still has signal. Columns are the verticals with the most demand for
-  // the chosen rows. Cross-vertical on purpose — we want to show where a skill
-  // sells, not just the candidate's own verticals.
+  // SKILL DEMAND heatmap -- colors reflect market supply: demand/supply ratio per
+  // cell (open roles wanting the skill vs. distinct candidates who have it).
+  // High ratio = scarce skill (hot/gold), low ratio = oversupplied (cold/olive).
   const candidateSkillKeys = new Set(
     (projects ?? []).flatMap((p) => p.skills).map((s) => s.toLowerCase())
   );
-  const cellCount = new Map<string, Map<VerticalType, number>>(); // skillKey → vertical → count
+  // Supply: count distinct candidates per skill (across all portfolios).
+  const skillSupply = new Map<string, number>();
+  const seen = new Map<string, Set<string>>();
+  for (const proj of allPortfolioProjects ?? []) {
+    for (const skill of proj.skills ?? []) {
+      const key = skill.toLowerCase();
+      const ids = seen.get(key) ?? new Set<string>();
+      if (!ids.has(proj.candidate_id)) {
+        ids.add(proj.candidate_id);
+        seen.set(key, ids);
+        skillSupply.set(key, (skillSupply.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  // Demand: open employer roles per skill per vertical.
+  const cellDemand = new Map<string, Map<VerticalType, number>>();
   const skillTotal = new Map<string, { label: string; total: number }>();
   for (const post of openPostings ?? []) {
     for (const skill of post.skills ?? []) {
       const key = skill.toLowerCase();
-      const byVert = cellCount.get(key) ?? new Map<VerticalType, number>();
+      const byVert = cellDemand.get(key) ?? new Map<VerticalType, number>();
       byVert.set(post.vertical, (byVert.get(post.vertical) ?? 0) + 1);
-      cellCount.set(key, byVert);
+      cellDemand.set(key, byVert);
       const st = skillTotal.get(key) ?? { label: skill, total: 0 };
       st.total++;
       skillTotal.set(key, st);
@@ -104,18 +118,25 @@ export default async function DashboardPage() {
   const rankedSkills = [...skillTotal.entries()].sort((a, b) => b[1].total - a[1].total);
   let rowKeys = rankedSkills.filter(([k]) => candidateSkillKeys.has(k)).slice(0, 6).map(([k]) => k);
   if (rowKeys.length === 0) rowKeys = rankedSkills.slice(0, 6).map(([k]) => k);
-  // Pick the columns (verticals) with the most demand concentrated in the chosen rows.
   const colTotals = new Map<VerticalType, number>();
   for (const k of rowKeys) {
-    for (const [vert, n] of cellCount.get(k) ?? []) {
+    for (const [vert, n] of cellDemand.get(k) ?? []) {
       colTotals.set(vert, (colTotals.get(vert) ?? 0) + n);
     }
   }
   const colVerts = [...colTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([v]) => v);
+  // Cell values = demand/supply ratio (higher = scarcer skill, hotter color).
+  // Supply floor of 1 so skills with zero candidates show pure demand.
   const skillDemand = {
     skills: rowKeys.map((k) => skillTotal.get(k)!.label),
     categories: colVerts.map((v) => verticalLabel(v)),
-    cells: rowKeys.map((k) => colVerts.map((v) => cellCount.get(k)?.get(v) ?? 0)),
+    cells: rowKeys.map((k) =>
+      colVerts.map((v) => {
+        const demand = cellDemand.get(k)?.get(v) ?? 0;
+        const supply = Math.max(1, skillSupply.get(k) ?? 0);
+        return Math.round((demand / supply) * 10) / 10;
+      })
+    ),
   };
 
   return (

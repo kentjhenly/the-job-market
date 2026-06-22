@@ -251,7 +251,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
               return (
                 <div
                   key={ci}
-                  title={`${skill} · ${data.categories[ci]} · ${v} open role${v === 1 ? "" : "s"}`}
+                  title={`${skill} · ${data.categories[ci]} · ${v.toFixed(1)}x demand/supply`}
                   style={{
                     height: 30,
                     background: empty ? "var(--surface-2)" : rampColor(t),
@@ -266,7 +266,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
                 >
                   {!empty && (
                     <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: rampFg(t) }}>
-                      {v}
+                      {v % 1 === 0 ? v : v.toFixed(1)}
                     </span>
                   )}
                 </div>
@@ -276,7 +276,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
         ))}
       </div>
       <div className="flex items-center justify-center gap-1.5 pt-1">
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>LOW</span>
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>SURPLUS</span>
         {[0.18, 0.45, 0.7, 0.95].map((t) => (
           <span
             key={t}
@@ -289,7 +289,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
             }}
           />
         ))}
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>HIGH</span>
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>SCARCE</span>
       </div>
     </div>
   );
