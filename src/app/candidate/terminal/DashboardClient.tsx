@@ -705,11 +705,13 @@ export function DashboardClient({
 
       {/* Pitch pipeline + in-demand skills */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="panel">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">PITCH PIPELINE</span>
           </div>
-          <PitchFunnel stats={pitchStats} />
+          <div className="flex flex-1 flex-col justify-center">
+            <PitchFunnel stats={pitchStats} />
+          </div>
           <div className="flex items-center justify-center gap-1.5 px-4 pb-3 pt-2.5">
             <span className="kicker">ACCEPT RATE</span>
             <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, color: "var(--up)" }}>
