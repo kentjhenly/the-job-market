@@ -77,11 +77,10 @@ function expiryCountdown(expiresAt: string): string {
 }
 
 function OfferStatusBadge({ match }: { match: Match }) {
-  if (match.hired_at) return <Badge variant="up">HIRED</Badge>;
-  if (match.status === "accepted" && match.offer_status === "pending") return <Badge variant="gold">OFFER PENDING</Badge>;
+  if (match.hired_at) return <Badge variant="up">ACCEPTED</Badge>;
   if (match.status === "accepted" && match.offer_status === "reneged") return <Badge variant="down">OFFER RENEGED</Badge>;
   if (match.status === "accepted" && match.offer_status === "declined") return <Badge variant="down">OFFER WITHDRAWN</Badge>;
-  if (match.status === "accepted") return <Badge variant="muted">NO OFFER</Badge>;
+  if (match.status === "accepted") return <Badge variant="muted">PENDING</Badge>;
   if (match.status === "pending") return <Badge variant="muted">PENDING</Badge>;
   if (match.status === "declined") return <Badge variant="down">DECLINED</Badge>;
   if (match.status === "ghosted") return <Badge variant="down">GHOSTED</Badge>;
