@@ -6,6 +6,7 @@ interface RegressionInput {
   location?: string;
   remote?: boolean;
   role?: string;
+  current_salary?: number;
 }
 
 // Shrinkage half-trust point: at n = SHRINK_K the quadratic term is trusted 50%
@@ -257,9 +258,11 @@ Deno.serve(async (req: Request) => {
   // additional monthly HKD per +1yr ≈ median × d(log median)/dx.
   const marginalPerYear = Math.round(medianAtExp * slopeLog(years_exp));
 
-  // Candidate percentile: fraction of nearby (±2yr) points below the median.
+  // Candidate percentile: fraction of nearby (±2yr) points below the candidate's
+  // actual salary (when provided), otherwise below the fitted median.
+  const refSalary = input.current_salary ?? medianAtExp;
   const nearby = dataPoints.filter((d) => Math.abs(d.years_exp - years_exp) <= 2);
-  const belowCount = nearby.filter((d) => d.monthly_salary < medianAtExp).length;
+  const belowCount = nearby.filter((d) => d.monthly_salary < refSalary).length;
   const candidatePercentile = nearby.length > 0 ? (belowCount / nearby.length) * 100 : 50;
 
   // Raw-space residual std around the median — retained for the scatter band.

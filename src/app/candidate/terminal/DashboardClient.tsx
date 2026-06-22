@@ -348,6 +348,7 @@ export function DashboardClient({
         role: candidate?.current_job_role ?? undefined,
         years_exp: (candidate?.years_exp_claimed ?? 0) + (candidate?.exp_months ?? 0) / 12,
         location: candidate?.current_job_location ?? candidate?.location ?? "Hong Kong",
+        current_salary: candidate?.current_salary ?? undefined,
       }),
     })
       .then((r) => r.json())
@@ -360,6 +361,7 @@ export function DashboardClient({
     candidate?.current_job_role,
     candidate?.current_job_location,
     candidate?.location,
+    candidate?.current_salary,
   ]);
 
   const projectCount = projects.length;
