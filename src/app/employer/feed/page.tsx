@@ -14,17 +14,17 @@ export default async function EmployerFeedPage() {
     .eq("id", session.user.id)
     .single();
 
-  // TODO(stripe): subscription_status is manually-settable until billing is
-  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
-  // should keep employers.subscription_status/subscription_tier/
-  // subscription_period_end in sync going forward.
+  // subscription_status/subscription_tier/subscription_period_end are kept in
+  // sync by /api/subscription/webhook (customer.subscription.created/updated/
+  // deleted); they remain manually-settable as a fallback when Stripe keys
+  // aren't configured.
   if (employer?.subscription_status !== "active") {
     return <UpgradePanel tier={employer?.subscription_tier ?? "none"} status={employer?.subscription_status ?? "canceled"} />;
   }
 
   const { data: candidates } = await supabase
     .from("candidates")
-    .select("*, profiles(display_name), candidate_job_postings(title)")
+    .select("*, profiles(display_name), candidate_job_postings(title), candidate_portfolio_projects(id, title, description, link_url, file_name, skills)")
     .eq("is_visible", true)
     .order("composite_score", { ascending: false })
     .limit(100);

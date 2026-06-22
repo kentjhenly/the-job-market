@@ -51,10 +51,10 @@ export async function POST(request: NextRequest) {
   // First FREE_JOB_POSTINGS postings are a free trial, regardless of
   // subscription status. Beyond that, an active subscription is required for
   // unlimited postings.
-  // TODO(stripe): subscription_status is manually-settable until billing is
-  // wired up. A Stripe webhook (customer.subscription.updated/.deleted)
-  // should keep employers.subscription_status/subscription_tier/
-  // subscription_period_end in sync going forward.
+  // subscription_status/subscription_tier/subscription_period_end are kept in
+  // sync by /api/subscription/webhook (customer.subscription.created/updated/
+  // deleted); they remain manually-settable as a fallback when Stripe keys
+  // aren't configured.
   if (employer.subscription_status !== "active") {
     const { count: postingCount } = await supabase
       .from("employer_job_postings")

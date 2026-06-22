@@ -20,7 +20,7 @@ const TIERS = [
   {
     id: "pro" as const,
     label: "PRO",
-    price: "HKD 4,000 / MONTH",
+    price: "HKD 300 / MONTH",
     blurb: "Everything in STARTER, plus priority placement in candidate match results.",
   },
 ];
