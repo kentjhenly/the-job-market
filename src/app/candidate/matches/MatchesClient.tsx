@@ -58,8 +58,8 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1fr 8rem 8rem 6rem 6rem 8rem";
-const HEADERS = ["EMPLOYER", "OFFERED", "SENT", "OFFER", "", "STATUS"];
+const COLUMNS = "1.2rem 1fr 6rem 6rem 8rem 9rem 5.5rem";
+const HEADERS = ["", "EMPLOYER", "OFFERED", "SENT", "MATCH", "OFFER STATUS", ""];
 const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
 function isUnread(m: Match) {
@@ -76,29 +76,16 @@ function expiryCountdown(expiresAt: string): string {
   return hours < 1 ? "< 1H" : `${hours}H`;
 }
 
-function StatusPill({ status }: { status: string }) {
-  const col =
-    status === "accepted" ? "var(--up)"
-    : status === "declined" || status === "ghosted" ? "var(--down)"
-    : status === "pending" ? "var(--gold)"
-    : "var(--muted)";
-  return (
-    <div
-      style={{
-        height: 30,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: `1px solid ${col}`,
-        background: `color-mix(in oklch, ${col} 12%, transparent)`,
-        borderRadius: 9999,
-      }}
-    >
-      <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: col, letterSpacing: "0.1em" }}>
-        {status.toUpperCase()}
-      </span>
-    </div>
-  );
+function OfferStatusBadge({ match }: { match: Match }) {
+  if (match.hired_at) return <Badge variant="up">HIRED</Badge>;
+  if (match.status === "accepted" && match.offer_status === "pending") return <Badge variant="gold">OFFER PENDING</Badge>;
+  if (match.status === "accepted" && match.offer_status === "reneged") return <Badge variant="down">OFFER RENEGED</Badge>;
+  if (match.status === "accepted" && match.offer_status === "declined") return <Badge variant="down">OFFER WITHDRAWN</Badge>;
+  if (match.status === "accepted") return <Badge variant="muted">NO OFFER</Badge>;
+  if (match.status === "pending") return <Badge variant="muted">PENDING</Badge>;
+  if (match.status === "declined") return <Badge variant="down">DECLINED</Badge>;
+  if (match.status === "ghosted") return <Badge variant="down">GHOSTED</Badge>;
+  return <Badge variant="muted">{match.status.toUpperCase()}</Badge>;
 }
 
 interface MatchesClientProps {
@@ -112,16 +99,66 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [offerConfirm, setOfferConfirm] = useState<{ matchId: string; action: "accept" | "decline" } | null>(null);
+  const [pitchConfirm, setPitchConfirm] = useState<{ matchId: string; action: "accept" | "decline" } | null>(null);
+  const [pitchConfirmStep, setPitchConfirmStep] = useState<ConfirmStep>("none");
+  const [pitchConfirmChecked, setPitchConfirmChecked] = useState(false);
+  const [pitchConfirmSending, setPitchConfirmSending] = useState(false);
+  const [pitchConfirmError, setPitchConfirmError] = useState<string | null>(null);
+  const [offerConfirm, setOfferConfirm] = useState<{ matchId: string; action: "accept" | "renege" } | null>(null);
   const [confirmStep, setConfirmStep] = useState<ConfirmStep>("none");
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [confirmSending, setConfirmSending] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const filtered = filter === "all" ? matches : matches.filter((m) => m.status === filter);
+  const matchRank: Record<string, number> = { pending: 0, accepted: 1, declined: 2, ghosted: 3 };
+  function offerRank(m: Match): number {
+    if (m.status === "accepted" && m.offer_status === "pending") return 0;
+    if (m.hired_at) return 1;
+    if (m.status === "accepted") return 2;
+    if (m.status === "declined") return 3;
+    if (m.status === "ghosted") return 4;
+    return 5;
+  }
+  const sorted = [...matches].sort((a, b) => (matchRank[a.status] ?? 9) - (matchRank[b.status] ?? 9) || offerRank(a) - offerRank(b));
+  const filtered = filter === "all" ? sorted : sorted.filter((m) => m.status === filter);
   const selected = matches.find((m) => m.id === selectedId) ?? null;
   const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
+  const pitchConfirmMatch = matches.find((m) => m.id === pitchConfirm?.matchId) ?? null;
   const confirmMatch = matches.find((m) => m.id === offerConfirm?.matchId) ?? null;
+
+  function startPitchConfirm(m: Match, action: "accept" | "decline") {
+    setPitchConfirm({ matchId: m.id, action });
+    setPitchConfirmStep("review");
+    setPitchConfirmChecked(false);
+    setPitchConfirmError(null);
+  }
+
+  function closePitchConfirm() {
+    setPitchConfirm(null);
+    setPitchConfirmStep("none");
+    setPitchConfirmChecked(false);
+    setPitchConfirmError(null);
+  }
+
+  async function submitPitchConfirm() {
+    if (!pitchConfirm) return;
+    setPitchConfirmSending(true);
+    setPitchConfirmError(null);
+    const res = await fetch(`/api/matches/${pitchConfirm.matchId}/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: pitchConfirm.action }),
+    });
+    if (res.ok) {
+      const { status } = await res.json();
+      setMatches((prev) => prev.map((m) => (m.id === pitchConfirm.matchId ? { ...m, status } : m)));
+      closePitchConfirm();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setPitchConfirmError(json.error ?? "FAILED TO RESPOND");
+    }
+    setPitchConfirmSending(false);
+  }
 
   async function respond(matchId: string, action: "accept" | "decline") {
     setLoading((prev) => ({ ...prev, [matchId]: true }));
@@ -159,7 +196,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     markRead(m);
   }
 
-  function startOfferConfirm(m: Match, action: "accept" | "decline") {
+  function startOfferConfirm(m: Match, action: "accept" | "renege") {
     setOfferConfirm({ matchId: m.id, action });
     setConfirmStep("review");
     setConfirmChecked(false);
@@ -223,8 +260,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
           className="grid gap-4 px-4 py-2.5"
           style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
         >
-          {HEADERS.map((h) => (
-            <span key={h} className="kicker">
+          {HEADERS.map((h, i) => (
+            <span key={i} className="kicker">
               {h}
             </span>
           ))}
@@ -254,6 +291,11 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   background: sel ? "var(--surface-2)" : unread ? "color-mix(in oklch, var(--up) 4%, transparent)" : "transparent",
                 }}
               >
+                {/* Unread dot */}
+                <div className="flex items-center justify-center">
+                  {unread && <span className="live-dot" />}
+                </div>
+
                 {/* EMPLOYER — 2-line */}
                 <div className="min-w-0">
                   <p className="mono truncate" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
@@ -282,13 +324,13 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   )}
                 </span>
 
-                {/* offer buttons */}
+                {/* MATCH column */}
                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  {m.status === "accepted" && m.offer_status === "pending" && (
+                  {m.status === "pending" && (
                     <>
                       <button
-                        onClick={() => startOfferConfirm(m, "accept")}
-                        title="Accept hire offer"
+                        onClick={() => startPitchConfirm(m, "accept")}
+                        title="Accept match and open chat"
                         className="btn btn-primary"
                         style={{ width: 30, height: 30, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                       >
@@ -297,8 +339,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         </svg>
                       </button>
                       <button
-                        onClick={() => startOfferConfirm(m, "decline")}
-                        title="Decline hire offer"
+                        onClick={() => startPitchConfirm(m, "decline")}
+                        title="Decline match"
                         className="btn btn-danger-solid"
                         style={{ width: 30, height: 30, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                       >
@@ -309,10 +351,19 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                       </button>
                     </>
                   )}
+                  {m.status === "accepted" && (
+                    <Badge variant="up" style={{ minWidth: 110 }}>MATCHED</Badge>
+                  )}
+                  {(m.status === "declined" || m.status === "ghosted") && (
+                    <Badge variant="down" style={{ minWidth: 110 }}>UNMATCHED</Badge>
+                  )}
                 </div>
 
+                {/* OFFER STATUS */}
+                <OfferStatusBadge match={m} />
+
                 {/* CHAT button — green */}
-                <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                   {m.status === "accepted" && (
                     <button
                       onClick={() => openChat(m)}
@@ -323,9 +374,6 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                     </button>
                   )}
                 </div>
-
-                {/* STATUS — full-width pill */}
-                <StatusPill status={m.status} />
               </div>
             );
           })
@@ -392,8 +440,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   <Button onClick={() => startOfferConfirm(selected, "accept")} className="flex-1">
                     ACCEPT OFFER
                   </Button>
-                  <Button variant="danger" onClick={() => startOfferConfirm(selected, "decline")} className="flex-1">
-                    DECLINE
+                  <Button variant="danger" onClick={() => startOfferConfirm(selected, "renege")} className="flex-1">
+                    RENEGE
                   </Button>
                 </div>
               </div>
@@ -460,23 +508,16 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
 
           {selected.status === "pending" && (
             <div className="space-y-2 p-4" style={{ borderTop: "1px solid var(--border)" }}>
-              {errors[selected.id] && (
-                <p className="kicker c-down" style={{ fontSize: 11 }}>
-                  {errors[selected.id]}
-                </p>
-              )}
               <div className="flex gap-3">
                 <Button
-                  onClick={() => respond(selected.id, "accept")}
-                  loading={loading[selected.id]}
+                  onClick={() => startPitchConfirm(selected, "accept")}
                   className="flex-1"
                 >
                   ACCEPT MATCH
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => respond(selected.id, "decline")}
-                  loading={loading[selected.id]}
+                  onClick={() => startPitchConfirm(selected, "decline")}
                   className="flex-1"
                 >
                   DECLINE
@@ -512,27 +553,95 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         </div>
       )}
 
+      {/* match accept/decline confirm modal */}
+      <Modal
+        open={pitchConfirmStep !== "none"}
+        onClose={closePitchConfirm}
+        title={pitchConfirm?.action === "accept" ? "ACCEPT MATCH" : "DECLINE MATCH"}
+      >
+        {pitchConfirmStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
+              {pitchConfirm?.action === "accept"
+                ? `Accepting this match from ${pitchConfirmMatch?.employers?.company_name ?? "this employer"} opens a chat so you can discuss the role, interview, and negotiate terms. This is not a commitment to accept a job.`
+                : `Declining this match from ${pitchConfirmMatch?.employers?.company_name ?? "this employer"} ends the conversation. The employer will not be able to re-pitch you for this role.`}
+            </p>
+            <p className="kicker c-muted">
+              {pitchConfirm?.action === "accept"
+                ? "YOU ARE AGREEING TO A CONVERSATION, NOT AN OFFER."
+                : "THIS CANNOT BE UNDONE."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closePitchConfirm}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPitchConfirmStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {pitchConfirmStep === "final" && (
+          <div className="space-y-3">
+            <p className="kicker" style={{ color: pitchConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}>
+              {pitchConfirm?.action === "accept"
+                ? "CONFIRM: OPEN CHAT WITH THIS EMPLOYER"
+                : "CONFIRM: PERMANENTLY DECLINE THIS MATCH"}
+            </p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={pitchConfirmChecked}
+                onChange={(e) => setPitchConfirmChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
+                {pitchConfirm?.action === "accept"
+                  ? "I understand that accepting opens a chat to discuss the role. A separate hire offer will follow if both sides agree."
+                  : "I understand that declining is permanent and the employer cannot re-pitch me for this role."}
+              </span>
+            </label>
+            {pitchConfirmError && <p className="kicker c-down">{pitchConfirmError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setPitchConfirmStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant={pitchConfirm?.action === "accept" ? "primary" : "danger"}
+                size="sm"
+                disabled={!pitchConfirmChecked}
+                loading={pitchConfirmSending}
+                onClick={submitPitchConfirm}
+              >
+                {pitchConfirm?.action === "accept" ? "ACCEPT MATCH" : "DECLINE MATCH"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* hire offer confirm modal */}
       <Modal
         open={confirmStep !== "none"}
         onClose={closeOfferConfirm}
-        title={offerConfirm?.action === "accept" ? "CONFIRM ACCEPT OFFER" : "CONFIRM DECLINE OFFER"}
+        title={offerConfirm?.action === "accept" ? "ACCEPT HIRE OFFER" : "RENEGE ON HIRE OFFER"}
       >
         {confirmStep === "review" && (
           <div className="space-y-3">
-            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
               {offerConfirm?.action === "accept"
-                ? `You're about to ACCEPT this hire offer${
+                ? `Accepting this hire offer${
                     confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
-                  } from ${confirmMatch?.employers?.company_name ?? "this employer"}.`
-                : `You're about to DECLINE this hire offer${
+                  } from ${confirmMatch?.employers?.company_name ?? "this employer"} finalises the salary and marks you as hired.`
+                : `Reneging on this hire offer${
                     confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
-                  } from ${confirmMatch?.employers?.company_name ?? "this employer"}.`}
+                  } from ${confirmMatch?.employers?.company_name ?? "this employer"} rejects the proposed salary. The chat remains open for further negotiation.`}
             </p>
             <p className="kicker c-muted">
               {offerConfirm?.action === "accept"
-                ? "ACCEPTING WILL MARK YOU AS HIRED FOR THIS MATCH."
-                : "DECLINING ENDS THIS MATCH. IT CANNOT BE RE-PITCHED."}
+                ? "THIS IS THE FINAL SALARY AGREEMENT. YOU WILL BE MARKED AS HIRED."
+                : "THE EMPLOYER MAY SEND A REVISED OFFER."}
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={closeOfferConfirm}>
@@ -548,7 +657,9 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         {confirmStep === "final" && (
           <div className="space-y-3">
             <p className="kicker" style={{ color: offerConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}>
-              FINAL STEP. THIS CANNOT BE UNDONE
+              {offerConfirm?.action === "accept"
+                ? "CONFIRM: ACCEPT SALARY AND FINALISE HIRE"
+                : "CONFIRM: RENEGE ON THIS OFFER"}
             </p>
             <label className="flex items-start gap-2">
               <input
@@ -557,10 +668,10 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 onChange={(e) => setConfirmChecked(e.target.checked)}
                 className="mt-1"
               />
-              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
-                I understand this {offerConfirm?.action === "accept" ? "accepts" : "declines"} the offer
-                {confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} and cannot be
-                changed afterwards.
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
+                {offerConfirm?.action === "accept"
+                  ? `I understand that accepting this offer${confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} is final and I will be marked as hired.`
+                  : "I understand that reneging rejects this offer. The employer may send a revised offer through the chat."}
               </span>
             </label>
             {confirmError && <p className="kicker c-down">{confirmError}</p>}
@@ -575,7 +686,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 loading={confirmSending}
                 onClick={submitOfferConfirm}
               >
-                {offerConfirm?.action === "accept" ? "CONFIRM ACCEPT" : "CONFIRM DECLINE"}
+                {offerConfirm?.action === "accept" ? "ACCEPT OFFER" : "RENEGE"}
               </Button>
             </div>
           </div>
