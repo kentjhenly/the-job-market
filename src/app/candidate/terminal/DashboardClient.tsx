@@ -724,7 +724,6 @@ export function DashboardClient({
         <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">SKILL DEMAND</span>
-            <span className="kicker">WHERE YOUR SKILLS SELL</span>
           </div>
           <div className="flex flex-1 flex-col justify-center p-4">
             {skillDemand.skills.length > 0 && skillDemand.categories.length > 0 ? (
