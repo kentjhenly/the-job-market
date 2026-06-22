@@ -11,10 +11,19 @@ export function formatSalaryBand(minCents: number, maxCents: number, currency = 
 }
 
 export function formatPercentile(percentile: number): string {
-  const rounded = Math.round(percentile);
+  const n = Math.round(percentile);
+  const lastTwo = n % 100;
   const suffix =
-    rounded === 1 ? "st" : rounded === 2 ? "nd" : rounded === 3 ? "rd" : "th";
-  return `${rounded}${suffix} percentile`;
+    lastTwo >= 11 && lastTwo <= 13
+      ? "th"
+      : n % 10 === 1
+        ? "st"
+        : n % 10 === 2
+          ? "nd"
+          : n % 10 === 3
+            ? "rd"
+            : "th";
+  return `${n}${suffix} percentile`;
 }
 
 export function formatScore(score: number): string {
