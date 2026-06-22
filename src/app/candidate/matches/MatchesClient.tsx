@@ -58,7 +58,7 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   pending: "gold",
 };
 
-const COLUMNS = "1.2rem 1fr 6rem 6rem 8rem 9rem 5.5rem";
+const COLUMNS = "1.2rem 1fr 6rem 6rem 7.5rem 7.5rem 5.5rem";
 const HEADERS = ["", "EMPLOYER", "OFFERED", "SENT", "MATCH", "OFFER STATUS", ""];
 const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
 
