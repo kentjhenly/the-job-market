@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const PUBLIC_ROUTES = ["/", "/sign-in", "/sign-up", "/ticker", "/api/auth"];
+const PUBLIC_ROUTES = [
+  "/",
+  "/sign-in",
+  "/sign-up",
+  "/terms",
+  "/ticker",
+  "/api/auth",
+  // Stripe calls this server-to-server with no session cookie; it verifies the
+  // request itself via the STRIPE_WEBHOOK_SECRET signature.
+  "/api/subscription/webhook",
+];
 
 function isPublic(pathname: string) {
   return PUBLIC_ROUTES.some(
