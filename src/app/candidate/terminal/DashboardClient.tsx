@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { ScoreTicker } from "@/components/terminal/ScoreTicker";
@@ -13,6 +13,7 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { formatPercentile, formatSalary, formatSalaryBand, formatShortDate } from "@/lib/utils/formatters";
 import { scoreVar, scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
+import { useValueFlash } from "@/hooks/useValueFlash";
 import type { Database } from "@/lib/supabase/types";
 
 type Candidate = Database["public"]["Tables"]["candidates"]["Row"];
@@ -41,7 +42,10 @@ type PitchStats = {
   ghosted: number;
   nextExpiry: string | null;
 };
-type SkillGap = { label: string; count: number };
+// Skill × industry demand matrix for the SKILL DEMAND heatmap. cells[skillIdx]
+// aligns with skills; each inner array aligns with categories. Values are the
+// number of open employer roles in that vertical asking for that skill.
+type SkillDemand = { skills: string[]; categories: string[]; cells: number[][] };
 type ScorePoint = { composite_score: number; recorded_at: string };
 interface Props {
   candidateId: string;
@@ -49,7 +53,7 @@ interface Props {
   profile: Profile | null;
   postingSummary: PostingSummary;
   pitchStats: PitchStats;
-  skillGap: SkillGap[];
+  skillDemand: SkillDemand;
   projects: PortfolioProject[];
   scoreHistory: ScorePoint[];
   totalVisible: number;
@@ -65,6 +69,16 @@ function expiryLabel(iso: string | null): string | null {
   const hours = Math.floor(minutes / 60);
   if (hours < 48) return `${hours}H`;
   return `${Math.floor(hours / 24)}D`;
+}
+
+// Color for the pending-pitch bar based on soonest expiry.
+// Red < 24h, yellow < 48h, green otherwise (up to 72h).
+function expiryColor(iso: string | null): string {
+  if (!iso) return "var(--up)";
+  const hours = (new Date(iso).getTime() - Date.now()) / 3600000;
+  if (hours < 24) return "var(--down)";
+  if (hours < 48) return "var(--gold)";
+  return "var(--up)";
 }
 
 interface SalaryData {
@@ -192,9 +206,98 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
 }
 
 
+// SKILL DEMAND heatmap colour ramp: dark olive (cold) → terminal green (warm)
+// → gold (hot), interpolated in OKLCH so it reads as one continuous gradient.
+function rampLightness(t: number) {
+  return 0.32 + t * 0.46;
+}
+function rampColor(t: number) {
+  const l = rampLightness(t);
+  const c = 0.045 + t * 0.085;
+  const h = 152 - t * 66;
+  return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
+}
+// Dark ink on bright (gold) cells, light text on the dark/cold ones.
+function rampFg(t: number) {
+  return rampLightness(t) > 0.58 ? "oklch(0.2 0.03 95)" : "var(--text)";
+}
+
+function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
+  const max = Math.max(1, ...data.cells.flat());
+  const cols = data.categories.length;
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        className="grid items-center gap-2"
+        style={{ gridTemplateColumns: `minmax(5rem, 1.05fr) repeat(${cols}, minmax(0, 1fr))` }}
+      >
+        <span />
+        {data.categories.map((c) => (
+          <span key={c} className="kicker" style={{ textAlign: "center", color: "var(--muted)" }}>
+            {c}
+          </span>
+        ))}
+        {data.skills.map((skill, ri) => (
+          <Fragment key={skill}>
+            <span
+              className="mono"
+              style={{ fontSize: 11, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase" }}
+            >
+              {skill}
+            </span>
+            {data.cells[ri].map((v, ci) => {
+              const empty = v <= 0;
+              const t = v / max;
+              return (
+                <div
+                  key={ci}
+                  title={`${skill} · ${data.categories[ci]} · ${v} open role${v === 1 ? "" : "s"}`}
+                  style={{
+                    height: 46,
+                    background: empty ? "var(--surface-2)" : rampColor(t),
+                    border: empty
+                      ? "1px solid var(--border-soft)"
+                      : "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
+                    borderRadius: "var(--r)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {!empty && (
+                    <span className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: rampFg(t) }}>
+                      {v}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
+      <div className="flex items-center justify-center gap-2">
+        <span className="kicker">LOW</span>
+        {[0.18, 0.45, 0.7, 0.95].map((t) => (
+          <span
+            key={t}
+            style={{
+              width: 26,
+              height: 13,
+              borderRadius: 3,
+              background: rampColor(t),
+              border: "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
+            }}
+          />
+        ))}
+        <span className="kicker">HIGH</span>
+      </div>
+    </div>
+  );
+}
+
 const BREADTH_TARGET = 5;
 const SKILL_COVERAGE_TARGET = 10;
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 5000;
 
 export function DashboardClient({
   candidateId,
@@ -202,7 +305,7 @@ export function DashboardClient({
   profile,
   postingSummary,
   pitchStats,
-  skillGap,
+  skillDemand,
   projects,
   scoreHistory: initialScoreHistory,
   totalVisible,
@@ -290,6 +393,9 @@ export function DashboardClient({
       ? +(sortedHistory[sortedHistory.length - 1].composite_score - sortedHistory[0].composite_score).toFixed(1)
       : 0;
   const currentScore = candidate?.composite_score ?? 0;
+  // Live price-movement tick: flashes the score green-up / red-down for ~600ms
+  // whenever the polled composite score changes.
+  const scoreFlash = useValueFlash(currentScore);
   const high30d = sparklineData.length > 0 ? Math.max(...sparklineData) : currentScore;
   const low30d = sparklineData.length > 0 ? Math.min(...sparklineData) : currentScore;
 
@@ -371,27 +477,30 @@ export function DashboardClient({
 
       {/* Pending pitches awaiting response — pending pitches expire in 72h and
           ignoring them dents reputation, so surface them prominently. */}
-      {pitchStats.pending > 0 && (
-        <Link
-          href="/candidate/matches"
-          className="block"
-          style={{
-            border: "1px solid color-mix(in oklch, var(--gold) 40%, transparent)",
-            background: "var(--gold-dim)",
-            borderRadius: "var(--r-lg)",
-          }}
-        >
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <span className="mono" style={{ fontSize: 12, color: "var(--gold)", letterSpacing: "0.04em" }}>
-              ▲ {pitchStats.pending} PITCH{pitchStats.pending > 1 ? "ES" : ""} AWAITING YOUR RESPONSE
-              {expiryLabel(pitchStats.nextExpiry) ? ` · NEXT EXPIRES IN ${expiryLabel(pitchStats.nextExpiry)}` : ""}
-            </span>
-            <span className="mono" style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em" }}>
-              RESPOND →
-            </span>
-          </div>
-        </Link>
-      )}
+      {pitchStats.pending > 0 && (() => {
+        const tone = expiryColor(pitchStats.nextExpiry);
+        return (
+          <Link
+            href="/candidate/matches"
+            className="block"
+            style={{
+              border: `1px solid color-mix(in oklch, ${tone} 40%, transparent)`,
+              background: `color-mix(in oklch, ${tone} 10%, transparent)`,
+              borderRadius: "var(--r-lg)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="mono" style={{ fontSize: 12, color: tone, letterSpacing: "0.04em" }}>
+                {`▲ ${pitchStats.pending} ${pitchStats.pending > 1 ? "PITCHES" : "PITCH"} AWAITING YOUR RESPONSE`}
+                {expiryLabel(pitchStats.nextExpiry) ? ` · NEXT EXPIRES IN ${expiryLabel(pitchStats.nextExpiry)}` : ""}
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: tone, letterSpacing: "0.08em" }}>
+                RESPOND →
+              </span>
+            </div>
+          </Link>
+        );
+      })()}
 
       {/* Hero: asymmetric score panel + position summary */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(280px,1fr)]">
@@ -402,8 +511,30 @@ export function DashboardClient({
           </div>
           <div className="flex flex-1 flex-col p-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <ScoreTicker score={candidate?.composite_score ?? 0} size="xl" suffix="/100" />
+              <div style={{ position: "relative" }}>
+                {scoreFlash.dir && (
+                  <span
+                    key={scoreFlash.delta}
+                    className="mono tnum tick-float"
+                    style={{
+                      position: "absolute",
+                      top: -15,
+                      left: 2,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: scoreFlash.dir === "down" ? "var(--down)" : "var(--up)",
+                    }}
+                  >
+                    {scoreFlash.delta >= 0 ? "▲ +" : "▼ "}
+                    {Math.abs(scoreFlash.delta).toFixed(1)}
+                  </span>
+                )}
+                <span
+                  className={scoreFlash.dir === "up" ? "tick-up" : scoreFlash.dir === "down" ? "tick-down" : undefined}
+                  style={{ display: "inline-block", borderRadius: 4, padding: "0 4px", margin: "0 -4px" }}
+                >
+                  <ScoreTicker score={candidate?.composite_score ?? 0} size="xl" suffix="/100" />
+                </span>
                 <div className="mt-3 flex flex-wrap items-center gap-3.5">
                   {scoreDelta !== 0 && <Delta value={scoreDelta} />}
                   {d30 !== 0 && (
@@ -590,24 +721,15 @@ export function DashboardClient({
 
         <div className="panel flex flex-col">
           <div className="panel-head">
-            <span className="panel-title">IN-DEMAND SKILLS</span>
+            <span className="panel-title">SKILL DEMAND</span>
+            <span className="kicker">WHERE YOUR SKILLS SELL</span>
           </div>
           <div className="flex flex-1 flex-col justify-center p-4">
-            {skillGap.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {skillGap.map((s) => (
-                  <span
-                    key={s.label}
-                    className="badge badge-muted"
-                    title={`${s.count} open role${s.count > 1 ? "s" : ""} want this skill`}
-                  >
-                    {s.label} · {s.count}
-                  </span>
-                ))}
-              </div>
+            {skillDemand.skills.length > 0 && skillDemand.categories.length > 0 ? (
+              <SkillDemandHeatmap data={skillDemand} />
             ) : (
               <div className="flex h-20 items-center justify-center px-4">
-                <p className="kicker text-center">YOUR PORTFOLIO COVERS THE TOP IN-DEMAND SKILLS</p>
+                <p className="kicker text-center">NO OPEN ROLES TO MEASURE SKILL DEMAND YET</p>
               </div>
             )}
           </div>

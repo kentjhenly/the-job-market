@@ -1,6 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
-import { JOB_ROLES } from "@/lib/utils/constants";
+import { verticalLabel, type VerticalType } from "@/lib/utils/constants";
 import { DashboardClient } from "./DashboardClient";
 
 export default async function DashboardPage() {
@@ -78,29 +78,45 @@ export default async function DashboardPage() {
     nextExpiry: pendingExpiries[0] ?? null,
   };
 
-  // In-demand skills the candidate's portfolio doesn't cover yet, ranked by how
-  // many open employer roles ask for them. Scoped to the verticals the candidate
-  // posts in, derived from their posting titles (vertical lives on postings now).
-  const candidateSkills = new Set(
+  // SKILL DEMAND heatmap — across every open employer role, count how many in
+  // each vertical ask for each skill (skill × industry matrix). Rows lead with
+  // the candidate's own portfolio skills ("where your skills sell"); if none of
+  // those are in demand we fall back to the market's top in-demand skills so the
+  // panel still has signal. Columns are the verticals with the most demand for
+  // the chosen rows. Cross-vertical on purpose — we want to show where a skill
+  // sells, not just the candidate's own verticals.
+  const candidateSkillKeys = new Set(
     (projects ?? []).flatMap((p) => p.skills).map((s) => s.toLowerCase())
   );
-  const candidateVerticals = new Set(
-    (postings ?? [])
-      .map((p) => JOB_ROLES.find((r) => r.title === p.title)?.vertical)
-      .filter((v): v is (typeof JOB_ROLES)[number]["vertical"] => v != null)
-  );
-  const demand = new Map<string, { label: string; count: number }>();
+  const cellCount = new Map<string, Map<VerticalType, number>>(); // skillKey → vertical → count
+  const skillTotal = new Map<string, { label: string; total: number }>();
   for (const post of openPostings ?? []) {
-    if (candidateVerticals.size > 0 && !candidateVerticals.has(post.vertical)) continue;
     for (const skill of post.skills ?? []) {
       const key = skill.toLowerCase();
-      if (candidateSkills.has(key)) continue;
-      const entry = demand.get(key);
-      if (entry) entry.count++;
-      else demand.set(key, { label: skill, count: 1 });
+      const byVert = cellCount.get(key) ?? new Map<VerticalType, number>();
+      byVert.set(post.vertical, (byVert.get(post.vertical) ?? 0) + 1);
+      cellCount.set(key, byVert);
+      const st = skillTotal.get(key) ?? { label: skill, total: 0 };
+      st.total++;
+      skillTotal.set(key, st);
     }
   }
-  const skillGap = [...demand.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+  const rankedSkills = [...skillTotal.entries()].sort((a, b) => b[1].total - a[1].total);
+  let rowKeys = rankedSkills.filter(([k]) => candidateSkillKeys.has(k)).slice(0, 6).map(([k]) => k);
+  if (rowKeys.length === 0) rowKeys = rankedSkills.slice(0, 6).map(([k]) => k);
+  // Pick the columns (verticals) with the most demand concentrated in the chosen rows.
+  const colTotals = new Map<VerticalType, number>();
+  for (const k of rowKeys) {
+    for (const [vert, n] of cellCount.get(k) ?? []) {
+      colTotals.set(vert, (colTotals.get(vert) ?? 0) + n);
+    }
+  }
+  const colVerts = [...colTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([v]) => v);
+  const skillDemand = {
+    skills: rowKeys.map((k) => skillTotal.get(k)!.label),
+    categories: colVerts.map((v) => verticalLabel(v)),
+    cells: rowKeys.map((k) => colVerts.map((v) => cellCount.get(k)?.get(v) ?? 0)),
+  };
 
   return (
     <DashboardClient
@@ -109,7 +125,7 @@ export default async function DashboardPage() {
       profile={profile}
       postingSummary={postingSummary}
       pitchStats={pitchStats}
-      skillGap={skillGap}
+      skillDemand={skillDemand}
       projects={projects ?? []}
       scoreHistory={scoreHistory ?? []}
       totalVisible={totalVisible ?? 0}
