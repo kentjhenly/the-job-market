@@ -390,23 +390,23 @@ export default async function EmployerDashboardPage() {
             <span className="panel-title">HIRING SUMMARY</span>
           </div>
           <div className="flex flex-1 flex-col p-4">
-            {/* NEEDS ACTION strip */}
+            {/* Info strip — pitches nearing expiry (employer sees this as informational, not urgent) */}
             {urgentList.length > 0 && (
               <Link
                 href="/employer/postings"
                 className="mb-3 flex items-center justify-between gap-2"
                 style={{
-                  background: "color-mix(in oklch, var(--down) 12%, transparent)",
-                  border: "1px solid color-mix(in oklch, var(--down) 45%, transparent)",
+                  background: "color-mix(in oklch, var(--gold) 10%, transparent)",
+                  border: "1px solid color-mix(in oklch, var(--gold) 30%, transparent)",
                   borderRadius: "var(--r)",
                   padding: "8px 11px",
                   textDecoration: "none",
                 }}
               >
-                <span className="mono" style={{ fontSize: 11, color: "var(--down)", fontWeight: 600, letterSpacing: "0.08em" }}>
-                  ▲ {urgentList.length} PITCH{urgentList.length > 1 ? "ES" : ""} EXPIRING &lt;24H
+                <span className="mono" style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, letterSpacing: "0.08em" }}>
+                  {`${urgentList.length} ${urgentList.length > 1 ? "PITCHES" : "PITCH"} EXPIRING <24H`}
                 </span>
-                <span className="mono" style={{ fontSize: 10.5, color: "var(--down)" }}>RESPOND →</span>
+                <span className="mono" style={{ fontSize: 10.5, color: "var(--gold)" }}>VIEW →</span>
               </Link>
             )}
             {/* meter: acceptance rate */}
@@ -538,56 +538,58 @@ export default async function EmployerDashboardPage() {
         </div>
 
         {/* PITCH PIPELINE */}
-        <div className="panel">
+        <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">PITCH PIPELINE</span>
             <Link href="/employer/postings" className="link-up mono ml-auto" style={{ fontSize: 11 }}>VIEW ALL</Link>
           </div>
-          <div className="flex flex-col gap-2.5 px-4 py-3">
-            {[
-              { k: "SENT",      n: sent,         col: "var(--info)"         },
-              { k: "REVIEWED",  n: reviewed,     col: "oklch(0.52 0.01 80)" },
-              { k: "RESPONDED", n: responded,    col: "var(--gold)"         },
-              { k: "ACCEPTED",  n: offerAccepted, col: "var(--up)"          },
-            ].map((s, i, arr) => {
-              const maxN = arr[0].n || 1;
-              const prev = i > 0 ? arr[i - 1].n || 1 : null;
-              const conv = prev != null ? Math.round((s.n / prev) * 100) : null;
-              return (
-                <div key={s.k} className="grid items-center gap-3" style={{ gridTemplateColumns: "5rem 1fr 2.5rem" }}>
-                  <span className="kicker" style={{ color: "var(--muted)" }}>{s.k}</span>
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <div style={{
-                      position: "relative",
-                      overflow: "hidden",
-                      width: `${Math.max(8, (s.n / maxN) * 100)}%`,
-                      height: 28,
-                      background: `color-mix(in oklch, ${s.col} 22%, transparent)`,
-                      border: `1px solid color-mix(in oklch, ${s.col} 70%, transparent)`,
-                      borderRadius: "var(--r)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "width .7s cubic-bezier(.2,.7,.3,1)",
-                    }}>
-                      <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col, position: "relative", zIndex: 1 }}>{s.n}</span>
-                      <div
-                        className="bar-sheen"
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "35%",
-                          height: "100%",
-                          background: "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.32) 50%, transparent 90%)",
-                        }}
-                      />
+          <div className="flex flex-1 flex-col justify-center">
+            <div className="flex flex-col gap-4 px-4 py-4">
+              {[
+                { k: "SENT",      n: sent,         col: "var(--info)"         },
+                { k: "REVIEWED",  n: reviewed,     col: "oklch(0.52 0.01 80)" },
+                { k: "RESPONDED", n: responded,    col: "var(--gold)"         },
+                { k: "ACCEPTED",  n: offerAccepted, col: "var(--up)"          },
+              ].map((s, i, arr) => {
+                const maxN = arr[0].n || 1;
+                const prev = i > 0 ? arr[i - 1].n || 1 : null;
+                const conv = prev != null ? Math.round((s.n / prev) * 100) : null;
+                return (
+                  <div key={s.k} className="grid items-center gap-3" style={{ gridTemplateColumns: "5rem 1fr 2.5rem" }}>
+                    <span className="kicker" style={{ color: "var(--muted)" }}>{s.k}</span>
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <div style={{
+                        position: "relative",
+                        overflow: "hidden",
+                        width: `${Math.max(8, (s.n / maxN) * 100)}%`,
+                        height: 36,
+                        background: `color-mix(in oklch, ${s.col} 22%, transparent)`,
+                        border: `1px solid color-mix(in oklch, ${s.col} 70%, transparent)`,
+                        borderRadius: "var(--r)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "width .7s cubic-bezier(.2,.7,.3,1)",
+                      }}>
+                        <span className="mono tnum" style={{ fontSize: 13, fontWeight: 700, color: s.col, position: "relative", zIndex: 1 }}>{s.n}</span>
+                        <div
+                          className="bar-sheen"
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "35%",
+                            height: "100%",
+                            background: "linear-gradient(90deg, transparent 10%, rgba(255,255,255,0.32) 50%, transparent 90%)",
+                          }}
+                        />
+                      </div>
                     </div>
+                    <span className="mono tnum" style={{ fontSize: 10.5, textAlign: "right", color: conv != null ? (conv >= 50 ? "var(--up)" : "var(--muted)") : "transparent" }}>
+                      {conv != null ? `${conv}%` : ""}
+                    </span>
                   </div>
-                  <span className="mono tnum" style={{ fontSize: 10.5, textAlign: "right", color: conv != null ? (conv >= 50 ? "var(--up)" : "var(--muted)") : "transparent" }}>
-                    {conv != null ? `${conv}%` : ""}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
           <div className="flex items-center justify-center gap-1.5 px-4 pb-3 pt-2.5">
             <span className="kicker">CLOSE RATE</span>
@@ -608,45 +610,58 @@ export default async function EmployerDashboardPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-1 flex-col p-4">
+          <div className="flex flex-1 flex-col justify-center p-4">
             {supplyRoles.length > 0 ? (
-              <>
-                <div className="mb-2 grid" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
-                  <span className="kicker" style={{ color: "var(--dim)" }}>ROLE</span>
-                  {EXP_BUCKETS.map(b => <span key={b.label} className="kicker text-center">{b.label}</span>)}
-                </div>
-                {marketSupply.map(r => {
-                  const maxC = Math.max(...r.buckets.map(b => b.count), 1);
-                  return (
-                    <div key={r.role} className="mb-1 grid items-center" style={{ gridTemplateColumns: "5.5rem 1fr 1fr 1fr 1fr" }}>
-                      <span className="mono truncate" style={{ fontSize: 10, color: "var(--muted)" }}>
-                        {r.role.toUpperCase().slice(0, 10)}
-                      </span>
-                      {r.buckets.map(b => (
-                        <div key={b.label} className="p-0.5">
-                          <div style={{
-                            height: 22, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center",
-                            background: b.count === 0
-                              ? "var(--surface-2)"
-                              : `color-mix(in oklch, var(--up) ${10 + Math.round((b.count / maxC) * 55)}%, transparent)`,
-                          }}>
-                            {b.count > 0 && (
-                              <span className="mono tnum" style={{ fontSize: 10.5, fontWeight: 600, color: "var(--up)" }}>{b.count}</span>
+              <div className="flex flex-col gap-3">
+                <div
+                  className="grid items-center"
+                  style={{ gridTemplateColumns: `auto repeat(${EXP_BUCKETS.length}, minmax(0, 1fr))`, gap: "4px 5px" }}
+                >
+                  <span />
+                  {EXP_BUCKETS.map(b => (
+                    <span key={b.label} className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", textAlign: "center", color: "var(--muted)" }}>
+                      {b.label}
+                    </span>
+                  ))}
+                  {marketSupply.map(r => {
+                    const maxC = Math.max(...r.buckets.map(b => b.count), 1);
+                    return [
+                      <span key={`${r.role}-label`} className="mono" style={{ fontSize: 10, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase" as const, paddingRight: 6 }}>
+                        {r.role.toUpperCase().slice(0, 14)}
+                      </span>,
+                      ...r.buckets.map(b => {
+                        const empty = b.count === 0;
+                        const pct = Math.round(10 + (b.count / maxC) * 55);
+                        return (
+                          <div
+                            key={`${r.role}-${b.label}`}
+                            title={`${r.role} · ${b.label} · ${b.count} candidate${b.count === 1 ? "" : "s"}`}
+                            style={{
+                              height: 30,
+                              background: empty ? "var(--surface-2)" : `color-mix(in oklch, var(--up) ${pct}%, transparent)`,
+                              borderRadius: 3,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {!empty && (
+                              <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: "var(--up)" }}>{b.count}</span>
                             )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-                <div className="mt-3 flex items-center gap-1.5">
+                        );
+                      }),
+                    ];
+                  })}
+                </div>
+                <div className="flex items-center justify-center gap-1.5 pt-1">
                   <span className="kicker">LOW</span>
                   {[10, 25, 45, 65, 90].map(p => (
                     <div key={p} style={{ width: 14, height: 10, borderRadius: 1, background: `color-mix(in oklch, var(--up) ${p}%, transparent)` }} />
                   ))}
                   <span className="kicker">HIGH</span>
                 </div>
-              </>
+              </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center py-10">
                 <p className="kicker text-center">NO VISIBLE CANDIDATES ON PLATFORM YET</p>
