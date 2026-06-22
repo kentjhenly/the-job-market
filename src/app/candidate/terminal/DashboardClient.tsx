@@ -161,7 +161,7 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
   ];
   const maxN = stages[0].n || 1;
   return (
-    <div className="flex flex-col gap-2.5 px-4 py-3">
+    <div className="flex flex-col gap-4 px-4 py-4">
       {stages.map((s, i) => {
         const widthPct = Math.max(8, (s.n / maxN) * 100);
         const prev = i > 0 ? stages[i - 1].n || 1 : null;
@@ -174,7 +174,7 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
                 position: "relative",
                 overflow: "hidden",
                 width: `${widthPct}%`,
-                height: 28,
+                height: 36,
                 background: `color-mix(in oklch, ${s.col} 22%, transparent)`,
                 border: `1px solid color-mix(in oklch, ${s.col} 70%, transparent)`,
                 borderRadius: "var(--r)",
