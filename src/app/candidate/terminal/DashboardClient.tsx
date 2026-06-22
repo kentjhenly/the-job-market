@@ -206,19 +206,12 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
 }
 
 
-// SKILL DEMAND heatmap colour ramp: neutral gray (cold) → terminal green (hot),
-// matching the market supply palette used across the app.
-function rampLightness(t: number) {
-  return 0.30 + t * 0.35;
-}
+// SKILL DEMAND heatmap: same color-mix ramp as the employer MARKET SUPPLY panel.
+// Empty cells get --surface-2; filled cells blend --up (terminal green) from 10%
+// to 65% against transparent, matching the employer dashboard exactly.
 function rampColor(t: number) {
-  const l = rampLightness(t);
-  const c = t * 0.14;
-  const h = 155;
-  return `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`;
-}
-function rampFg(t: number) {
-  return rampLightness(t) > 0.55 ? "oklch(0.18 0.02 155)" : "var(--text)";
+  const pct = Math.round(10 + t * 55);
+  return `color-mix(in oklch, var(--up) ${pct}%, transparent)`;
 }
 
 function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
@@ -254,9 +247,6 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
                   style={{
                     height: 30,
                     background: empty ? "var(--surface-2)" : rampColor(t),
-                    border: empty
-                      ? "1px solid var(--border-soft)"
-                      : "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
                     borderRadius: 3,
                     display: "flex",
                     alignItems: "center",
@@ -264,7 +254,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
                   }}
                 >
                   {!empty && (
-                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: rampFg(t) }}>
+                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: "var(--up)" }}>
                       {v % 1 === 0 ? v : v.toFixed(1)}
                     </span>
                   )}
@@ -275,20 +265,19 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
         ))}
       </div>
       <div className="flex items-center justify-center gap-1.5 pt-1">
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>LOW</span>
-        {[0.18, 0.45, 0.7, 0.95].map((t) => (
-          <span
-            key={t}
+        <span className="kicker">LOW</span>
+        {[10, 25, 45, 65, 90].map((p) => (
+          <div
+            key={p}
             style={{
-              width: 20,
+              width: 14,
               height: 10,
-              borderRadius: 2,
-              background: rampColor(t),
-              border: "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
+              borderRadius: 1,
+              background: `color-mix(in oklch, var(--up) ${p}%, transparent)`,
             }}
           />
         ))}
-        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>HIGH</span>
+        <span className="kicker">HIGH</span>
       </div>
     </div>
   );
