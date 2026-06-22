@@ -228,12 +228,12 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
   return (
     <div className="flex flex-col gap-3">
       <div
-        className="grid items-center gap-2"
-        style={{ gridTemplateColumns: `minmax(5rem, 1.05fr) repeat(${cols}, minmax(0, 1fr))` }}
+        className="grid items-center"
+        style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))`, gap: "4px 5px" }}
       >
         <span />
         {data.categories.map((c) => (
-          <span key={c} className="kicker" style={{ textAlign: "center", color: "var(--muted)" }}>
+          <span key={c} className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", textAlign: "center", color: "var(--muted)" }}>
             {c}
           </span>
         ))}
@@ -241,7 +241,7 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
           <Fragment key={skill}>
             <span
               className="mono"
-              style={{ fontSize: 11, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase" }}
+              style={{ fontSize: 10, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase", paddingRight: 6 }}
             >
               {skill}
             </span>
@@ -253,19 +253,19 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
                   key={ci}
                   title={`${skill} · ${data.categories[ci]} · ${v} open role${v === 1 ? "" : "s"}`}
                   style={{
-                    height: 46,
+                    height: 30,
                     background: empty ? "var(--surface-2)" : rampColor(t),
                     border: empty
                       ? "1px solid var(--border-soft)"
                       : "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
-                    borderRadius: "var(--r)",
+                    borderRadius: 3,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
                   {!empty && (
-                    <span className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: rampFg(t) }}>
+                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: rampFg(t) }}>
                       {v}
                     </span>
                   )}
@@ -275,21 +275,21 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
           </Fragment>
         ))}
       </div>
-      <div className="flex items-center justify-center gap-2">
-        <span className="kicker">LOW</span>
+      <div className="flex items-center justify-center gap-1.5 pt-1">
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>LOW</span>
         {[0.18, 0.45, 0.7, 0.95].map((t) => (
           <span
             key={t}
             style={{
-              width: 26,
-              height: 13,
-              borderRadius: 3,
+              width: 20,
+              height: 10,
+              borderRadius: 2,
               background: rampColor(t),
               border: "1px solid color-mix(in oklch, var(--bg) 22%, transparent)",
             }}
           />
         ))}
-        <span className="kicker">HIGH</span>
+        <span className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--muted)" }}>HIGH</span>
       </div>
     </div>
   );
