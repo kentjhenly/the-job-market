@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { feedbackSchema } from "@/lib/utils/schemas";
 
 // Employer feedback on whether a candidate's portfolio accurately reflected
 // their ability, captured once a match reaches "accepted". One rating per
@@ -14,15 +16,9 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { matchId } = await params;
-  const body = await request.json();
-  const rating = Math.round(Number(body.rating));
-
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    return NextResponse.json(
-      { error: "rating must be an integer between 1 and 5" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseBody(request, feedbackSchema);
+  if (!parsed.ok) return parsed.response;
+  const { rating } = parsed.data;
 
   const supabase = getSupabaseServiceClient();
 
@@ -58,7 +54,7 @@ export async function POST(
     if (error.code === "23505") {
       return NextResponse.json({ error: "Feedback already submitted for this match" }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("portfolio-feedback POST", error);
   }
 
   return NextResponse.json({ feedback });

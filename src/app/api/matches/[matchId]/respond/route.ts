@@ -3,6 +3,8 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendMatchAcceptedNotification } from "@/lib/email/send";
 import { captureServerEvent } from "@/lib/analytics/server";
+import { parseBody } from "@/lib/utils/api";
+import { respondSchema } from "@/lib/utils/schemas";
 
 export async function POST(
   request: NextRequest,
@@ -12,11 +14,9 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { matchId } = await params;
-  const { action } = await request.json();
-
-  if (action !== "accept" && action !== "decline") {
-    return NextResponse.json({ error: "action must be accept or decline" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, respondSchema);
+  if (!parsed.ok) return parsed.response;
+  const { action } = parsed.data;
 
   const supabase = getSupabaseServiceClient();
 
@@ -36,10 +36,15 @@ export async function POST(
   }
 
   const newStatus = action === "accept" ? "accepted" : "declined";
+  const now = new Date().toISOString();
 
   await supabase
     .from("matches")
-    .update({ status: newStatus, responded_at: new Date().toISOString() })
+    .update({
+      status: newStatus,
+      responded_at: now,
+      ...(action === "accept" ? { last_message_at: now } : {}),
+    })
     .eq("id", matchId);
 
   // Insert reputation event for employer (responded signal)

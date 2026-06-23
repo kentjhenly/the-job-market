@@ -28,24 +28,48 @@ export function Sparkline({ data, w = 320, h = 64, color, fill = true, className
   const col = color || (up ? "var(--up)" : "var(--down)");
   const gradientId = `sparkline-${id}`;
 
+  // The chart SVG uses preserveAspectRatio="none" so the line fills the panel
+  // width, which non-uniformly stretches the SVG's coordinate space in BOTH
+  // axes (width is responsive, height flexes). Any <circle> drawn inside that
+  // space — even in a nested SVG — inherits the stretch and renders as an
+  // ellipse. So the end dot is drawn as a fixed-size HTML element overlaid in
+  // undistorted DOM space, positioned by percentage of the chart box.
+  const dotR = 2.6;
+  const dotLeft = (x(data.length - 1) / w) * 100;
+  const dotTop = (y(data[data.length - 1]) / h) * 100;
+
   return (
-    <svg
-      width="100%"
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      style={{ display: "block" }}
-      className={className}
-    >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={col} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={col} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {fill && <path d={area} fill={`url(#${gradientId})`} />}
-      <path d={line} className="spark-line" pathLength="1" fill="none" stroke={col} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-      <circle className="spark-dot" cx={x(data.length - 1)} cy={y(data[data.length - 1])} r="2.6" fill={col} />
-    </svg>
+    <div className={className} style={{ position: "relative", height: h }}>
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        style={{ display: "block" }}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={col} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={col} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {fill && <path d={area} fill={`url(#${gradientId})`} />}
+        <path d={line} className="spark-line" pathLength="1" fill="none" stroke={col} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <span
+        className="spark-dot"
+        style={{
+          position: "absolute",
+          left: `${dotLeft}%`,
+          top: `${dotTop}%`,
+          width: dotR * 2,
+          height: dotR * 2,
+          background: col,
+          borderRadius: "50%",
+          transform: "translate(-50%, -50%)",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
   );
 }

@@ -27,7 +27,7 @@ export default async function CandidateLayout({
   if (!session) redirect("/sign-in");
 
   const role = (session.user as { role?: string }).role;
-  if (role !== "candidate") redirect("/recruiter/terminal");
+  if (role !== "candidate") redirect("/employer/terminal");
 
   const supabase = getSupabaseServiceClient();
   const { data: candidate } = await supabase

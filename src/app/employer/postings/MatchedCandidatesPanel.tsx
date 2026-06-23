@@ -50,9 +50,16 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/employer-postings/${postingId}/candidates`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load candidates");
+        return res.json();
+      })
       .then((json) => {
         if (!cancelled) setData(json);
+      })
+      .catch(() => {
+        // Leave data null so the "FAILED TO LOAD CANDIDATES" state renders,
+        // rather than crashing on an error body's missing capacity/matches.
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

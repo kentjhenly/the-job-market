@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { validateCandidatePosting } from "@/lib/utils/postingValidation";
+import { serverError, parseJsonObject } from "@/lib/utils/api";
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +34,9 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { postingId } = await params;
-  const body = await request.json();
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const validated = validateCandidatePosting(body);
   if (!validated.ok) {
@@ -46,19 +49,19 @@ export async function PATCH(
     .from("candidate_job_postings")
     .update({
       title: fields.title,
-      location: body.location ?? null,
-      work_modes: body.work_modes ?? [],
+      location: fields.location,
+      work_modes: fields.work_modes,
       desired_salary_min: fields.desired_salary_min,
       desired_salary_max: fields.desired_salary_max,
       skills: fields.skills,
-      available_from: body.available_from ?? null,
+      available_from: fields.available_from,
       years_exp: fields.years_exp,
-      work_eligible: body.work_eligible ?? null,
+      work_eligible: fields.work_eligible,
     })
     .eq("id", postingId)
     .eq("candidate_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("postings[id]", error);
 
   return NextResponse.json({ ok: true });
 }
@@ -79,7 +82,7 @@ export async function DELETE(
     .eq("id", postingId)
     .eq("candidate_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("postings[id]", error);
 
   return NextResponse.json({ ok: true });
 }

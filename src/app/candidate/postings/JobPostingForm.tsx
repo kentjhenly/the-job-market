@@ -241,6 +241,9 @@ export function JobPostingForm({
         const { id } = await res.json();
         router.push(`/candidate/postings/${id}`);
       }
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setFormError(json.error ?? "FAILED TO SAVE POSITION");
     }
   }
 

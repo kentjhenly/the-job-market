@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getServerSession } from "@/lib/auth/session";
+import { parseBody } from "@/lib/utils/api";
+import { checkoutSchema } from "@/lib/utils/schemas";
 
 const PRICE_IDS: Record<string, string | undefined> = {
   starter: process.env.STRIPE_PRICE_STARTER,
@@ -10,15 +12,17 @@ const PRICE_IDS: Record<string, string | undefined> = {
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((session.user as { role?: string }).role !== "employer") {
+    return NextResponse.json({ error: "Employers only" }, { status: 403 });
+  }
 
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "STRIPE_SECRET_KEY not configured in env" }, { status: 500 });
   }
 
-  const { tier } = await request.json();
-  if (tier !== "starter" && tier !== "pro") {
-    return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, checkoutSchema);
+  if (!parsed.ok) return parsed.response;
+  const { tier } = parsed.data;
 
   const priceId = PRICE_IDS[tier];
   if (!priceId) {

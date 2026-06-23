@@ -4,6 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
 import { sanitizeStorageFileName, isSafeHttpUrl, clampText } from "@/lib/utils/security";
 import { MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "@/lib/utils/constants";
+import { serverError } from "@/lib/utils/api";
 import type { Database } from "@/lib/supabase/types";
 
 function parseSkills(raw: FormDataEntryValue | null): string[] {
@@ -90,7 +91,7 @@ export async function PATCH(
       .from("portfolio-files")
       .upload(filePath, file, { contentType: file.type, upsert: true });
 
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    if (uploadError) return serverError("portfolio[id] PATCH upload", uploadError);
 
     update.file_path = filePath;
     update.file_name = file.name;
@@ -106,7 +107,7 @@ export async function PATCH(
     .eq("id", projectId)
     .eq("candidate_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("portfolio[id]", error);
 
   triggerRecommendationScorer(session.user.id);
 
@@ -140,7 +141,7 @@ export async function DELETE(
     .eq("id", projectId)
     .eq("candidate_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("portfolio[id]", error);
 
   triggerRecommendationScorer(session.user.id);
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SalaryCurve } from "@/components/charts/SalaryCurve";
 import { formatPercentile } from "@/lib/utils/formatters";
+import { scoreVar } from "@/lib/utils/score";
 
 type CurvePoint = { years_exp: number; p25: number; p50: number; p75: number; p90: number };
 
@@ -46,7 +47,7 @@ export function SalaryBenchmarkCarousel({ slides }: Props) {
       <div className="panel-head">
         <span className="panel-title">SALARY BENCHMARK</span>
         {slide?.offerPercentile != null && (
-          <span className="mono tnum" style={{ fontSize: 11, color: "var(--info)", marginLeft: 8 }}>
+          <span className="mono tnum" style={{ fontSize: 11, color: scoreVar(slide.offerPercentile!), marginLeft: 8 }}>
             {formatPercentile(slide.offerPercentile).toUpperCase()}
           </span>
         )}

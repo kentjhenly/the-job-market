@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
+import { serverError } from "@/lib/utils/api";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ employerId: string }> }) {
   const session = await getServerSession();
@@ -19,6 +20,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ emp
     .eq("status", "accepted")
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("admin/recruiters GET", error);
   return NextResponse.json({ matches: data ?? [] });
 }

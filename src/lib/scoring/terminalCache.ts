@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 
-// The employer/recruiter terminal recomputes candidate-matcher rankings for up
+// The employer terminal recomputes candidate-matcher rankings for up
 // to 10 postings and salary-regression fits for the top 3 candidates on every
 // load — up to 13 edge-function calls per visit, the heaviest page in the app.
 // Both outputs shift slowly (rankings only as candidates edit portfolios or

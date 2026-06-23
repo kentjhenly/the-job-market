@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { adminOfferStatusSchema } from "@/lib/utils/schemas";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ matchId: string }> }) {
   const session = await getServerSession();
@@ -10,12 +12,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const { matchId } = await params;
-  const { offer_status } = await request.json();
-
-  const allowed = [null, "pending", "accepted", "declined"];
-  if (!allowed.includes(offer_status)) {
-    return NextResponse.json({ error: "Invalid offer_status" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, adminOfferStatusSchema);
+  if (!parsed.ok) return parsed.response;
+  const { offer_status } = parsed.data;
 
   const supabase = getSupabaseServiceClient();
   const { data, error } = await supabase
@@ -25,6 +24,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .select("id, offer_status")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("admin/matches[id] PATCH", error);
   return NextResponse.json(data);
 }

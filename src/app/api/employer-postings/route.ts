@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { FREE_JOB_POSTINGS } from "@/lib/utils/constants";
 import { validateEmployerPosting } from "@/lib/utils/postingValidation";
+import { serverError, parseJsonObject } from "@/lib/utils/api";
 
 export async function GET() {
   const session = await getServerSession();
@@ -15,7 +16,7 @@ export async function GET() {
     .eq("employer_id", session.user.id)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("employer-postings", error);
 
   return NextResponse.json({ postings: data });
 }
@@ -30,7 +31,9 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseServiceClient();
-  const body = await request.json();
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const validated = validateEmployerPosting(body);
   if (!validated.ok) {
@@ -77,21 +80,21 @@ export async function POST(request: NextRequest) {
       employer_id: session.user.id,
       title: fields.title,
       description: fields.description,
-      vertical: body.vertical ?? "tech",
+      vertical: fields.vertical,
       years_exp_min: fields.years_exp_min,
       years_exp_max: fields.years_exp_max,
-      location: body.location ?? null,
-      work_modes: body.work_modes ?? [],
+      location: fields.location,
+      work_modes: fields.work_modes,
       salary_min: fields.salary_min,
       salary_max: fields.salary_max,
       skills: fields.skills,
       max_candidates: fields.max_candidates,
-      status: body.status ?? "open",
+      status: fields.status,
     })
     .select("id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("employer-postings", error);
 
   return NextResponse.json({ id: data.id });
 }

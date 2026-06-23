@@ -4,6 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { MAX_PORTFOLIO_PROJECTS, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "@/lib/utils/constants";
 import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
 import { sanitizeStorageFileName, isSafeHttpUrl, clampText } from "@/lib/utils/security";
+import { serverError } from "@/lib/utils/api";
 
 function parseSkills(raw: FormDataEntryValue | null): string[] {
   if (typeof raw !== "string") return [];
@@ -26,7 +27,7 @@ export async function GET() {
     .eq("candidate_id", session.user.id)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("portfolio GET", error);
 
   return NextResponse.json({ projects: data });
 }
@@ -34,6 +35,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if ((session.user as { role?: string }).role !== "candidate") {
+    return NextResponse.json({ error: "Candidates only" }, { status: 403 });
+  }
 
   const supabase = getSupabaseServiceClient();
 
@@ -77,7 +81,7 @@ export async function POST(request: NextRequest) {
     .select("id")
     .single();
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) return serverError("portfolio POST insert", insertError);
 
   if (file instanceof File && file.size > 0) {
     const filePath = `${session.user.id}/${inserted.id}/${sanitizeStorageFileName(file.name)}`;
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
       .from("portfolio-files")
       .upload(filePath, file, { contentType: file.type, upsert: true });
 
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    if (uploadError) return serverError("portfolio POST upload", uploadError);
 
     await supabase
       .from("candidate_portfolio_projects")

@@ -4,6 +4,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { readColumnUpdate } from "@/lib/utils/matchReads";
 import { MAX_CHAT_FILE_SIZE_MB, MAX_CHAT_MESSAGE_LEN } from "@/lib/utils/constants";
 import { sanitizeStorageFileName } from "@/lib/utils/security";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { chatMessageSchema } from "@/lib/utils/schemas";
 
 async function loadParticipantMatch(
   supabase: ReturnType<typeof getSupabaseServiceClient>,
@@ -41,7 +43,7 @@ export async function GET(
     .eq("match_id", matchId)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("messages GET", error);
 
   return NextResponse.json({ messages: messages ?? [], currentUserId: session.user.id, match });
 }
@@ -82,14 +84,14 @@ export async function POST(
       .select("*")
       .single();
 
-    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (insertError) return serverError("messages POST file insert", insertError);
 
     const filePath = `${matchId}/${inserted.id}-${sanitizeStorageFileName(file.name)}`;
     const { error: uploadError } = await supabase.storage
       .from("match-files")
       .upload(filePath, file, { contentType: file.type });
 
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    if (uploadError) return serverError("messages POST file upload", uploadError);
 
     const { data: updated, error: updateError } = await supabase
       .from("match_messages")
@@ -98,22 +100,19 @@ export async function POST(
       .select("*")
       .single();
 
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (updateError) return serverError("messages POST file update", updateError);
     message = updated;
   } else {
-    const { body } = await request.json();
-
-    if (typeof body !== "string" || !body.trim()) {
-      return NextResponse.json({ error: "Message body required" }, { status: 400 });
-    }
+    const parsed = await parseBody(request, chatMessageSchema);
+    if (!parsed.ok) return parsed.response;
 
     const { data: inserted, error } = await supabase
       .from("match_messages")
-      .insert({ match_id: matchId, sender_id: session.user.id, body: body.trim().slice(0, MAX_CHAT_MESSAGE_LEN) })
+      .insert({ match_id: matchId, sender_id: session.user.id, body: parsed.data.body.slice(0, MAX_CHAT_MESSAGE_LEN) })
       .select("*")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("messages POST text", error);
     message = inserted;
   }
 

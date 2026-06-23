@@ -4,6 +4,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { sendPitchNotification } from "@/lib/email/send";
 import { FREE_JOB_POSTINGS, MAX_PITCH_MESSAGE_LEN } from "@/lib/utils/constants";
 import { parseSalaryCents, clampText } from "@/lib/utils/security";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { pitchSchema } from "@/lib/utils/schemas";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
@@ -14,10 +16,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Employers only" }, { status: 403 });
   }
 
-  const { candidate_id, pitch_message, offered_salary, posting_id } = await request.json();
-  if (!candidate_id || typeof candidate_id !== "string") {
-    return NextResponse.json({ error: "candidate_id required" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, pitchSchema);
+  if (!parsed.ok) return parsed.response;
+  const { candidate_id, pitch_message, offered_salary, posting_id } = parsed.data;
 
   const pitchMessage = clampText(pitch_message, MAX_PITCH_MESSAGE_LEN);
   let offeredSalary: number | null = null;
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("matches POST", error);
   }
 
   // Notify candidate of the new pitch (best-effort, don't block the response)

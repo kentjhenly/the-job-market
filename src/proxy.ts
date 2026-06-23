@@ -6,6 +6,7 @@ const PUBLIC_ROUTES = [
   "/sign-in",
   "/sign-up",
   "/terms",
+  "/privacy",
   "/ticker",
   "/api/auth",
   // Stripe calls this server-to-server with no session cookie; it verifies the

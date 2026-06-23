@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { validateEmployerPosting } from "@/lib/utils/postingValidation";
+import { serverError, parseJsonObject } from "@/lib/utils/api";
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +34,9 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { postingId } = await params;
-  const body = await request.json();
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const validated = validateEmployerPosting(body);
   if (!validated.ok) {
@@ -64,21 +67,21 @@ export async function PATCH(
     .update({
       title: fields.title,
       description: fields.description,
-      vertical: body.vertical ?? "tech",
+      vertical: fields.vertical,
       years_exp_min: fields.years_exp_min,
       years_exp_max: fields.years_exp_max,
-      location: body.location ?? null,
-      work_modes: body.work_modes ?? [],
+      location: fields.location,
+      work_modes: fields.work_modes,
       salary_min: fields.salary_min,
       salary_max: fields.salary_max,
       skills: fields.skills,
       max_candidates: fields.max_candidates,
-      status: body.status ?? "open",
+      status: fields.status,
     })
     .eq("id", postingId)
     .eq("employer_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("employer-postings[id]", error);
 
   return NextResponse.json({ ok: true });
 }
@@ -99,7 +102,7 @@ export async function DELETE(
     .eq("id", postingId)
     .eq("employer_id", session.user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("employer-postings[id]", error);
 
   return NextResponse.json({ ok: true });
 }

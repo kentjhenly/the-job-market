@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { adminVerifySchema } from "@/lib/utils/schemas";
 
 // Only mutation path for candidates.is_founder_verified -- gated by the admin
 // allowlist so candidates can never set this themselves.
@@ -15,10 +17,9 @@ export async function PATCH(
   }
 
   const { candidateId } = await params;
-  const { is_founder_verified } = await request.json();
-  if (typeof is_founder_verified !== "boolean") {
-    return NextResponse.json({ error: "is_founder_verified must be a boolean" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, adminVerifySchema);
+  if (!parsed.ok) return parsed.response;
+  const { is_founder_verified } = parsed.data;
 
   const supabase = getSupabaseServiceClient();
   const { error } = await supabase
@@ -26,7 +27,7 @@ export async function PATCH(
     .update({ is_founder_verified })
     .eq("id", candidateId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("admin/candidates PATCH", error);
 
   return NextResponse.json({ ok: true });
 }

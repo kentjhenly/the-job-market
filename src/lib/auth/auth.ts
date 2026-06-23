@@ -62,7 +62,7 @@ export const auth = betterAuth({
   },
   // SHELVED while running locally — employer email verification. Do not delete;
   // re-enable (and uncomment the sendVerificationEmail import + the EmployerLayout
-  // redirect in src/app/recruiter/layout.tsx) for production.
+  // redirect in src/app/employer/layout.tsx) for production.
   // emailVerification: {
   //   sendVerificationEmail: async ({ user, url }) => {
   //     const { role, display_name, name, email } = user as typeof user & {

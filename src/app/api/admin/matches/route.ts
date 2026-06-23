@@ -5,6 +5,8 @@ import { isAdminEmail } from "@/lib/auth/admin";
 import { sendPitchNotification } from "@/lib/email/send";
 import { MAX_PITCH_MESSAGE_LEN } from "@/lib/utils/constants";
 import { parseSalaryCents, clampText } from "@/lib/utils/security";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { adminPitchSchema } from "@/lib/utils/schemas";
 
 // Mirrors POST /api/matches, but lets the admin create a pitch on behalf of
 // any employer (employer_id is supplied explicitly) -- gated by the admin
@@ -15,10 +17,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { employer_id, candidate_id, posting_id, pitch_message, offered_salary } = await request.json();
-  if (!employer_id || !candidate_id) {
-    return NextResponse.json({ error: "employer_id and candidate_id required" }, { status: 400 });
-  }
+  const parsed = await parseBody(request, adminPitchSchema);
+  if (!parsed.ok) return parsed.response;
+  const { employer_id, candidate_id, posting_id, pitch_message, offered_salary } = parsed.data;
 
   const pitchMessage = clampText(pitch_message, MAX_PITCH_MESSAGE_LEN);
   let offeredSalary: number | null = null;
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError("admin/matches POST", error);
   }
 
   // Notify candidate of the new pitch (best-effort, don't block the response)

@@ -20,6 +20,16 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Service-role-only. The gateway's default verify_jwt accepts the public anon
+  // key (shipped in the browser bundle), so we also require the service-role key
+  // here; config.toml sets verify_jwt = false to skip the redundant gateway check.
+  if (req.headers.get("Authorization") !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { parseBody, serverError } from "@/lib/utils/api";
+import { notificationsSchema } from "@/lib/utils/schemas";
 
 // Shared by both roles — the preference lives on `profiles`, gating the
 // activity emails sent from /api/matches and /api/matches/[matchId]/respond.
@@ -22,13 +24,16 @@ export async function PATCH(request: NextRequest) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
-  const supabase = getSupabaseServiceClient();
+  const parsed = await parseBody(request, notificationsSchema);
+  if (!parsed.ok) return parsed.response;
 
-  await supabase
+  const supabase = getSupabaseServiceClient();
+  const { error } = await supabase
     .from("profiles")
-    .update({ email_notifications: !!body.email_notifications })
+    .update({ email_notifications: parsed.data.email_notifications })
     .eq("id", session.user.id);
+
+  if (error) return serverError("notifications PATCH", error);
 
   return NextResponse.json({ ok: true });
 }

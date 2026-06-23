@@ -31,7 +31,29 @@ export function DeleteAccountForm() {
   }
 
   return (
-    <div className="panel" style={{ borderColor: "color-mix(in oklch, var(--down) 45%, transparent)" }}>
+    <div className="space-y-4">
+      {/* Self-service data export (PDPO DPP6 access right). Plain GET that
+          returns an attachment, so a normal link triggers the download. */}
+      <div className="panel">
+        <div className="panel-head">
+          <span className="panel-title">YOUR DATA</span>
+        </div>
+        <div className="space-y-3 p-4">
+          <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.6 }}>
+            Download a copy of all the personal data we hold about you, including your profile, postings,
+            portfolio, matches, and activity, as a single JSON file.
+          </p>
+          <a
+            href="/api/me/export"
+            className="btn btn-ghost btn-sm"
+            style={{ display: "inline-flex", width: "fit-content" }}
+          >
+            DOWNLOAD MY DATA →
+          </a>
+        </div>
+      </div>
+
+      <div className="panel" style={{ borderColor: "color-mix(in oklch, var(--down) 45%, transparent)" }}>
       <div className="panel-head" style={{ borderColor: "color-mix(in oklch, var(--down) 45%, transparent)" }}>
         <span className="panel-title" style={{ color: "var(--down)" }}>
           DELETE ACCOUNT
@@ -45,7 +67,7 @@ export function DeleteAccountForm() {
 
         {!armed ? (
           <Button variant="danger" onClick={() => setArmed(true)}>
-            DELETE MY ACCOUNT
+            DELETE ACCOUNT
           </Button>
         ) : (
           <form onSubmit={remove} className="space-y-4">
@@ -98,6 +120,7 @@ export function DeleteAccountForm() {
             </div>
           </form>
         )}
+      </div>
       </div>
     </div>
   );

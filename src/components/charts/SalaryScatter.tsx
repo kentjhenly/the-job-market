@@ -64,7 +64,7 @@ export function SalaryScatter({
     );
   }
 
-  const accent = tone === "employer" ? "var(--info)" : "var(--up)";
+  const accent = "var(--up)";
   const n = nPoints ?? points.length;
   const lowConf = n < LOW_N;
   const bandFill = `color-mix(in oklch, ${accent} ${lowConf ? 11 : 22}%, transparent)`;

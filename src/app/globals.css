@@ -407,6 +407,16 @@ html.anim-on .t-reveal:nth-child(5) { animation-delay: .41s; }
 .qf-up   { animation: qflash-up 1.1s ease-out; }
 .qf-down { animation: qflash-down 1.1s ease-out; }
 
+/* live price-movement tick: a ~600ms green-up / red-down flash when a polled
+   value changes, plus a small delta tag that floats up and fades. The whole
+   "liveness" energy of the terminal lives here and in the ticker tape. */
+@keyframes tickflash-up   { 0% { background: color-mix(in oklch, var(--up) 26%, transparent); }   100% { background: transparent; } }
+@keyframes tickflash-down { 0% { background: color-mix(in oklch, var(--down) 26%, transparent); } 100% { background: transparent; } }
+.tick-up   { animation: tickflash-up .6s ease-out; }
+.tick-down { animation: tickflash-down .6s ease-out; }
+@keyframes tickfloat { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-9px); } }
+.tick-float { animation: tickfloat .6s ease-out forwards; }
+
 /* ledger rows (numbered feature list) */
 .ledger-row {
   display: grid; grid-template-columns: 3.2rem 15rem 1fr; gap: 18px; align-items: baseline;

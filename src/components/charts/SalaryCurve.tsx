@@ -50,7 +50,7 @@ export function SalaryCurve({
     );
   }
 
-  const accent = tone === "employer" ? "var(--info)" : "var(--up)";
+  const accent = "var(--up)";
   const lowConf = nPoints < LOW_N;
   const bandFill = `color-mix(in oklch, ${accent} ${lowConf ? 11 : 22}%, transparent)`;
   const bandEdge = `color-mix(in oklch, ${accent} 38%, transparent)`;

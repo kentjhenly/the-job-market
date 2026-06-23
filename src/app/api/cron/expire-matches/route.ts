@@ -106,7 +106,11 @@ async function expireSilentChats() {
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  // Fail closed in production: without a configured secret the endpoint would
+  // otherwise be world-callable, and it mutates match state. Allow the
+  // unsecured path only outside production so local/dev runs don't need the
+  // secret. Set CRON_SECRET in production (Vercel Cron sends it automatically).
+  if (!secret) return process.env.NODE_ENV !== "production";
   return request.headers.get("authorization") === `Bearer ${secret}`;
 }
 

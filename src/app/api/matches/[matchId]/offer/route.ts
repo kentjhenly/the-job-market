@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { readColumnUpdate } from "@/lib/utils/matchReads";
+import { serverError, parseBody } from "@/lib/utils/api";
+import { offerSchema } from "@/lib/utils/schemas";
 
 // Hire-offer flow, layered on top of an accepted match's chat:
-//  - send    (employer) — proposes a final salary, offer_status -> pending
-//  - accept  (candidate) — confirms the hire, offer_status -> accepted, hired_at set
-//  - decline (candidate) — rejects this offer, offer_status -> declined (employer may send another)
+//  - send     (employer)  — proposes a final salary, offer_status -> pending
+//  - accept   (candidate) — confirms the hire, offer_status -> accepted, hired_at set
+//  - renege   (candidate) — the candidate disapproves the offer, offer_status -> reneged
+//  - withdraw (employer)  — the employer retracts their own pending offer, offer_status -> declined
+// renege/withdraw both leave matches.status = 'accepted', so the chat stays open
+// and the employer can send a fresh offer afterwards.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ matchId: string }> }
@@ -15,15 +20,10 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { matchId } = await params;
-  const body = await request.json();
+  const parsed = await parseBody(request, offerSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const { action } = body;
-
-  if (action !== "send" && action !== "accept" && action !== "decline") {
-    return NextResponse.json(
-      { error: "action must be send, accept, or decline" },
-      { status: 400 }
-    );
-  }
 
   const supabase = getSupabaseServiceClient();
 
@@ -87,12 +87,45 @@ export async function POST(
       .select("*")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("matches/offer", error);
 
     return NextResponse.json({ offer_status: "pending", message });
   }
 
-  // accept / decline — candidate responding to a pending offer
+  if (action === "withdraw") {
+    // Employer retracts their own pending offer.
+    if (match.employer_id !== session.user.id) {
+      return NextResponse.json(
+        { error: "Only the employer can withdraw a hire offer" },
+        { status: 403 }
+      );
+    }
+    if (match.offer_status !== "pending") {
+      return NextResponse.json({ error: "No pending offer to withdraw" }, { status: 409 });
+    }
+
+    await supabase
+      .from("matches")
+      .update({ offer_status: "declined", last_message_at: now, ...readColumnUpdate(match, session.user.id, now) })
+      .eq("id", matchId);
+
+    const { data: message, error } = await supabase
+      .from("match_messages")
+      .insert({
+        match_id: matchId,
+        sender_id: session.user.id,
+        body: JSON.stringify({ offered_salary: match.offer_salary }),
+        message_type: "offer_declined",
+      })
+      .select("*")
+      .single();
+
+    if (error) return serverError("matches/offer", error);
+
+    return NextResponse.json({ offer_status: "declined", message });
+  }
+
+  // accept / renege — candidate responding to a pending offer
   if (match.candidate_id !== session.user.id) {
     return NextResponse.json(
       { error: "Only the candidate can respond to a hire offer" },
@@ -125,7 +158,7 @@ export async function POST(
       .select("*")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("matches/offer", error);
 
     // A completed hire is the strongest positive reputation signal for both sides
     await supabase.from("reputation_events").insert([
@@ -148,10 +181,10 @@ export async function POST(
     return NextResponse.json({ offer_status: "accepted", message });
   }
 
-  // decline
+  // renege — candidate disapproves the offer
   await supabase
     .from("matches")
-    .update({ offer_status: "declined", last_message_at: now, ...readColumnUpdate(match, session.user.id, now) })
+    .update({ offer_status: "reneged", last_message_at: now, ...readColumnUpdate(match, session.user.id, now) })
     .eq("id", matchId);
 
   const { data: message, error } = await supabase
@@ -160,12 +193,12 @@ export async function POST(
       match_id: matchId,
       sender_id: session.user.id,
       body: JSON.stringify({ offered_salary: match.offer_salary }),
-      message_type: "offer_declined",
+      message_type: "offer_reneged",
     })
     .select("*")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("matches/offer renege", error);
 
-  return NextResponse.json({ offer_status: "declined", message });
+  return NextResponse.json({ offer_status: "reneged", message });
 }

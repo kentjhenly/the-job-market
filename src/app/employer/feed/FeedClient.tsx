@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { Badge } from "@/components/ui/Badge";
+import { SkillBadges } from "@/components/ui/SkillBadges";
 import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
 import { scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import type { Database } from "@/lib/supabase/types";
@@ -13,13 +14,29 @@ import type { Database } from "@/lib/supabase/types";
 export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
   profiles?: { display_name: string } | null;
   candidate_job_postings?: { title: string }[] | null;
+  candidate_portfolio_projects?: {
+    id: string;
+    title: string;
+    description: string | null;
+    link_url: string | null;
+    file_name: string | null;
+    skills: string[];
+  }[] | null;
 };
 
 interface Props {
   initialCandidates: Candidate[];
 }
 
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 5000;
+
+function linkHostname(url: string): string {
+  try {
+    return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
 
 export function FeedClient({ initialCandidates }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
@@ -141,6 +158,43 @@ export function FeedClient({ initialCandidates }: Props) {
               />
               <DataRow label="REPUTATION" value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`} color={repBadgeVariant(selected.reputation_score ?? 100)} />
             </div>
+
+            {(selected.candidate_portfolio_projects?.length ?? 0) > 0 && (
+              <div>
+                <p className="kicker mb-2">PORTFOLIO ({selected.candidate_portfolio_projects!.length})</p>
+                <div className="space-y-2">
+                  {selected.candidate_portfolio_projects!.map((p) => (
+                    <div
+                      key={p.id}
+                      className="rounded-md p-3"
+                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)" }}
+                    >
+                      <p className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
+                        {p.title}
+                      </p>
+                      {p.description && (
+                        <p
+                          className="mono mt-1"
+                          style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                        >
+                          {p.description}
+                        </p>
+                      )}
+                      {(p.file_name || p.link_url) && (
+                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                          {p.file_name ?? linkHostname(p.link_url!)}
+                        </p>
+                      )}
+                      {p.skills.length > 0 && (
+                        <div className="mt-2">
+                          <SkillBadges skills={p.skills} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>

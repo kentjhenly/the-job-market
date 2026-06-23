@@ -14,6 +14,7 @@ export default function EmployerSignUpPage() {
     confirmPassword: "",
     companyName: "",
   });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +32,10 @@ export default function EmployerSignUpPage() {
     }
     if (form.password.length < 8) {
       setError("Password must be at least 8 characters");
+      return;
+    }
+    if (!agreedToTerms) {
+      setError("You must agree to the Terms and Conditions");
       return;
     }
 
@@ -107,6 +112,27 @@ export default function EmployerSignUpPage() {
           </div>
         ))}
 
+        <label className="flex cursor-pointer items-start gap-2.5">
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="mt-0.5"
+            style={{ accentColor: "var(--up)" }}
+          />
+          <span className="mono" style={{ fontSize: 11.5, lineHeight: 1.5, color: "var(--muted)" }}>
+            I HAVE READ AND AGREE TO THE{" "}
+            <Link href="/terms" target="_blank" className="link-up">
+              TERMS
+            </Link>{" "}
+            AND{" "}
+            <Link href="/privacy" target="_blank" className="link-up">
+              PRIVACY POLICY
+            </Link>
+            , AND WILL USE CANDIDATE DATA ONLY FOR LEGITIMATE RECRUITMENT.
+          </span>
+        </label>
+
         {error && (
           <div
             className="rounded px-3 py-2"
@@ -118,7 +144,7 @@ export default function EmployerSignUpPage() {
           </div>
         )}
 
-        <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
+        <button type="submit" disabled={loading || !agreedToTerms} className="btn btn-primary btn-lg w-full">
           {loading ? "REGISTERING..." : "CREATE EMPLOYER ACCOUNT"}
         </button>
       </form>

@@ -76,3 +76,17 @@ enabled = false
 port = 54327
 vector_port = 54328
 backend = "postgres"
+
+# Edge functions are invoked only server-to-server with the service-role key
+# (each function additionally enforces an in-code Authorization check). Disabling
+# the gateway JWT check stops the public anon key from reaching them; the
+# in-function service-role check is the real guard. Redeploy after changing:
+#   npx supabase functions deploy candidate-matcher salary-regression recommendation-scorer
+[functions.candidate-matcher]
+verify_jwt = false
+
+[functions.salary-regression]
+verify_jwt = false
+
+[functions.recommendation-scorer]
+verify_jwt = false

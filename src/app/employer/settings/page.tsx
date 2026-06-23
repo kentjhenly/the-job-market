@@ -40,12 +40,15 @@ export default function EmployerSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
 
+    // Reject on a non-OK response so a failed load shows an error state instead
+    // of destructuring an empty body into the form.
     fetch("/api/employer-profile")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load profile"))))
       .then(({ profile, employer }) => {
         setForm({
           display_name: profile?.display_name ?? "",
@@ -61,6 +64,10 @@ export default function EmployerSettingsPage() {
           status: employer?.subscription_status ?? "canceled",
           period_end: employer?.subscription_period_end ?? null,
         });
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoadError(true);
         setLoading(false);
       });
   }, [user?.id]);
@@ -93,6 +100,17 @@ export default function EmployerSettingsPage() {
     return (
       <div className="flex h-64 items-center justify-center">
         <span className="kicker animate-pulse">LOADING...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <span className="kicker c-down">COULD NOT LOAD YOUR SETTINGS</span>
+        <button className="btn btn-ghost btn-sm" onClick={() => window.location.reload()}>
+          RETRY
+        </button>
       </div>
     );
   }
