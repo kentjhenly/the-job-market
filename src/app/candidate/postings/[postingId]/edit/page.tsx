@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { JobPostingForm } from "../../JobPostingForm";
-import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
 export default async function EditJobPostingPage({
   params,
@@ -37,14 +36,8 @@ export default async function EditJobPostingPage({
 
   if (!posting) notFound();
 
-  const skillToVertical = new Map(SKILLS.map((s) => [s.name, s.vertical]));
-  const verifiedVerticals = Array.from(
-    new Set(
-      (projects ?? [])
-        .flatMap((p) => p.skills)
-        .map((s) => skillToVertical.get(s))
-        .filter((v): v is VerticalType => !!v)
-    )
+  const verifiedSkills = Array.from(
+    new Set((projects ?? []).flatMap((p) => p.skills))
   );
 
   return (
@@ -54,7 +47,7 @@ export default async function EditJobPostingPage({
       candLocation={candidate?.location ?? undefined}
       candCitizenship={candidate?.citizenship ?? undefined}
       vertical={profile?.vertical ?? undefined}
-      verifiedVerticals={verifiedVerticals}
+      verifiedSkills={verifiedSkills}
     />
   );
 }

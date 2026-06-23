@@ -121,15 +121,15 @@ export default function EmployerSignUpPage() {
             style={{ accentColor: "var(--up)" }}
           />
           <span className="mono" style={{ fontSize: 11.5, lineHeight: 1.5, color: "var(--muted)" }}>
-            I HAVE READ AND AGREE TO THE{" "}
+            I have read and agree to the{" "}
             <Link href="/terms" target="_blank" className="link-up">
-              TERMS
+              Terms
             </Link>{" "}
-            AND{" "}
+            and{" "}
             <Link href="/privacy" target="_blank" className="link-up">
-              PRIVACY POLICY
+              Privacy Policy
             </Link>
-            , AND WILL USE CANDIDATE DATA ONLY FOR LEGITIMATE RECRUITMENT.
+            , and will use candidate data only for legitimate recruitment.
           </span>
         </label>
 

@@ -9,6 +9,16 @@ import { DataRow } from "@/components/terminal/DataRow";
 import { ScoreBar } from "@/components/charts/ScoreBar";
 import { formatSalary, formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { scoreBadgeVariant, scoreVar } from "@/lib/utils/score";
+import { useIsMobile } from "@/hooks/useIsMobile";
+
+interface PortfolioProject {
+  id: string;
+  title: string;
+  description: string | null;
+  link_url: string | null;
+  file_name: string | null;
+  skills: string[];
+}
 
 interface MatchedCandidate {
   candidate_id: string;
@@ -24,6 +34,7 @@ interface MatchedCandidate {
   desired_salary_max: number | null;
   skills: string[];
   portfolio_skills: string[];
+  portfolio_projects: PortfolioProject[];
   match_score: number;
   match_percentile?: number;
 }
@@ -63,6 +74,7 @@ function overallScore(m: MatchedCandidate, postingSkills: string[]) {
 }
 
 export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Props) {
+  const mobile = useIsMobile();
   const [data, setData] = useState<CandidatesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -106,6 +118,7 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
       body: JSON.stringify({
         candidate_id: pitchTarget.candidate_id,
         posting_id: postingId,
+        candidate_posting_id: pitchTarget.candidate_posting_id,
         pitch_message: pitchMsg,
         offered_salary: pitchSalary ? Math.round(parseFloat(pitchSalary) * 100) : null,
       }),
@@ -204,14 +217,16 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
 
       {data && (
         <div className="panel overflow-hidden" style={{ borderTop: "2px solid var(--gold)" }}>
-          <div
-            className="grid items-center gap-3 py-2.5 pl-4 pr-6"
-            style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
-          >
-            {HEADERS.map((h) => (
-              <span key={h} className="kicker">{h}</span>
-            ))}
-          </div>
+          {!mobile && (
+            <div
+              className="grid items-center gap-3 py-2.5 pl-4 pr-6"
+              style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
+            >
+              {HEADERS.map((h) => (
+                <span key={h} className="kicker">{h}</span>
+              ))}
+            </div>
+          )}
 
           {pageItems.length === 0 ? (
             <div className="px-4 py-12 text-center">
@@ -225,6 +240,82 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
               const isSelected = selected?.candidate_id === m.candidate_id;
               const overall = overallScore(m, postingSkills);
               const globalIdx = page * PAGE_SIZE + idx;
+
+              if (mobile) {
+                return (
+                  <div
+                    key={m.candidate_posting_id}
+                    onClick={() => setSelected(m)}
+                    className="cursor-pointer px-4 py-3 transition-colors hover:bg-surface-2"
+                    style={{
+                      borderBottom: idx === pageItems.length - 1 ? "none" : "1px solid var(--border-soft)",
+                      borderLeft: `2px solid ${isSelected ? "var(--up)" : "transparent"}`,
+                      background: isSelected ? "var(--up-dim)" : "transparent",
+                      minHeight: 56,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="mono tnum shrink-0" style={{ fontSize: 12, color: "var(--muted)" }}>
+                            {String(globalIdx + 1).padStart(2, "0")}
+                          </span>
+                          <p className="mono truncate" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                            {m.display_name ?? `CAND-${m.candidate_id.slice(0, 4).toUpperCase()}`}
+                          </p>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                            {m.posting_title.toUpperCase()}
+                          </span>
+                          <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                            {formatPercentile(m.percentile_rank)}
+                          </span>
+                          {m.desired_salary_min != null && m.desired_salary_max != null && (
+                            <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--text-2)" }}>
+                              {formatSalaryBand(m.desired_salary_min, m.desired_salary_max)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1.5">
+                          <ScoreBar score={overall} />
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="mono tnum" style={{ fontSize: 18, fontWeight: 700, color: scoreVar(overall) }}>
+                          {overall.toFixed(1)}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPitchTarget(m);
+                            setPitchResult(null);
+                            setPitchError(null);
+                            setPitchMsg("");
+                            setPitchSalary("");
+                          }}
+                          disabled={atCapacity}
+                          className="mono flex items-center justify-center rounded transition-colors"
+                          style={{
+                            width: 44,
+                            height: 44,
+                            fontSize: 20,
+                            lineHeight: 1,
+                            color: atCapacity ? "var(--dim)" : "var(--up)",
+                            border: `1px solid ${atCapacity ? "var(--border-soft)" : "color-mix(in oklch, var(--up) 40%, transparent)"}`,
+                            background: "transparent",
+                            cursor: atCapacity ? "not-allowed" : "pointer",
+                          }}
+                          title="Recruit"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={m.candidate_posting_id}
@@ -419,6 +510,47 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
                     {skillOverlap(selected.skills).matching}/{skillOverlap(selected.skills).total} REQUIRED SKILLS MATCHED
                   </p>
                 )}
+              </div>
+            )}
+
+            {selected.portfolio_projects.length > 0 && (
+              <div>
+                <p className="kicker mb-2">PORTFOLIO ({selected.portfolio_projects.length})</p>
+                <div className="space-y-2">
+                  {selected.portfolio_projects.map((p) => (
+                    <div
+                      key={p.id}
+                      className="rounded-md p-3"
+                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)" }}
+                    >
+                      <p className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
+                        {p.title}
+                      </p>
+                      {p.description && (
+                        <p
+                          className="mono mt-1"
+                          style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                        >
+                          {p.description}
+                        </p>
+                      )}
+                      {(p.file_name || p.link_url) && (
+                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                          {p.file_name ?? (() => { try { return new URL(p.link_url!).hostname; } catch { return p.link_url; } })()}
+                        </p>
+                      )}
+                      {p.skills.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {p.skills.map((s) => (
+                            <Badge key={s} variant={postingSkills.includes(s) ? "up" : "outline"} className="text-[10px]">
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

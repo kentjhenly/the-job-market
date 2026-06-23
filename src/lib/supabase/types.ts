@@ -4,7 +4,7 @@
 
 export type UserRole = "candidate" | "employer";
 export type ChallengeType = "multiple_choice" | "coding" | "written";
-export type MatchStatus = "pending" | "accepted" | "declined" | "expired" | "ghosted";
+export type MatchStatus = "pending" | "accepted" | "declined" | "expired" | "ghosted" | "withdrawn";
 export type Vertical =
   | "tech"
   | "finance"
@@ -21,8 +21,8 @@ export type Vertical =
   | "media";
 export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
-export type OfferStatus = "pending" | "accepted" | "declined" | "reneged";
-export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "offer_reneged" | "file";
+export type OfferStatus = "pending" | "accepted" | "declined";
+export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "file";
 export type SubscriptionTier = "none" | "starter" | "pro";
 export type SubscriptionStatus = "active" | "past_due" | "canceled";
 
@@ -305,6 +305,7 @@ export interface Database {
           employer_id: string;
           candidate_id: string;
           posting_id: string | null;
+          candidate_posting_id: string | null;
           status: MatchStatus;
           pitch_message: string | null;
           offered_salary: number | null;
@@ -324,6 +325,7 @@ export interface Database {
           employer_id: string;
           candidate_id: string;
           posting_id?: string | null;
+          candidate_posting_id?: string | null;
           status?: MatchStatus;
           pitch_message?: string | null;
           offered_salary?: number | null;

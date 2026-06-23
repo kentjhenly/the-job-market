@@ -23,14 +23,16 @@ export function TopBar({ homeHref, stat, showSignOut = true }: TopBarProps) {
         >
           ◧ THE JOB MARKET
         </Link>
-        <span className="badge badge-muted" style={{ borderRadius: 3 }}>
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--up)" }} />
-          MKT OPEN
+        <span className="hidden sm:inline-flex">
+          <span className="badge badge-muted" style={{ borderRadius: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--up)" }} />
+            MKT OPEN
+          </span>
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-4">
         {stats.map((s) => (
-          <span key={s.label} className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+          <span key={s.label} className="mono hidden sm:inline" style={{ fontSize: 11, color: "var(--muted)" }}>
             {s.label}{" "}
             {s.href ? (
               <Link href={s.href} style={{ color: s.color ?? "var(--up)", fontWeight: 600 }}>
@@ -41,7 +43,7 @@ export function TopBar({ homeHref, stat, showSignOut = true }: TopBarProps) {
             )}
           </span>
         ))}
-        <Clock />
+        <span className="hidden sm:inline"><Clock /></span>
         {showSignOut && <SignOutButton />}
       </div>
     </header>

@@ -13,42 +13,21 @@ import { CANDIDATE_FAQ } from "@/lib/utils/faq";
 import {
   COUNTRIES,
   LANGUAGES,
+  FLUENCY_LEVELS,
+  parseLanguageEntry,
+  formatLanguageEntry,
   JOB_ROLES,
   VERTICALS,
   currencyForCountry,
   verticalLabel,
 } from "@/lib/utils/constants";
-
-const SEX_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"];
-
-function ageFrom(iso: string): number | null {
-  if (!iso) return null;
-  const birth = new Date(iso);
-  if (Number.isNaN(birth.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const m = now.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-  return age >= 0 && age < 130 ? age : null;
-}
-
-// Date of birth is shown/entered as DD/MM/YYYY but stored as ISO (YYYY-MM-DD).
-function isoToDdmmyyyy(iso: string): string {
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
-}
-function ddmmyyyyToIso(s: string): string {
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
-}
+import type { FluencyLevel } from "@/lib/utils/constants";
 
 export default function SettingsPage() {
   const { user } = useSession();
 
   const [form, setForm] = useState({
     display_name: "",
-    date_of_birth: "",
-    sex: "",
     languages: [] as string[],
     citizenship: "",
     location: "",
@@ -75,8 +54,6 @@ export default function SettingsPage() {
       .then(({ profile, candidate }) => {
         setForm({
           display_name: profile?.display_name ?? "",
-          date_of_birth: isoToDdmmyyyy(candidate?.date_of_birth ?? ""),
-          sex: candidate?.sex ?? "",
           languages: candidate?.languages ?? [],
           citizenship: candidate?.citizenship ?? "",
           location: candidate?.location ?? "",
@@ -97,15 +74,22 @@ export default function SettingsPage() {
 
   function addLanguage(value: string) {
     if (!value) return;
-    setForm((f) =>
-      f.languages.some((l) => l.toLowerCase() === value.toLowerCase())
-        ? f
-        : { ...f, languages: [...f.languages, value] }
-    );
+    const existing = form.languages.map((e) => parseLanguageEntry(e).language.toLowerCase());
+    if (existing.includes(value.toLowerCase())) return;
+    setForm((f) => ({ ...f, languages: [...f.languages, formatLanguageEntry(value, "fluent")] }));
   }
 
-  function removeLanguage(lang: string) {
-    setForm((f) => ({ ...f, languages: f.languages.filter((l) => l !== lang) }));
+  function removeLanguage(entry: string) {
+    setForm((f) => ({ ...f, languages: f.languages.filter((l) => l !== entry) }));
+  }
+
+  function changeFluency(entry: string, level: FluencyLevel) {
+    setForm((f) => ({
+      ...f,
+      languages: f.languages.map((l) =>
+        l === entry ? formatLanguageEntry(parseLanguageEntry(l).language, level) : l
+      ),
+    }));
   }
 
   function changeJobIndustry(vertical: string) {
@@ -129,8 +113,6 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         display_name: form.display_name,
-        date_of_birth: ddmmyyyyToIso(form.date_of_birth) || null,
-        sex: form.sex || null,
         languages: form.languages,
         citizenship: form.citizenship || null,
         location: form.location || null,
@@ -179,7 +161,7 @@ export default function SettingsPage() {
         email={user?.email}
         faq={CANDIDATE_FAQ}
         extraTabs={[
-          { label: "NOTIFICATIONS", content: <NotificationsForm /> },
+          { label: "NOTIFICATIONS", content: <NotificationsForm role="candidate" /> },
           {
             label: "SECURITY",
             content: (
@@ -214,36 +196,7 @@ export default function SettingsPage() {
                 <span className="panel-title">BIODATA</span>
               </div>
               <div className="space-y-4 p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="kicker mb-1.5 block">DATE OF BIRTH</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={form.date_of_birth}
-                      onChange={(e) => setForm((f) => ({ ...f, date_of_birth: e.target.value }))}
-                      className="field"
-                      placeholder="DD/MM/YYYY"
-                      style={{ textTransform: "uppercase" }}
-                    />
-                    {ageFrom(ddmmyyyyToIso(form.date_of_birth)) != null && (
-                      <span className="mono mt-1 block" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                        AGE {ageFrom(ddmmyyyyToIso(form.date_of_birth))}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="kicker mb-1.5 block">SEX</label>
-                    <Combobox
-                      value={form.sex}
-                      onChange={(v) => setForm((f) => ({ ...f, sex: v }))}
-                      options={SEX_OPTIONS.map((s) => ({ value: s }))}
-                      placeholder="SELECT"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="kicker mb-1.5 block">CITIZENSHIP</label>
                     <Combobox
@@ -267,25 +220,45 @@ export default function SettingsPage() {
                 <div>
                   <label className="kicker mb-1.5 block">LANGUAGES</label>
                   {form.languages.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {form.languages.map((lang) => (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => removeLanguage(lang)}
-                          className="badge badge-up"
-                          title="Remove"
-                        >
-                          {lang} ✕
-                        </button>
-                      ))}
+                    <div className="mb-2 flex flex-col gap-2">
+                      {form.languages.map((entry) => {
+                        const { language, level } = parseLanguageEntry(entry);
+                        return (
+                          <div key={entry} className="flex items-center gap-2">
+                            <span className="mono" style={{ fontSize: 12, color: "var(--text)", minWidth: 100 }}>
+                              {language}
+                            </span>
+                            <select
+                              className="field mono flex-1"
+                              style={{ fontSize: 11, padding: "4px 8px" }}
+                              value={level}
+                              onChange={(e) => changeFluency(entry, e.target.value as FluencyLevel)}
+                            >
+                              {FLUENCY_LEVELS.map((fl) => (
+                                <option key={fl} value={fl}>{fl.toUpperCase()}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeLanguage(entry)}
+                              className="mono"
+                              style={{ fontSize: 11, color: "var(--down)", cursor: "pointer" }}
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   <Combobox
                     value=""
                     onChange={(v) => addLanguage(v)}
-                    options={LANGUAGES.filter((l) => !form.languages.includes(l)).map((l) => ({ value: l }))}
-                    placeholder="SELECT"
+                    options={LANGUAGES.filter(
+                      (l) => !form.languages.some((e) => parseLanguageEntry(e).language.toLowerCase() === l.toLowerCase())
+                    ).map((l) => ({ value: l }))}
+                    placeholder="SEARCH"
                   />
                 </div>
 
@@ -334,7 +307,7 @@ export default function SettingsPage() {
                     disabled={!form.current_job_vertical}
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <label className="kicker mb-1.5 block">YEARS</label>
                     <input
@@ -359,7 +332,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="kicker mb-1.5 block">
-                      SALARY ({currencyForCountry(form.current_job_location)})
+                      SALARY ({currencyForCountry(form.current_job_location)}/MONTH)
                     </label>
                     <input
                       type="number"
@@ -378,11 +351,11 @@ export default function SettingsPage() {
 
             <div className="flex items-center gap-4">
               <Button type="submit" loading={saving}>
-                SAVE SETTINGS
+                SAVE
               </Button>
               {saved && (
                 <span className="mono" style={{ fontSize: 11, color: "var(--up)" }}>
-                  SAVED ✓
+                  SAVED
                 </span>
               )}
             </div>

@@ -132,15 +132,6 @@ export function SalaryScatter({
 
   return (
     <div className="w-full">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="kicker" style={{ color: "var(--dim)" }}>
-          MODELED ESTIMATE
-        </span>
-        <span className="kicker" style={{ color: lowConf ? "var(--gold)" : "var(--dim)" }}>
-          {lowConf ? `LOW CONFIDENCE · MODELED FROM ${n} DATA POINTS` : `MODELED FROM ${n} DATA POINTS`}
-        </span>
-      </div>
-
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
         {Array.from({ length: yTicks + 1 }).map((_, i) => {
           const v = ymin + (i / yTicks) * (ymax - ymin);

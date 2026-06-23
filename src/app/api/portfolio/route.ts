@@ -3,7 +3,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { MAX_PORTFOLIO_PROJECTS, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "@/lib/utils/constants";
 import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
-import { sanitizeStorageFileName, isSafeHttpUrl, clampText } from "@/lib/utils/security";
+import { sanitizeStorageFileName, isSafeWebsiteInput, clampText } from "@/lib/utils/security";
 import { serverError } from "@/lib/utils/api";
 
 function parseSkills(raw: FormDataEntryValue | null): string[] {
@@ -64,10 +64,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  const linkValue = typeof linkUrl === "string" ? linkUrl.trim() : "";
-  if (linkValue && !isSafeHttpUrl(linkValue)) {
-    return NextResponse.json({ error: "Link must be a valid http(s) URL" }, { status: 400 });
+  const linkRaw = typeof linkUrl === "string" ? linkUrl.trim() : "";
+  if (linkRaw && !isSafeWebsiteInput(linkRaw)) {
+    return NextResponse.json({ error: "Link must be a valid URL" }, { status: 400 });
   }
+  const linkValue = linkRaw && !/^https?:\/\//i.test(linkRaw) ? `https://${linkRaw}` : linkRaw;
 
   const { data: inserted, error: insertError } = await supabase
     .from("candidate_portfolio_projects")

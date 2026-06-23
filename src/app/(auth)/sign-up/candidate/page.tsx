@@ -98,15 +98,15 @@ export default function CandidateSignUpPage() {
             style={{ accentColor: "var(--up)" }}
           />
           <span className="mono" style={{ fontSize: 11.5, lineHeight: 1.5, color: "var(--muted)" }}>
-            I HAVE READ AND AGREE TO THE{" "}
+            I have read and agree to the{" "}
             <Link href="/terms" target="_blank" className="link-up">
-              TERMS
+              Terms
             </Link>{" "}
-            AND{" "}
+            and{" "}
             <Link href="/privacy" target="_blank" className="link-up">
-              PRIVACY POLICY
+              Privacy Policy
             </Link>
-            , AND CONSENT TO MY PROFILE AND PORTFOLIO DATA BEING USED TO MATCH ME WITH EMPLOYERS.
+            , and consent to my profile and portfolio data being used to match me with employers.
           </span>
         </label>
 

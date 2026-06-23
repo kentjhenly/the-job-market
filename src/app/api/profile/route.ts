@@ -20,7 +20,7 @@ export async function GET() {
     supabase
       .from("candidates")
       .select(
-        "date_of_birth, sex, languages, citizenship, location, years_exp_claimed, exp_months, current_salary, current_job_location, current_job_vertical, current_job_role"
+        "languages, citizenship, location, years_exp_claimed, exp_months, current_salary, current_job_location, current_job_vertical, current_job_role"
       )
       .eq("id", session.user.id)
       .single(),
@@ -78,15 +78,6 @@ export async function PATCH(request: NextRequest) {
     currentJobVertical = body.current_job_vertical;
   }
 
-  if (
-    body.date_of_birth != null &&
-    body.date_of_birth !== "" &&
-    (typeof body.date_of_birth !== "string" || Number.isNaN(Date.parse(body.date_of_birth)))
-  ) {
-    return NextResponse.json({ error: "Invalid date of birth" }, { status: 400 });
-  }
-  const dateOfBirth = body.date_of_birth ? String(body.date_of_birth) : null;
-
   const cap = (v: unknown, max: number): string | undefined =>
     typeof v === "string" ? v.slice(0, max) : undefined;
   const languages = Array.isArray(body.languages)
@@ -107,8 +98,6 @@ export async function PATCH(request: NextRequest) {
     supabase
       .from("candidates")
       .update({
-        date_of_birth: dateOfBirth,
-        sex: body.sex ? String(body.sex).slice(0, 40) : null,
         languages,
         citizenship,
         location,

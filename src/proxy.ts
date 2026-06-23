@@ -12,6 +12,11 @@ const PUBLIC_ROUTES = [
   // Stripe calls this server-to-server with no session cookie; it verifies the
   // request itself via the STRIPE_WEBHOOK_SECRET signature.
   "/api/subscription/webhook",
+  // Vercel Cron calls this hourly server-to-server with no session cookie; the
+  // route guards itself with CRON_SECRET (fail-closed in production). Without
+  // this exemption the proxy would 307 the cron to /sign-in and the
+  // anti-ghosting sweep would silently never run.
+  "/api/cron",
 ];
 
 function isPublic(pathname: string) {

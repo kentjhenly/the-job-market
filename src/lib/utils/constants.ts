@@ -91,12 +91,50 @@ export function currencyForCountry(country: string | null | undefined): string {
   return (country && COUNTRY_CURRENCY[country]) || "HKD";
 }
 
+export const FLUENCY_LEVELS = ["native", "fluent", "conversational", "basic"] as const;
+export type FluencyLevel = (typeof FLUENCY_LEVELS)[number];
+
+export function parseLanguageEntry(entry: string): { language: string; level: FluencyLevel } {
+  const sep = entry.lastIndexOf(":");
+  if (sep > 0) {
+    const level = entry.slice(sep + 1) as FluencyLevel;
+    if ((FLUENCY_LEVELS as readonly string[]).includes(level)) {
+      return { language: entry.slice(0, sep), level };
+    }
+  }
+  return { language: entry, level: "fluent" };
+}
+
+export function formatLanguageEntry(language: string, level: FluencyLevel): string {
+  return `${language}:${level}`;
+}
+
 // Language options for the candidate biodata languages picker.
+// Full set of languages supported by Google Translate.
 export const LANGUAGES: string[] = [
-  "Arabic", "Bengali", "Cantonese", "Dutch", "English", "Filipino", "French",
-  "German", "Hindi", "Indonesian", "Italian", "Japanese", "Khmer", "Korean",
-  "Malay", "Mandarin", "Nepali", "Portuguese", "Punjabi", "Russian", "Spanish",
-  "Tamil", "Thai", "Urdu", "Vietnamese",
+  "Afrikaans", "Albanian", "Amharic", "Arabic", "Armenian", "Assamese",
+  "Aymara", "Azerbaijani", "Bambara", "Basque", "Belarusian", "Bengali",
+  "Bhojpuri", "Bosnian", "Bulgarian", "Cantonese", "Catalan", "Cebuano",
+  "Chichewa", "Chinese (Simplified)", "Chinese (Traditional)", "Corsican",
+  "Croatian", "Czech", "Danish", "Dhivehi", "Dogri", "Dutch", "English",
+  "Esperanto", "Estonian", "Ewe", "Filipino", "Finnish", "French", "Frisian",
+  "Galician", "Georgian", "German", "Greek", "Guarani", "Gujarati",
+  "Haitian Creole", "Hausa", "Hawaiian", "Hebrew", "Hindi", "Hmong",
+  "Hungarian", "Icelandic", "Igbo", "Ilocano", "Indonesian", "Irish",
+  "Italian", "Japanese", "Javanese", "Kannada", "Kazakh", "Khmer",
+  "Kinyarwanda", "Konkani", "Korean", "Krio", "Kurdish (Kurmanji)",
+  "Kurdish (Sorani)", "Kyrgyz", "Lao", "Latin", "Latvian", "Lingala",
+  "Lithuanian", "Luganda", "Luxembourgish", "Macedonian", "Maithili",
+  "Malagasy", "Malay", "Malayalam", "Maltese", "Mandarin", "Maori", "Marathi",
+  "Meiteilon (Manipuri)", "Mizo", "Mongolian", "Myanmar (Burmese)", "Nepali",
+  "Norwegian", "Odia (Oriya)", "Oromo", "Pashto", "Persian", "Polish",
+  "Portuguese", "Punjabi", "Quechua", "Romanian", "Russian", "Samoan",
+  "Sanskrit", "Scots Gaelic", "Sepedi", "Serbian", "Sesotho", "Shona",
+  "Sindhi", "Sinhala", "Slovak", "Slovenian", "Somali", "Spanish",
+  "Sundanese", "Swahili", "Swedish", "Tajik", "Tamil", "Tatar", "Telugu",
+  "Thai", "Tigrinya", "Tsonga", "Turkish", "Turkmen", "Twi", "Ukrainian",
+  "Urdu", "Uyghur", "Uzbek", "Vietnamese", "Welsh", "Xhosa", "Yiddish",
+  "Yoruba", "Zulu",
 ];
 
 export const SCORE_TIERS = {

@@ -32,8 +32,8 @@ export function SettingsTabs({ profile, extraTabs = [], trailingTabs = [], faq, 
   const [active, setActive] = useState(tabs[0].label);
 
   return (
-    <div className="flex gap-6">
-      <nav className="flex w-44 shrink-0 flex-col overflow-hidden rounded-md border border-border bg-surface">
+    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+      <nav className="hidden w-44 shrink-0 self-start flex-col overflow-hidden rounded-md border border-border bg-surface sm:flex">
         {tabs.map((t) => (
           <button
             key={t.label}
@@ -46,6 +46,18 @@ export function SettingsTabs({ profile, extraTabs = [], trailingTabs = [], faq, 
           </button>
         ))}
       </nav>
+      <div className="flex gap-0.5 overflow-x-auto sm:hidden" style={{ WebkitOverflowScrolling: "touch" }}>
+        {tabs.map((t) => (
+          <button
+            key={t.label}
+            type="button"
+            className={`tab ${active === t.label ? "active" : ""}`}
+            onClick={() => setActive(t.label)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="min-w-0 flex-1">{tabs.find((t) => t.label === active)?.content}</div>
     </div>

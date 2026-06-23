@@ -75,7 +75,7 @@ export default async function EmployerDashboardPage() {
       .order("created_at", { ascending: false })
       .limit(10),
     supabase.from("reputation_events").select("weight, created_at, event_type").eq("subject_id", session.user.id).order("created_at", { ascending: true }),
-    supabase.from("employer_job_postings").select("title, skills").eq("employer_id", session.user.id),
+    supabase.from("employer_job_postings").select("title, skills").eq("employer_id", session.user.id).eq("status", "open"),
     supabase.from("employers").select("id", { count: "exact", head: true }).gt("reputation_score", repScore),
     supabase.from("employers").select("id", { count: "exact", head: true }),
     supabase.from("employer_job_postings").select("id, title, vertical").eq("employer_id", session.user.id).eq("status", "open"),
@@ -256,9 +256,8 @@ export default async function EmployerDashboardPage() {
     running = Math.max(0, Math.min(100, running + ev.weight));
     sparkPoints.push(running);
   }
-  if (sparkPoints.length < 4) {
-    const base = repScore;
-    sparkPoints.push(base - 3, base - 1, base + 1, base, base + 2, base);
+  while (sparkPoints.length < 2) {
+    sparkPoints.push(repScore);
   }
 
   const score30dAgo = repScore - delta30d;
@@ -592,11 +591,11 @@ export default async function EmployerDashboardPage() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-1.5 px-4 pb-3 pt-2.5">
-            <span className="kicker">CLOSE RATE</span>
+            <span className="kicker">ACCEPT RATE</span>
             <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, color: "var(--up)" }}>
               {sent > 0 ? Math.round((offerAccepted / sent) * 100) : 0}%
             </span>
-            <span className="kicker">· {offerAccepted} HIRED OF {sent} SENT</span>
+            <span className="kicker">· {offerAccepted} ACCEPTED OF {sent} SENT</span>
           </div>
         </div>
 

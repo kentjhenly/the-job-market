@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = await parseBody(request, pitchSchema);
   if (!parsed.ok) return parsed.response;
-  const { candidate_id, pitch_message, offered_salary, posting_id } = parsed.data;
+  const { candidate_id, pitch_message, offered_salary, posting_id, candidate_posting_id } = parsed.data;
 
   const pitchMessage = clampText(pitch_message, MAX_PITCH_MESSAGE_LEN);
   let offeredSalary: number | null = null;
@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
       employer_id: session.user.id,
       candidate_id,
       posting_id: posting_id ?? null,
+      candidate_posting_id: candidate_posting_id ?? null,
       pitch_message: pitchMessage,
       offered_salary: offeredSalary,
     })

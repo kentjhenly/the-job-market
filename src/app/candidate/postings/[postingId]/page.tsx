@@ -4,7 +4,6 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getServerSession } from "@/lib/auth/session";
 import { JobPostingForm } from "../JobPostingForm";
 import { PostingViewClient } from "./PostingViewClient";
-import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
 const MAX_POSTINGS = 10;
 
@@ -39,14 +38,8 @@ export default async function JobPostingPage({
           .eq("candidate_id", session.user.id),
       ]);
 
-    const skillToVertical = new Map(SKILLS.map((s) => [s.name, s.vertical]));
-    const verifiedVerticals = Array.from(
-      new Set(
-        (projects ?? [])
-          .flatMap((p) => p.skills)
-          .map((s) => skillToVertical.get(s))
-          .filter((v): v is VerticalType => !!v)
-      )
+    const verifiedSkills = Array.from(
+      new Set((projects ?? []).flatMap((p) => p.skills))
     );
 
     if ((count ?? 0) >= MAX_POSTINGS) {
@@ -72,7 +65,7 @@ export default async function JobPostingPage({
         candLocation={candidate?.location ?? undefined}
         candCitizenship={candidate?.citizenship ?? undefined}
         vertical={profile?.vertical ?? undefined}
-        verifiedVerticals={verifiedVerticals}
+        verifiedSkills={verifiedSkills}
       />
     );
   }

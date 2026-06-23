@@ -16,7 +16,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
       {initialPostings.map((posting) => {
         const availableLabel = posting.available_from
           ? posting.available_from <= todayISO

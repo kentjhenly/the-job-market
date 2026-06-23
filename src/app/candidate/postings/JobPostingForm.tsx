@@ -46,7 +46,7 @@ interface JobPostingFormProps {
   candLocation?: string;
   candCitizenship?: string;
   vertical?: VerticalType;
-  verifiedVerticals: VerticalType[];
+  verifiedSkills?: string[];
 }
 
 export function JobPostingForm({
@@ -54,7 +54,7 @@ export function JobPostingForm({
   candYears,
   candLocation,
   candCitizenship,
-  verifiedVerticals,
+  verifiedSkills = [],
 }: JobPostingFormProps) {
   const router = useRouter();
   const isEditing = !!initial;
@@ -268,11 +268,11 @@ export function JobPostingForm({
   // Suggest median ± 1σ from the active regression as min/max placeholders
   const minSuggestion =
     medianAtExp != null && stdDev != null
-      ? Math.max(0, Math.round((medianAtExp - stdDev) / 100)).toString()
+      ? (Math.max(0, Math.round((medianAtExp - stdDev) / 100000)) * 1000).toString()
       : "80000";
   const maxSuggestion =
     medianAtExp != null && stdDev != null
-      ? Math.round((medianAtExp + stdDev) / 100).toString()
+      ? (Math.round((medianAtExp + stdDev) / 100000) * 1000).toString()
       : "120000";
 
   return (
@@ -368,7 +368,7 @@ export function JobPostingForm({
                   .slice()
                   .sort((a, b) => a.title.localeCompare(b.title))
                   .map((r) => ({ value: r.title, group: r.vertical.toUpperCase() }))}
-                placeholder={industry ? "SEARCH ROLES" : undefined}
+                placeholder={industry ? "SEARCH" : undefined}
                 disabled={!industry}
                 required
               />
@@ -452,7 +452,7 @@ export function JobPostingForm({
               selected={form.skills}
               onToggle={toggleSkill}
               industry={industry}
-              verifiedVerticals={verifiedVerticals}
+              verifiedSkills={verifiedSkills}
               max={MAX_POSTING_SKILLS}
             />
           </div>

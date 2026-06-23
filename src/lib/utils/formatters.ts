@@ -1,7 +1,7 @@
 export function formatSalary(cents: number, currency = "HKD"): string {
   const amount = cents / 100;
-  if (amount >= 1000) {
-    return `${currency} ${(amount / 1000).toFixed(0)}K`;
+  if (amount >= 1000 && amount % 1000 === 0) {
+    return `${currency} ${amount / 1000}K`;
   }
   return `${currency} ${amount.toLocaleString()}`;
 }
@@ -42,10 +42,10 @@ export function formatRelativeTime(date: Date | string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
+  if (minutes < 1) return "JUST NOW";
+  if (minutes < 60) return `${minutes}M AGO`;
+  if (hours < 24) return `${hours}H AGO`;
+  return `${days}D AGO`;
 }
 
 export function formatTimeRemaining(seconds: number): string {

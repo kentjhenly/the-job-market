@@ -111,7 +111,7 @@ export function FeedClient({ initialCandidates }: Props) {
       {/* Candidate detail slide-in */}
       {selected && (
         <div
-          className="slideover-panel fixed right-0 top-0 bottom-0 z-40 flex w-96 flex-col"
+          className="slideover-panel flex flex-col"
           style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}
         >
           <div className="panel-head">

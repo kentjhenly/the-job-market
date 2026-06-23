@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { serverError, parseBody } from "@/lib/utils/api";
 import { feedbackSchema } from "@/lib/utils/schemas";
+import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
 
 // Employer feedback on whether a candidate's portfolio accurately reflected
 // their ability, captured once a match reaches "accepted". One rating per
@@ -56,6 +57,8 @@ export async function POST(
     }
     return serverError("portfolio-feedback POST", error);
   }
+
+  triggerRecommendationScorer(match.candidate_id);
 
   return NextResponse.json({ feedback });
 }

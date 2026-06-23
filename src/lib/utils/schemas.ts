@@ -22,7 +22,7 @@ export const respondSchema = z.object({
 // Hire-offer state machine actions on an accepted match. `offered_salary` is
 // only read for `send`; the route enforces its positive-cents bound there.
 export const offerSchema = z.object({
-  action: z.enum(["send", "accept", "renege", "withdraw"]),
+  action: z.enum(["send", "accept", "decline", "withdraw", "renege", "withdraw_match", "decline_match"]),
   offered_salary: z.number().finite().nullish(),
 });
 
@@ -33,6 +33,7 @@ export const pitchSchema = z.object({
   pitch_message: z.string().max(MAX_PITCH_MESSAGE_LEN).nullish(),
   offered_salary: z.number().finite().nullish(),
   posting_id: idString.nullish(),
+  candidate_posting_id: idString.nullish(),
 });
 
 // Admin creating a pitch on an employer's behalf (employer_id supplied).
@@ -57,7 +58,7 @@ export const checkoutSchema = z.object({
 
 // Admin override of a match's offer_status.
 export const adminOfferStatusSchema = z.object({
-  offer_status: z.enum(["pending", "accepted", "declined", "reneged"]).nullable(),
+  offer_status: z.enum(["pending", "accepted", "declined"]).nullable(),
 });
 
 // Admin toggle of a candidate's founder-verified flag.

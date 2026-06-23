@@ -1,17 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const WEIGHTS = {
-  portfolio_breadth: 0.2,
+  portfolio_quality: 0.25,
   portfolio_skill_coverage: 0.25,
-  portfolio_completeness: 0.1,
   portfolio_feedback: 0.1,
-  reputation_score: 0.2,
-  response_rate: 0.1,
+  reputation_score: 0.25,
+  demand_alignment: 0.1,
   profile_completeness: 0.05,
 };
 
-const BREADTH_TARGET = 5; // project count for full breadth score
-const SKILL_COVERAGE_TARGET = 10; // distinct skills for full coverage score
+const QUALITY_PROJECT_TARGET = 5;
+const SKILL_COVERAGE_TARGET = 10;
+const DEMAND_SKILL_TARGET = 5;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -67,39 +67,91 @@ Deno.serve(async (req: Request) => {
     .select("event_type, weight, created_at")
     .eq("subject_id", candidate_id);
 
-  // Fetch recent matches for response rate
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
-  const { data: recentMatches } = await supabase
-    .from("matches")
-    .select("status, responded_at")
-    .eq("candidate_id", candidate_id)
-    .gte("created_at", thirtyDaysAgo);
-
   // Fetch employer ratings of portfolio accuracy
   const { data: feedbackRows } = await supabase
     .from("portfolio_feedback")
     .select("rating")
     .eq("candidate_id", candidate_id);
 
+  // Fetch open employer postings and all portfolio projects for demand alignment
+  const { data: employerPostings } = await supabase
+    .from("employer_job_postings")
+    .select("skills")
+    .eq("status", "open");
+
+  const { data: allPortfolioProjects } = await supabase
+    .from("candidate_portfolio_projects")
+    .select("skills, candidate_id");
+
   // --- Signal computations ---
 
-  // 1. portfolio_breadth (0-1): project count, capped at BREADTH_TARGET
+  // 1. portfolio_quality (0-1): merges breadth + completeness.
+  // breadth = min(projects / target, 1), completeness = avg per-project score.
+  // Combined as 50/50 blend.
   const projectCount = projects?.length ?? 0;
-  const breadthScore = Math.min(projectCount / BREADTH_TARGET, 1);
-
-  // 2. portfolio_skill_coverage (0-1): distinct skills across projects, capped at SKILL_COVERAGE_TARGET
-  const distinctSkills = new Set((projects ?? []).flatMap((p) => p.skills ?? [])).size;
-  const skillCoverageScore = Math.min(distinctSkills / SKILL_COVERAGE_TARGET, 1);
-
-  // 3. portfolio_completeness (0-1): avg per-project (has file/link + has skills)
-  let completenessScore = 0;
+  const breadthRaw = Math.min(projectCount / QUALITY_PROJECT_TARGET, 1);
+  let completenessRaw = 0;
   if (projects && projects.length > 0) {
     const total = projects.reduce((sum, p) => {
       const hasArtifact = p.file_path || p.link_url ? 0.5 : 0;
       const hasSkills = p.skills && p.skills.length > 0 ? 0.5 : 0;
       return sum + hasArtifact + hasSkills;
     }, 0);
-    completenessScore = total / projects.length;
+    completenessRaw = total / projects.length;
+  }
+  const portfolioQualityScore = breadthRaw * 0.5 + completenessRaw * 0.5;
+
+  // 2. portfolio_skill_coverage (0-1): distinct skills across projects, capped at SKILL_COVERAGE_TARGET
+  const candidateSkills = new Set((projects ?? []).flatMap((p) => (p.skills ?? []).map((s: string) => s.toLowerCase())));
+  const skillCoverageScore = Math.min(candidateSkills.size / SKILL_COVERAGE_TARGET, 1);
+
+  // 3. demand_alignment (0-1): demand/supply ratio scoring.
+  // For each skill on the platform, demand = number of open postings requesting
+  // it, supply = number of distinct candidates who have it. Each of the
+  // candidate's skills earns demand/supply points. The candidate's raw total is
+  // normalised against the platform median candidate's total so that 1.0 = the
+  // median candidate's market alignment, >1 = above average, capped at 1.
+  const skillDemandCount = new Map<string, number>();
+  for (const p of employerPostings ?? []) {
+    for (const s of p.skills ?? []) {
+      const k = s.toLowerCase();
+      skillDemandCount.set(k, (skillDemandCount.get(k) ?? 0) + 1);
+    }
+  }
+  const skillSupplyCount = new Map<string, Set<string>>();
+  for (const p of allPortfolioProjects ?? []) {
+    for (const s of p.skills ?? []) {
+      const k = (s as string).toLowerCase();
+      const ids = skillSupplyCount.get(k) ?? new Set<string>();
+      ids.add(p.candidate_id);
+      skillSupplyCount.set(k, ids);
+    }
+  }
+
+  let demandAlignmentScore = 0;
+  if (candidateSkills.size > 0 && skillDemandCount.size > 0) {
+    const dsRatio = (skill: string) => {
+      const demand = skillDemandCount.get(skill) ?? 0;
+      const supply = Math.max(1, skillSupplyCount.get(skill)?.size ?? 0);
+      return demand / supply;
+    };
+    const candidateTotal = [...candidateSkills].reduce((sum, s) => sum + dsRatio(s), 0);
+
+    // Compute every candidate's total to find the median for normalisation
+    const byCandId = new Map<string, Set<string>>();
+    for (const p of allPortfolioProjects ?? []) {
+      const skills = byCandId.get(p.candidate_id) ?? new Set<string>();
+      for (const s of p.skills ?? []) skills.add((s as string).toLowerCase());
+      byCandId.set(p.candidate_id, skills);
+    }
+    const allTotals = [...byCandId.values()]
+      .map((skills) => [...skills].reduce((sum, s) => sum + dsRatio(s), 0))
+      .sort((a, b) => a - b);
+    const medianTotal = allTotals.length > 0
+      ? allTotals[Math.floor(allTotals.length / 2)]
+      : 1;
+    const norm = Math.max(medianTotal, 0.01);
+    demandAlignmentScore = Math.min(candidateTotal / norm, 1);
   }
 
   // 4. reputation_score (0-1): normalised from reputation_events sum
@@ -119,26 +171,16 @@ Deno.serve(async (req: Request) => {
     reputationScore = Math.max(0, Math.min(100, repSum)) / 100;
   }
 
-  // 5. response_rate (0-1): responded matches / total received (last 30 days)
-  let responseRate = 0.5;
-  if (recentMatches && recentMatches.length > 0) {
-    const responded = recentMatches.filter(
-      (m) => m.status === "accepted" || m.status === "declined"
-    ).length;
-    responseRate = responded / recentMatches.length;
-  }
-
-  // 6. profile_completeness (0-1)
+  // 5. profile_completeness (0-1)
   const profileFields = [
     candidate?.years_exp_claimed != null,
     (postingCount ?? 0) > 0,
   ];
   const profileCompletenessScore = profileFields.filter(Boolean).length / profileFields.length;
 
-  // 7. portfolio_feedback (0-1): avg employer rating (1-5) of "did the
-  // portfolio accurately reflect this candidate's ability", normalised.
-  // Neutral 0.5 default until an employer has rated this candidate.
-  let portfolioFeedbackScore = 0.5;
+  // 6. portfolio_feedback (0-1): avg employer rating (1-5), normalised.
+  // Starts at 1.0 (perfect); drops to the actual mean once feedback arrives.
+  let portfolioFeedbackScore = 1.0;
   if (feedbackRows && feedbackRows.length > 0) {
     const avgRating = feedbackRows.reduce((sum, f) => sum + f.rating, 0) / feedbackRows.length;
     portfolioFeedbackScore = (avgRating - 1) / 4;
@@ -146,12 +188,11 @@ Deno.serve(async (req: Request) => {
 
   // Weighted composite score (0-100)
   const composite =
-    (breadthScore * WEIGHTS.portfolio_breadth +
+    (portfolioQualityScore * WEIGHTS.portfolio_quality +
       skillCoverageScore * WEIGHTS.portfolio_skill_coverage +
-      completenessScore * WEIGHTS.portfolio_completeness +
       portfolioFeedbackScore * WEIGHTS.portfolio_feedback +
       reputationScore * WEIGHTS.reputation_score +
-      responseRate * WEIGHTS.response_rate +
+      demandAlignmentScore * WEIGHTS.demand_alignment +
       profileCompletenessScore * WEIGHTS.profile_completeness) *
     100;
 
@@ -183,12 +224,11 @@ Deno.serve(async (req: Request) => {
   });
 
   const signals = {
-    portfolio_breadth: breadthScore,
+    portfolio_quality: portfolioQualityScore,
     portfolio_skill_coverage: skillCoverageScore,
-    portfolio_completeness: completenessScore,
     portfolio_feedback: portfolioFeedbackScore,
     reputation_score: reputationScore,
-    response_rate: responseRate,
+    demand_alignment: demandAlignmentScore,
     profile_completeness: profileCompletenessScore,
   };
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { TopBar } from "@/components/terminal/TopBar";
-import { Sidebar } from "@/components/terminal/Sidebar";
+import { Sidebar, MobileNav } from "@/components/terminal/Sidebar";
 import { MatchTickerTapeLazy as MatchTickerTape } from "@/components/terminal/MatchTickerTapeLazy";
 import { CommandBar } from "@/components/terminal/CommandBar";
 import { StatusBar } from "@/components/terminal/StatusBar";
@@ -50,11 +50,12 @@ export default async function CandidateLayout({
         <CommandBar commands={CANDIDATE_COMMANDS} />
         <MatchTickerTape />
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <Sidebar nav={NAV} role="candidate" label={accountName || undefined} />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
         </div>
 
+        <MobileNav nav={NAV} />
         <StatusBar fkeys={CANDIDATE_FKEYS} />
       </div>
       <CommandHelpModal commands={CANDIDATE_COMMANDS} />

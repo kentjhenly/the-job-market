@@ -137,6 +137,7 @@ export function ConciergeClient({ postings, matchSalaryPointCount, candidates, e
         employer_id: selected.employer_id,
         candidate_id: pitchTarget.candidate_id,
         posting_id: selected.id,
+        candidate_posting_id: pitchTarget.candidate_posting_id,
         pitch_message: pitchMsg,
         offered_salary: pitchSalary ? Math.round(parseFloat(pitchSalary) * 100) : null,
       }),

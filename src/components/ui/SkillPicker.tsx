@@ -30,11 +30,12 @@ interface SkillPickerProps {
   selected: string[];
   onToggle: (skill: string) => void;
   industry?: VerticalType | "";
-  verifiedVerticals?: VerticalType[];
+  verifiedSkills?: string[];
   max?: number;
 }
 
-export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = [], max }: SkillPickerProps) {
+export function SkillPicker({ selected, onToggle, industry, verifiedSkills = [], max }: SkillPickerProps) {
+  const verifiedSet = new Set(verifiedSkills);
   const [query, setQuery] = useState("");
   const atCap = max != null && selected.length >= max;
 
@@ -59,10 +60,16 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
 
   return (
     <div className="space-y-4">
+      {verifiedSet.size > 0 && (
+        <p className="mono flex items-center gap-1.5" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.04em" }}>
+          <span style={{ color: "var(--up)" }}>✓</span> VERIFIED BY PORTFOLIO PROJECT
+        </p>
+      )}
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selected.map((skill) => (
             <Badge key={skill} variant="up">
+              {verifiedSet.has(skill) && "✓ "}
               {skill}
               <button
                 type="button"
@@ -81,11 +88,11 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
         <div>
           <div className="mb-1.5 flex items-center gap-2">
             <span className="kicker">{industry.toUpperCase()}</span>
-            {verifiedVerticals.includes(industry as VerticalType) && <Badge variant="up">✓ VERIFIED</Badge>}
           </div>
           <div className="flex flex-wrap gap-2">
             {suggested.map((skill) => {
               const isSelected = selected.includes(skill.name);
+              const isVerified = verifiedSet.has(skill.name);
               return (
                 <button
                   type="button"
@@ -93,10 +100,16 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
                   onClick={() => toggle(skill.name)}
                   className={cn(
                     "badge",
-                    isSelected ? "badge-up" : "badge-muted",
+                    isSelected ? "badge-up" : isVerified ? "badge-up" : "badge-muted",
                     !isSelected && atCap && "cursor-not-allowed opacity-40"
                   )}
+                  style={
+                    isVerified && !isSelected
+                      ? { borderColor: "color-mix(in oklch, var(--up) 55%, transparent)" }
+                      : undefined
+                  }
                 >
+                  {isVerified && "✓ "}
                   {skill.name}
                 </button>
               );
@@ -114,17 +127,30 @@ export function SkillPicker({ selected, onToggle, industry, verifiedVerticals = 
         />
         {results.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
-            {results.map((skill) => (
-              <button
-                type="button"
-                key={skill.name}
-                onClick={() => toggle(skill.name)}
-                className={cn("badge badge-muted", atCap && "cursor-not-allowed opacity-40")}
-              >
-                {skill.name}
-                <span style={{ opacity: 0.55 }}>{skill.vertical.toUpperCase()}</span>
-              </button>
-            ))}
+            {results.map((skill) => {
+              const isVerified = verifiedSet.has(skill.name);
+              return (
+                <button
+                  type="button"
+                  key={skill.name}
+                  onClick={() => toggle(skill.name)}
+                  className={cn(
+                    "badge",
+                    isVerified ? "badge-up" : "badge-muted",
+                    atCap && "cursor-not-allowed opacity-40"
+                  )}
+                  style={
+                    isVerified
+                      ? { borderColor: "color-mix(in oklch, var(--up) 55%, transparent)" }
+                      : undefined
+                  }
+                >
+                  {isVerified && "✓ "}
+                  {skill.name}
+                  <span style={{ opacity: 0.55 }}>{skill.vertical.toUpperCase()}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

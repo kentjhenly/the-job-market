@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+
 import { Modal } from "@/components/ui/Modal";
 import { SkillPicker } from "@/components/ui/SkillPicker";
 import type { Database } from "@/lib/supabase/types";
@@ -20,9 +20,17 @@ function fileExt(name: string): string {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function isValidUrl(url: string): boolean {
   try {
-    return new URL(url).protocol.startsWith("http");
+    const u = new URL(normalizeUrl(url));
+    return u.protocol.startsWith("http") && u.hostname.includes(".");
   } catch {
     return false;
   }
@@ -56,6 +64,10 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const hasExistingFile = isEditing && !!initial?.file_name;
+  const [artifactMode, setArtifactMode] = useState<"link" | "file">(
+    hasExistingFile ? "file" : "link"
+  );
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -76,7 +88,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     const formData = new FormData();
     formData.set("title", form.title);
     formData.set("description", form.description);
-    formData.set("link_url", form.link_url);
+    formData.set("link_url", form.link_url ? normalizeUrl(form.link_url) : "");
     formData.set("skills", JSON.stringify(form.skills));
     if (file) formData.set("file", file);
     if (removeFile) formData.set("remove_file", "true");
@@ -110,9 +122,33 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     [file]
   );
 
+  const [iframeError, setIframeError] = useState(false);
+  useEffect(() => setIframeError(false), [form.link_url]);
+
   let preview: React.ReactNode;
   let previewLabel: string;
-  if (file) {
+  if (form.link_url && isValidUrl(form.link_url)) {
+    const normalized = normalizeUrl(form.link_url);
+    previewLabel = normalized;
+    preview = iframeError ? (
+      <div className="flex h-48 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
+        <span className="kicker">PREVIEW BLOCKED BY SITE</span>
+      </div>
+    ) : (
+      <div className="relative h-48 w-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+        <iframe
+          key={normalized}
+          src={normalized}
+          title="Website preview"
+          sandbox="allow-scripts allow-same-origin"
+          loading="lazy"
+          onError={() => setIframeError(true)}
+          className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
+          style={{ width: 1280, height: 960, transform: "scale(0.328125)" }}
+        />
+      </div>
+    );
+  } else if (file) {
     previewLabel = file.name;
     preview = filePreviewUrl ? (
       // eslint-disable-next-line @next/next/no-img-element -- local object URL
@@ -127,17 +163,6 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
       <img src={`/api/portfolio/${initial.id}/file`} alt={initial.file_name} className="h-48 w-full object-cover" style={{ background: "var(--bg-deep)" }} />
     ) : (
       <ExtBlock ext={fileExt(initial.file_name)} />
-    );
-  } else if (form.link_url && isValidUrl(form.link_url)) {
-    previewLabel = form.link_url;
-    preview = (
-      // eslint-disable-next-line @next/next/no-img-element -- external screenshot service
-      <img
-        src={`https://s.wordpress.com/mshots/v1/${encodeURIComponent(form.link_url)}?w=840`}
-        alt="Website preview"
-        className="h-48 w-full object-cover"
-        style={{ background: "var(--bg-deep)" }}
-      />
     );
   } else {
     previewLabel = "NO MEDIA";
@@ -193,113 +218,131 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
 
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">PROJECT LINK</span>
-            <Badge variant="up">RECOMMENDED</Badge>
+            <span className="panel-title">ARTIFACT</span>
+            <div className="ml-auto flex overflow-hidden rounded-md border border-border">
+              {(["link", "file"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className="mono"
+                  style={{
+                    fontSize: 10.5,
+                    letterSpacing: "0.1em",
+                    padding: "4px 10px",
+                    background: artifactMode === mode ? "var(--surface-3)" : "transparent",
+                    color: artifactMode === mode ? "var(--up)" : "var(--muted)",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setArtifactMode(mode)}
+                >
+                  {mode.toUpperCase()}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="p-4">
-            <label className="kicker mb-1.5 block">EXTERNAL URL</label>
-            <input
-              value={form.link_url}
-              onChange={(e) => setForm((f) => ({ ...f, link_url: e.target.value }))}
-              className="field"
-              type="url"
-            />
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <span className="panel-title">FILE UPLOAD</span>
-            <Badge variant="muted">OPTIONAL</Badge>
-          </div>
-          <div className="space-y-3 p-4">
-            {isEditing && initial.file_name && !removeFile && !file && (
-              <div className="flex items-center justify-between">
-                <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
-                  📎 {initial.file_name}
-                </span>
-                <div className="flex items-center gap-3">
-                  <a
-                    href={`/api/portfolio/${initial.id}/file`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="link-up mono"
-                    style={{ fontSize: 11 }}
-                  >
-                    VIEW
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setRemoveFile(true)}
-                    className="mono"
-                    style={{ fontSize: 11, color: "var(--down)" }}
-                  >
-                    REMOVE FILE
-                  </button>
-                </div>
+            {artifactMode === "link" ? (
+              <div>
+                <label className="kicker mb-1.5 block">EXTERNAL URL</label>
+                <input
+                  value={form.link_url}
+                  onChange={(e) => setForm((f) => ({ ...f, link_url: e.target.value }))}
+                  className="field"
+                  type="text"
+                />
               </div>
-            )}
+            ) : (
+              <div className="space-y-3">
+                {isEditing && initial.file_name && !removeFile && !file && (
+                  <div className="flex items-center justify-between">
+                    <span className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
+                      {initial.file_name}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={`/api/portfolio/${initial.id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="link-up mono"
+                        style={{ fontSize: 11 }}
+                      >
+                        VIEW
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setRemoveFile(true)}
+                        className="mono"
+                        style={{ fontSize: 11, color: "var(--down)" }}
+                      >
+                        REMOVE
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-            {removeFile && (
-              <div className="flex items-center justify-between">
-                <span className="mono" style={{ fontSize: 11, color: "var(--down)" }}>
-                  FILE WILL BE REMOVED ON SAVE
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setRemoveFile(false)}
-                  className="link-up mono"
-                  style={{ fontSize: 11 }}
+                {removeFile && (
+                  <div className="flex items-center justify-between">
+                    <span className="mono" style={{ fontSize: 11, color: "var(--down)" }}>
+                      FILE WILL BE REMOVED ON SAVE
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveFile(false)}
+                      className="link-up mono"
+                      style={{ fontSize: 11 }}
+                    >
+                      UNDO
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null);
+                    setRemoveFile(false);
+                  }}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const dropped = e.dataTransfer.files?.[0];
+                    if (dropped) {
+                      setFile(dropped);
+                      setRemoveFile(false);
+                    }
+                  }}
+                  className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md py-8 text-center transition-colors"
+                  style={{
+                    border: `1px dashed ${dragOver ? "var(--up)" : "var(--border-strong)"}`,
+                    background: dragOver ? "var(--up-dim)" : "var(--surface-2)",
+                  }}
                 >
-                  UNDO
-                </button>
+                  <span className="mono" style={{ fontSize: 24, lineHeight: 1, color: dragOver ? "var(--up)" : "var(--muted)" }}>
+                    +
+                  </span>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", letterSpacing: "0.08em" }}>
+                    {file ? file.name : "ADD FILE"}
+                  </span>
+                  <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                    {file ? "CLICK OR DROP TO REPLACE" : "DROP FILES HERE OR CLICK TO BROWSE"}
+                  </span>
+                </div>
+                <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                  MAX 10MB · IMAGES, PDF, DOCX, PPTX, ZIP, ETC.
+                </p>
               </div>
             )}
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
-                setRemoveFile(false);
-              }}
-              className="hidden"
-            />
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const dropped = e.dataTransfer.files?.[0];
-                if (dropped) {
-                  setFile(dropped);
-                  setRemoveFile(false);
-                }
-              }}
-              className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md py-8 text-center transition-colors"
-              style={{
-                border: `1px dashed ${dragOver ? "var(--up)" : "var(--border-strong)"}`,
-                background: dragOver ? "var(--up-dim)" : "var(--surface-2)",
-              }}
-            >
-              <span className="mono" style={{ fontSize: 24, lineHeight: 1, color: dragOver ? "var(--up)" : "var(--muted)" }}>
-                +
-              </span>
-              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", letterSpacing: "0.08em" }}>
-                {file ? file.name : "ADD FILE"}
-              </span>
-              <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
-                {file ? "CLICK OR DROP TO REPLACE" : "DROP FILES HERE OR CLICK TO BROWSE"}
-              </span>
-            </div>
-            <p className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-              MAX 10MB · IMAGES, PDF, DOCX, PPTX, ZIP, ETC.
-            </p>
           </div>
         </div>
 

@@ -127,6 +127,70 @@ export async function sendEmailChangeVerification({
   });
 }
 
+interface NewMessageNotificationParams {
+  to: string;
+  senderName: string;
+  matchUrl: string;
+}
+
+export async function sendNewMessageNotification({
+  to,
+  senderName,
+  matchUrl,
+}: NewMessageNotificationParams) {
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `New message from ${senderName} - The Job Market`,
+    html: `
+      <div style="font-family: monospace; background: #0a0a0a; color: #ededed; padding: 32px; max-width: 480px;">
+        <p style="color: #00ff41; font-size: 12px; letter-spacing: 4px; margin: 0 0 16px;">THE JOB MARKET</p>
+        <h2 style="color: #ffffff; font-size: 18px; margin: 0 0 8px;">NEW MESSAGE</h2>
+        <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">
+          <strong style="color: #fff;">${senderName}</strong> sent you a message.
+        </p>
+        <a href="${matchUrl}" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+          VIEW CHAT →
+        </a>
+      </div>
+    `,
+  });
+}
+
+interface HireOfferNotificationParams {
+  to: string;
+  companyName: string;
+  offeredSalary: number;
+}
+
+export async function sendHireOfferNotification({
+  to,
+  companyName,
+  offeredSalary,
+}: HireOfferNotificationParams) {
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Hire offer from ${companyName} - The Job Market`,
+    html: `
+      <div style="font-family: monospace; background: #0a0a0a; color: #ededed; padding: 32px; max-width: 480px;">
+        <p style="color: #00ff41; font-size: 12px; letter-spacing: 4px; margin: 0 0 16px;">THE JOB MARKET</p>
+        <h2 style="color: #ffd700; font-size: 18px; margin: 0 0 8px;">HIRE OFFER RECEIVED</h2>
+        <p style="color: #a0a0a0; font-size: 13px; margin: 0 0 24px;">
+          <strong style="color: #fff;">${companyName}</strong> has sent you a formal hire offer.
+        </p>
+        <p style="color: #ffd700; font-size: 16px; font-weight: bold; margin: 0 0 24px;">
+          HKD ${(offeredSalary / 100).toLocaleString()} / MO
+        </p>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/candidate/matches" style="display: inline-block; background: #00ff41; color: #0a0a0a; font-weight: bold; padding: 12px 24px; text-decoration: none; font-size: 12px; letter-spacing: 3px;">
+          VIEW OFFER →
+        </a>
+        <p style="color: #444; font-size: 11px; margin-top: 32px;">Open the chat to accept or decline this offer.</p>
+      </div>
+    `,
+  });
+}
+
 interface WelcomeEmailParams {
   to: string;
   name: string;

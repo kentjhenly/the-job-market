@@ -2,7 +2,23 @@
 
 import { useEffect, useState } from "react";
 
-export function NotificationsForm() {
+interface NotificationsFormProps {
+  role: "candidate" | "employer";
+}
+
+const CANDIDATE_ITEMS = [
+  "New pitch from an employer",
+  "New chat message in an accepted match",
+  "Hire offer received",
+];
+
+const EMPLOYER_ITEMS = [
+  "Candidate accepts your pitch",
+  "New chat message in an accepted match",
+  "Offer accepted, declined, or withdrawn",
+];
+
+export function NotificationsForm({ role }: NotificationsFormProps) {
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -31,10 +47,12 @@ export function NotificationsForm() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } else {
-      setEnabled(previous); // revert the optimistic toggle on failure
+      setEnabled(previous);
       setError(true);
     }
   }
+
+  const items = role === "candidate" ? CANDIDATE_ITEMS : EMPLOYER_ITEMS;
 
   return (
     <div className="panel">
@@ -42,9 +60,25 @@ export function NotificationsForm() {
         <span className="panel-title">EMAIL NOTIFICATIONS</span>
       </div>
       <div className="space-y-4 p-4">
-        <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.6 }}>
-          Activity emails let you know when you receive a new pitch or when a pitch is accepted. Account emails
-          (verification, password, and email changes) are always sent.
+        <div>
+          <p className="kicker mb-2" style={{ color: "var(--dim)" }}>
+            WHEN ENABLED, YOU WILL RECEIVE EMAILS FOR:
+          </p>
+          <ul className="space-y-1.5 pl-1">
+            {items.map((item) => (
+              <li
+                key={item}
+                className="mono flex items-start gap-2"
+                style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}
+              >
+                <span style={{ color: "var(--up)" }}>+</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="mono" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.6 }}>
+          Account emails (verification, password, and email changes) are always sent regardless of this setting.
         </p>
         <label className="flex cursor-pointer items-center gap-3">
           <input
@@ -58,7 +92,7 @@ export function NotificationsForm() {
         </label>
         {saved && (
           <span className="mono" style={{ fontSize: 11, color: "var(--up)" }}>
-            SAVED ✓
+            SAVED
           </span>
         )}
         {error && (

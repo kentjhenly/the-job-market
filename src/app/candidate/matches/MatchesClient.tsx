@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -8,6 +9,7 @@ import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
 import { repBadgeVariant } from "@/lib/utils/score";
 import { MatchChat } from "@/components/terminal/MatchChat";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { OfferStatus } from "@/lib/supabase/types";
 
 interface Match {
@@ -54,13 +56,14 @@ const statusVariant: Record<string, "up" | "down" | "gold" | "muted"> = {
   accepted: "up",
   declined: "down",
   ghosted: "down",
+  withdrawn: "down",
   expired: "muted",
   pending: "gold",
 };
 
 const COLUMNS = "1.2rem 1fr 6rem 6rem 7.5rem 7.5rem 5.5rem";
 const HEADERS = ["", "EMPLOYER", "OFFERED", "SENT", "MATCH", "OFFER STATUS", ""];
-const FILTERS = ["all", "pending", "accepted", "declined", "ghosted"] as const;
+const FILTERS = ["all", "pending", "accepted", "declined", "ghosted", "withdrawn"] as const;
 
 function isUnread(m: Match) {
   return (
@@ -78,12 +81,13 @@ function expiryCountdown(expiresAt: string): string {
 
 function OfferStatusBadge({ match }: { match: Match }) {
   if (match.hired_at) return <Badge variant="up">ACCEPTED</Badge>;
-  if (match.status === "accepted" && match.offer_status === "reneged") return <Badge variant="down">OFFER RENEGED</Badge>;
-  if (match.status === "accepted" && match.offer_status === "declined") return <Badge variant="down">OFFER WITHDRAWN</Badge>;
+  if (match.status === "accepted" && match.offer_status === "pending") return <Badge variant="gold">OFFER PENDING</Badge>;
   if (match.status === "accepted") return <Badge variant="muted">IN DISCUSSION</Badge>;
   if (match.status === "pending") return <Badge variant="muted">PENDING</Badge>;
+  if (match.status === "declined" && match.offer_salary != null && !match.hired_at) return <Badge variant="down">RENEGED</Badge>;
   if (match.status === "declined") return <Badge variant="down">DECLINED</Badge>;
   if (match.status === "ghosted") return <Badge variant="down">GHOSTED</Badge>;
+  if (match.status === "withdrawn") return <Badge variant="down">WITHDRAWN</Badge>;
   return <Badge variant="muted">{match.status.toUpperCase()}</Badge>;
 }
 
@@ -92,6 +96,8 @@ interface MatchesClientProps {
 }
 
 export function MatchesClient({ matches: initial }: MatchesClientProps) {
+  const router = useRouter();
+  const mobile = useIsMobile();
   const [matches, setMatches] = useState<Match[]>(initial);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -103,20 +109,26 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
   const [pitchConfirmChecked, setPitchConfirmChecked] = useState(false);
   const [pitchConfirmSending, setPitchConfirmSending] = useState(false);
   const [pitchConfirmError, setPitchConfirmError] = useState<string | null>(null);
-  const [offerConfirm, setOfferConfirm] = useState<{ matchId: string; action: "accept" | "renege" } | null>(null);
+  const [offerConfirm, setOfferConfirm] = useState<{ matchId: string; action: "accept" | "decline" } | null>(null);
   const [confirmStep, setConfirmStep] = useState<ConfirmStep>("none");
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [confirmSending, setConfirmSending] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [renegeMatchId, setRenegeMatchId] = useState<string | null>(null);
+  const [renegeStep, setRenegeStep] = useState<ConfirmStep>("none");
+  const [renegeChecked, setRenegeChecked] = useState(false);
+  const [renegeSending, setRenegeSending] = useState(false);
+  const [renegeError, setRenegeError] = useState<string | null>(null);
 
-  const matchRank: Record<string, number> = { pending: 0, accepted: 1, declined: 2, ghosted: 3 };
+  const matchRank: Record<string, number> = { pending: 0, accepted: 1, declined: 2, ghosted: 3, withdrawn: 4 };
   function offerRank(m: Match): number {
     if (m.status === "accepted" && m.offer_status === "pending") return 0;
     if (m.hired_at) return 1;
     if (m.status === "accepted") return 2;
     if (m.status === "declined") return 3;
     if (m.status === "ghosted") return 4;
-    return 5;
+    if (m.status === "withdrawn") return 5;
+    return 6;
   }
   const sorted = [...matches].sort((a, b) => (matchRank[a.status] ?? 9) - (matchRank[b.status] ?? 9) || offerRank(a) - offerRank(b));
   const filtered = filter === "all" ? sorted : sorted.filter((m) => m.status === filter);
@@ -177,6 +189,43 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     setLoading((prev) => ({ ...prev, [matchId]: false }));
   }
 
+  function startRenege(m: Match) {
+    setRenegeMatchId(m.id);
+    setRenegeStep("review");
+    setRenegeChecked(false);
+    setRenegeError(null);
+  }
+
+  function closeRenege() {
+    setRenegeMatchId(null);
+    setRenegeStep("none");
+    setRenegeChecked(false);
+    setRenegeError(null);
+  }
+
+  async function submitRenege() {
+    if (!renegeMatchId) return;
+    setRenegeSending(true);
+    setRenegeError(null);
+    const res = await fetch(`/api/matches/${renegeMatchId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "renege" }),
+    });
+    if (res.ok) {
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === renegeMatchId ? { ...m, status: "declined", offer_status: "declined", hired_at: null } : m
+        )
+      );
+      closeRenege();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setRenegeError(json.error ?? "FAILED TO RENEGE");
+    }
+    setRenegeSending(false);
+  }
+
   function markRead(m: Match) {
     const now = new Date().toISOString();
     setMatches((prev) => prev.map((mm) => (mm.id === m.id ? { ...mm, candidate_last_read_at: now } : mm)));
@@ -195,7 +244,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
     markRead(m);
   }
 
-  function startOfferConfirm(m: Match, action: "accept" | "renege") {
+  function startOfferConfirm(m: Match, action: "accept" | "decline") {
     setOfferConfirm({ matchId: m.id, action });
     setConfirmStep("review");
     setConfirmChecked(false);
@@ -255,16 +304,18 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
 
       {/* Table */}
       <div className="panel overflow-hidden" style={{ borderTop: "2px solid var(--gold)" }}>
-        <div
-          className="grid gap-4 px-4 py-2.5"
-          style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
-        >
-          {HEADERS.map((h, i) => (
-            <span key={i} className="kicker">
-              {h}
-            </span>
-          ))}
-        </div>
+        {!mobile && (
+          <div
+            className="grid gap-4 px-4 py-2.5"
+            style={{ gridTemplateColumns: COLUMNS, borderBottom: "1px solid var(--border-soft)" }}
+          >
+            {HEADERS.map((h, i) => (
+              <span key={i} className="kicker">
+                {h}
+              </span>
+            ))}
+          </div>
+        )}
 
         {filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
@@ -279,6 +330,90 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
             const sel = m.id === selectedId;
             const unread = isUnread(m);
             const secondLine = [m.employers?.industry, m.employers?.company_size].filter(Boolean).join(" · ");
+
+            if (mobile) {
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => openRow(m)}
+                  className="cursor-pointer px-4 py-3 transition-colors hover:bg-surface-2"
+                  style={{
+                    borderBottom: idx === filtered.length - 1 ? "none" : "1px solid var(--border-soft)",
+                    background: sel ? "var(--surface-2)" : unread ? "color-mix(in oklch, var(--up) 4%, transparent)" : "transparent",
+                    minHeight: 56,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {unread && <span className="live-dot shrink-0" />}
+                        <p className="mono truncate" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                          {m.employers?.company_name ?? "UNKNOWN COMPANY"}
+                        </p>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {m.offered_salary && (
+                          <span className="mono tnum" style={{ fontSize: 11, fontWeight: 600, color: "var(--up)" }}>
+                            {formatSalary(m.offered_salary)}
+                          </span>
+                        )}
+                        <span className="mono tnum" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                          {formatRelativeTime(m.created_at)}
+                          {m.status === "pending" && (
+                            <span style={{ color: "var(--gold)" }}>{` · ${expiryCountdown(m.expires_at)}`}</span>
+                          )}
+                        </span>
+                        {secondLine && (
+                          <span className="mono" style={{ fontSize: 10.5, color: "var(--dim)" }}>
+                            {secondLine}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <OfferStatusBadge match={m} />
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {m.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => startPitchConfirm(m, "accept")}
+                              title="Accept"
+                              className="btn btn-primary"
+                              style={{ width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                            >
+                              <svg width="14" height="12" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
+                                <polyline points="1,5 4.5,9 11,1" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => startPitchConfirm(m, "decline")}
+                              title="Decline"
+                              className="btn btn-danger-solid"
+                              style={{ width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
+                                <line x1="1" y1="1" x2="9" y2="9" />
+                                <line x1="9" y1="1" x2="1" y2="9" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                        {m.status === "accepted" && (
+                          <button
+                            onClick={() => openChat(m)}
+                            className="btn btn-sm"
+                            style={{ fontSize: 10.5, whiteSpace: "nowrap", minHeight: 44, background: "color-mix(in oklch, var(--up) 15%, transparent)", color: "var(--up)", border: "1px solid color-mix(in oklch, var(--up) 40%, transparent)" }}
+                          >
+                            CHAT →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={m.id}
@@ -295,7 +430,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   {unread && <span className="live-dot" />}
                 </div>
 
-                {/* EMPLOYER — 2-line */}
+                {/* EMPLOYER -- 2-line */}
                 <div className="min-w-0">
                   <p className="mono truncate" style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
                     {m.employers?.company_name ?? "UNKNOWN COMPANY"}
@@ -350,10 +485,10 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                       </button>
                     </>
                   )}
-                  {m.status === "accepted" && (
+                  {(m.status === "accepted" || (m.status === "declined" && m.offer_salary != null && !m.hired_at)) && (
                     <Badge variant="up" style={{ minWidth: 110 }}>MATCHED</Badge>
                   )}
-                  {(m.status === "declined" || m.status === "ghosted") && (
+                  {(m.status === "ghosted" || m.status === "withdrawn" || (m.status === "declined" && (m.offer_salary == null || !!m.hired_at))) && (
                     <Badge variant="down" style={{ minWidth: 110 }}>UNMATCHED</Badge>
                   )}
                 </div>
@@ -361,7 +496,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 {/* OFFER STATUS */}
                 <OfferStatusBadge match={m} />
 
-                {/* CHAT button — green */}
+                {/* CHAT button -- green */}
                 <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                   {m.status === "accepted" && (
                     <button
@@ -397,7 +532,11 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
               <span className="mono" style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>
                 {selected.employers?.company_name ?? "UNKNOWN COMPANY"}
               </span>
-              <Badge variant={statusVariant[selected.status] ?? "muted"}>{selected.status.toUpperCase()}</Badge>
+              <Badge variant={statusVariant[selected.status] ?? "muted"}>
+                {selected.status === "declined" && selected.offer_salary != null && !selected.hired_at
+                  ? "RENEGED"
+                  : selected.status.toUpperCase()}
+              </Badge>
             </div>
 
             <div>
@@ -439,8 +578,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                   <Button onClick={() => startOfferConfirm(selected, "accept")} className="flex-1">
                     ACCEPT OFFER
                   </Button>
-                  <Button variant="danger" onClick={() => startOfferConfirm(selected, "renege")} className="flex-1">
-                    RENEGE
+                  <Button variant="danger" onClick={() => startOfferConfirm(selected, "decline")} className="flex-1">
+                    DECLINE
                   </Button>
                 </div>
               </div>
@@ -489,19 +628,17 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
               )}
             </div>
 
-            {selected.pitch_message && (
-              <div>
-                <p className="kicker mb-2">PITCH MESSAGE</p>
-                <p className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.7 }}>
-                  {selected.pitch_message}
-                </p>
-              </div>
-            )}
-
             {selected.status === "accepted" && (
-              <Button variant="primary" className="w-full" onClick={() => openChat(selected)}>
-                OPEN CHAT →
-              </Button>
+              <div className="space-y-2">
+                <Button variant="primary" className="w-full" onClick={() => openChat(selected)}>
+                  OPEN CHAT →
+                </Button>
+                {selected.hired_at && (
+                  <Button variant="danger" className="w-full" onClick={() => startRenege(selected)}>
+                    RENEGE OFFER
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -535,7 +672,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         >
           <div className="panel-head">
             <span className="panel-title">CHAT</span>
-            <button onClick={() => setChatMatchId(null)} className="btn btn-ghost btn-sm">
+            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm">
               ✕
             </button>
           </div>
@@ -624,7 +761,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
       <Modal
         open={confirmStep !== "none"}
         onClose={closeOfferConfirm}
-        title={offerConfirm?.action === "accept" ? "ACCEPT HIRE OFFER" : "RENEGE ON HIRE OFFER"}
+        title={offerConfirm?.action === "accept" ? "ACCEPT HIRE OFFER" : "DECLINE HIRE OFFER"}
       >
         {confirmStep === "review" && (
           <div className="space-y-3">
@@ -633,7 +770,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 ? `Accepting this hire offer${
                     confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
                   } from ${confirmMatch?.employers?.company_name ?? "this employer"} finalises the salary and marks you as hired.`
-                : `Reneging on this hire offer${
+                : `Declining this hire offer${
                     confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""
                   } from ${confirmMatch?.employers?.company_name ?? "this employer"} rejects the proposed salary. The chat remains open for further negotiation.`}
             </p>
@@ -658,7 +795,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
             <p className="kicker" style={{ color: offerConfirm?.action === "accept" ? "var(--up)" : "var(--down)" }}>
               {offerConfirm?.action === "accept"
                 ? "CONFIRM: ACCEPT SALARY AND FINALISE HIRE"
-                : "CONFIRM: RENEGE ON THIS OFFER"}
+                : "CONFIRM: DECLINE THIS OFFER"}
             </p>
             <label className="flex items-start gap-2">
               <input
@@ -670,7 +807,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
               <span className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
                 {offerConfirm?.action === "accept"
                   ? `I understand that accepting this offer${confirmMatch?.offer_salary ? ` of ${formatSalary(confirmMatch.offer_salary)}/mo` : ""} is final and I will be marked as hired.`
-                  : "I understand that reneging rejects this offer. The employer may send a revised offer through the chat."}
+                  : "I understand that declining rejects this offer. The employer may send a revised offer through the chat."}
               </span>
             </label>
             {confirmError && <p className="kicker c-down">{confirmError}</p>}
@@ -685,7 +822,63 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                 loading={confirmSending}
                 onClick={submitOfferConfirm}
               >
-                {offerConfirm?.action === "accept" ? "ACCEPT OFFER" : "RENEGE"}
+                {offerConfirm?.action === "accept" ? "ACCEPT OFFER" : "DECLINE"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Renege confirm */}
+      <Modal open={renegeStep !== "none"} onClose={closeRenege} title="RENEGE ON ACCEPTED OFFER">
+        {renegeStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+              You&apos;re about to RENEGE on your accepted hire offer. This reverses the hire.
+            </p>
+            <p className="kicker c-down">
+              RENEGING REVERSES YOUR HIRE, PERMANENTLY CLOSES THIS MATCH, AND CARRIES A SEVERE
+              REPUTATION PENALTY.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closeRenege}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setRenegeStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {renegeStep === "final" && (
+          <div className="space-y-3">
+            <p className="kicker c-down">FINAL STEP — THIS CANNOT BE UNDONE</p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={renegeChecked}
+                onChange={(e) => setRenegeChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                I understand that reneging reverses my hire, incurs a reputation penalty, and cannot be
+                undone.
+              </span>
+            </label>
+            {renegeError && <p className="kicker c-down">{renegeError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setRenegeStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={!renegeChecked}
+                loading={renegeSending}
+                onClick={submitRenege}
+              >
+                CONFIRM RENEGE
               </Button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { TopBar } from "@/components/terminal/TopBar";
-import { Sidebar } from "@/components/terminal/Sidebar";
+import { Sidebar, MobileNav } from "@/components/terminal/Sidebar";
 import { MatchTickerTapeLazy as MatchTickerTape } from "@/components/terminal/MatchTickerTapeLazy";
 import { CommandBar } from "@/components/terminal/CommandBar";
 import { StatusBar } from "@/components/terminal/StatusBar";
@@ -54,11 +54,12 @@ export default async function EmployerLayout({
         <CommandBar commands={EMPLOYER_COMMANDS} />
         <MatchTickerTape />
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           <Sidebar nav={NAV} role="employer" label={employer?.company_name?.toUpperCase() || undefined} />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
         </div>
 
+        <MobileNav nav={NAV} />
         <StatusBar fkeys={EMPLOYER_FKEYS} />
       </div>
       <CommandHelpModal commands={EMPLOYER_COMMANDS} />

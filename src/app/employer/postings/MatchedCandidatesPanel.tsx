@@ -81,6 +81,7 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
       body: JSON.stringify({
         candidate_id: pitchTarget.candidate_id,
         posting_id: postingId,
+        candidate_posting_id: pitchTarget.candidate_posting_id,
         pitch_message: pitchMsg,
         offered_salary: pitchSalary ? Math.round(parseFloat(pitchSalary) * 100) : null,
       }),

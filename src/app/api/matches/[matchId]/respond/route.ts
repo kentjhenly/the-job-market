@@ -5,6 +5,7 @@ import { sendMatchAcceptedNotification } from "@/lib/email/send";
 import { captureServerEvent } from "@/lib/analytics/server";
 import { parseBody } from "@/lib/utils/api";
 import { respondSchema } from "@/lib/utils/schemas";
+import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
 
 export async function POST(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function POST(
   // Verify the candidate owns this match
   const { data: match } = await supabase
     .from("matches")
-    .select("id, employer_id, candidate_id, status, offered_salary, posting_id")
+    .select("id, employer_id, candidate_id, status, offered_salary, posting_id, pitch_message")
     .eq("id", matchId)
     .eq("candidate_id", session.user.id)
     .single();
@@ -56,16 +57,18 @@ export async function POST(
     match_id: matchId,
   });
 
+  // Seed the chat with the employer's pitch message so it appears as the
+  // first message when the candidate opens the conversation.
+  if (action === "accept" && match.pitch_message) {
+    await supabase.from("match_messages").insert({
+      match_id: matchId,
+      sender_id: match.employer_id,
+      body: match.pitch_message,
+    });
+  }
+
   // If accepted, insert match ticker event
   if (action === "accept") {
-    await supabase.from("reputation_events").insert({
-      subject_id: match.employer_id,
-      actor_id: match.candidate_id,
-      event_type: "completed_match",
-      weight: 1,
-      match_id: matchId,
-    });
-
     // Pull real posting + candidate data so the ticker entry (and any new
     // salary data point) reflect this match instead of generic placeholders.
     const [{ data: posting }, { data: candidate }] = await Promise.all([
@@ -173,6 +176,8 @@ export async function POST(
       }).catch((err) => console.error("sendMatchAcceptedNotification failed:", err));
     }
   }
+
+  triggerRecommendationScorer(match.candidate_id);
 
   return NextResponse.json({ status: newStatus });
 }

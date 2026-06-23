@@ -21,6 +21,11 @@ const pool =
     max: 3,
     min: 0,
     idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 5_000,
+    // Supabase's pooler (PgBouncer) silently closes idle TCP sockets; keepalive
+    // lets the OS detect the dead connection before pg tries to reuse it.
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
   });
 if (process.env.NODE_ENV !== "production") globalForPool.__betterAuthPool = pool;
 

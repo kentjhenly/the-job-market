@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { sendNewMessageNotification } from "@/lib/email/send";
 import { readColumnUpdate } from "@/lib/utils/matchReads";
 import { MAX_CHAT_FILE_SIZE_MB, MAX_CHAT_MESSAGE_LEN } from "@/lib/utils/constants";
 import { sanitizeStorageFileName } from "@/lib/utils/security";
@@ -121,6 +122,27 @@ export async function POST(
     .from("matches")
     .update({ last_message_at: now, ...readColumnUpdate(match, session.user.id, now) })
     .eq("id", matchId);
+
+  const recipientId =
+    match.candidate_id === session.user.id ? match.employer_id : match.candidate_id;
+  const role = match.candidate_id === session.user.id ? "candidate" : "employer";
+  const matchUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${role === "candidate" ? "employer" : "candidate"}/matches`;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, email, display_name, email_notifications")
+    .in("id", [session.user.id, recipientId]);
+
+  const sender = profiles?.find((p) => p.id === session.user.id);
+  const recipient = profiles?.find((p) => p.id === recipientId);
+
+  if (sender && recipient && recipient.email_notifications !== false) {
+    sendNewMessageNotification({
+      to: recipient.email,
+      senderName: sender.display_name,
+      matchUrl,
+    }).catch((err) => console.error("sendNewMessageNotification failed:", err));
+  }
 
   return NextResponse.json({ message });
 }

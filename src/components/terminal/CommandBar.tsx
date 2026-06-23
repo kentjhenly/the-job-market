@@ -71,7 +71,7 @@ export function CommandBar({ commands }: { commands: CommandDef[] }) {
         {!focused && !value && (
           <span className="pointer-events-none absolute left-0 inline-flex items-center gap-[9px]">
             <span className="cmd-blink" />
-            <span className="mono" style={{ fontSize: 11, color: "var(--dim)", letterSpacing: "0.1em" }}>
+            <span className="mono hidden sm:inline" style={{ fontSize: 11, color: "var(--dim)", letterSpacing: "0.1em" }}>
               TYPE A COMMAND — {commands.map((c) => c.cmd).join(" · ")}
             </span>
           </span>
@@ -111,7 +111,7 @@ export function CommandBar({ commands }: { commands: CommandDef[] }) {
           {message.ok ? "✓" : "✕"} {message.text}
         </span>
       )}
-      <span className="mono whitespace-nowrap" style={{ fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em" }}>
+      <span className="mono hidden whitespace-nowrap sm:inline" style={{ fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em" }}>
         / FOCUS · ENTER RUN
       </span>
     </div>

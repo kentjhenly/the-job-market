@@ -42,11 +42,19 @@ type PitchStats = {
   ghosted: number;
   nextExpiry: string | null;
 };
-// Skill × industry demand matrix for the SKILL DEMAND heatmap. cells[skillIdx]
-// aligns with skills; each inner array aligns with categories. Values are the
-// number of open employer roles in that vertical asking for that skill.
-type SkillDemand = { skills: string[]; categories: string[]; cells: number[][] };
+// Skill × role demand matrix for the SKILL DEMAND heatmap. cells[skillIdx]
+// aligns with skills; each inner array aligns with categories (role titles).
+// Values are demand/supply ratios per cell.
+type SkillDemand = { skills: string[]; categories: string[]; openings: number; cells: number[][] };
 type ScorePoint = { composite_score: number; recorded_at: string };
+type AvgSignals = {
+  portfolio_quality: number;
+  portfolio_skill_coverage: number;
+  portfolio_feedback: number;
+  reputation_score: number;
+  demand_alignment: number;
+};
+
 interface Props {
   candidateId: string;
   candidate: Candidate | null;
@@ -57,6 +65,7 @@ interface Props {
   projects: PortfolioProject[];
   scoreHistory: ScorePoint[];
   totalVisible: number;
+  avgSignals: AvgSignals;
 }
 
 // Human label for time until a pending pitch's 72h expiry.
@@ -105,34 +114,29 @@ interface SalaryData {
 // Mirrors the signal breakdown returned by /api/candidates/me/score, which in
 // turn mirrors supabase/functions/recommendation-scorer/index.ts.
 interface Signals {
-  portfolio_breadth: number;
+  portfolio_quality: number;
   portfolio_skill_coverage: number;
-  portfolio_completeness: number;
   portfolio_feedback: number;
   reputation_score: number;
-  response_rate: number;
+  demand_alignment: number;
   profile_completeness: number;
 }
 
 const SIGNAL_WEIGHTS: Record<keyof Signals, number> = {
-  portfolio_breadth: 0.2,
+  portfolio_quality: 0.25,
   portfolio_skill_coverage: 0.25,
-  portfolio_completeness: 0.1,
   portfolio_feedback: 0.1,
-  reputation_score: 0.2,
-  response_rate: 0.1,
+  reputation_score: 0.25,
+  demand_alignment: 0.1,
   profile_completeness: 0.05,
 };
 
-// One suggestion per scorer signal, ranked by how much closing the gap to a
-// perfect score (1.0) would move the weighted composite.
 const SIGNAL_SUGGESTIONS: { key: keyof Signals; text: string }[] = [
   { key: "portfolio_skill_coverage", text: "Add a project covering new skills to widen your skill coverage." },
-  { key: "portfolio_breadth", text: "Add another portfolio project to build out your breadth." },
-  { key: "portfolio_completeness", text: "Attach a file or link and tag skills on every project to lift completeness." },
+  { key: "portfolio_quality", text: "Add more projects with files or links and tagged skills to raise portfolio quality." },
+  { key: "demand_alignment", text: "Add projects with skills employers are hiring for to improve your market alignment." },
   { key: "profile_completeness", text: "Set your experience in Settings and add a position in Postings (role, location, salary)." },
   { key: "reputation_score", text: "Stay responsive in chats so accepted matches don't go silent and ghost." },
-  { key: "response_rate", text: "Respond to pending pitches promptly to lift your response rate." },
   { key: "portfolio_feedback", text: "Keep portfolio projects accurate to your real skills, employers rate this after a match." },
 ];
 
@@ -167,7 +171,7 @@ function PitchFunnel({ stats }: { stats: PitchStats }) {
         const prev = i > 0 ? stages[i - 1].n || 1 : null;
         const conv = prev != null ? Math.round((s.n / prev) * 100) : null;
         return (
-          <div key={s.k} className="grid items-center gap-3" style={{ gridTemplateColumns: "5rem 1fr 2.5rem" }}>
+          <div key={s.k} className="grid items-center gap-2 sm:gap-3" style={{ gridTemplateColumns: "4rem 1fr 2.5rem" }}>
             <span className="kicker" style={{ color: "var(--muted)" }}>{s.k}</span>
             <div style={{ display: "flex", justifyContent: "center" }}>
               <div style={{
@@ -219,50 +223,52 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
   const cols = data.categories.length;
   return (
     <div className="flex flex-col gap-3">
-      <div
-        className="grid items-center"
-        style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(0, 1fr))`, gap: "4px 5px" }}
-      >
-        <span />
-        {data.categories.map((c) => (
-          <span key={c} className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", textAlign: "center", color: "var(--muted)" }}>
-            {c}
-          </span>
-        ))}
-        {data.skills.map((skill, ri) => (
-          <Fragment key={skill}>
-            <span
-              className="mono"
-              style={{ fontSize: 10, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase", paddingRight: 6 }}
-            >
-              {skill}
+      <div className="-mx-4 overflow-x-auto px-4">
+        <div
+          className="grid items-center"
+          style={{ gridTemplateColumns: `auto repeat(${cols}, minmax(36px, 1fr))`, gap: "4px 5px", minWidth: cols > 3 ? `${cols * 52 + 80}px` : undefined }}
+        >
+          <span />
+          {data.categories.map((c) => (
+            <span key={c} className="mono" style={{ fontSize: 9, letterSpacing: "0.08em", textAlign: "center", color: "var(--muted)" }}>
+              {c}
             </span>
-            {data.cells[ri].map((v, ci) => {
-              const empty = v <= 0;
-              const t = v / max;
-              return (
-                <div
-                  key={ci}
-                  title={`${skill} · ${data.categories[ci]} · ${v.toFixed(1)}x demand/supply`}
-                  style={{
-                    height: 30,
-                    background: empty ? "var(--surface-2)" : rampColor(t),
-                    borderRadius: 3,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {!empty && (
-                    <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: "var(--up)" }}>
-                      {v % 1 === 0 ? v : v.toFixed(1)}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </Fragment>
-        ))}
+          ))}
+          {data.skills.map((skill, ri) => (
+            <Fragment key={skill}>
+              <span
+                className="mono"
+                style={{ fontSize: 10, color: "var(--text-2)", letterSpacing: "0.04em", textTransform: "uppercase", paddingRight: 6, whiteSpace: "nowrap" }}
+              >
+                {skill}
+              </span>
+              {data.cells[ri].map((v, ci) => {
+                const empty = v <= 0;
+                const t = v / max;
+                return (
+                  <div
+                    key={ci}
+                    title={`${skill} · ${data.categories[ci]} · ${v.toFixed(1)}x demand/supply`}
+                    style={{
+                      height: 30,
+                      background: empty ? "var(--surface-2)" : rampColor(t),
+                      borderRadius: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {!empty && (
+                      <span className="mono tnum" style={{ fontSize: 12, fontWeight: 700, color: "var(--up)" }}>
+                        {v % 1 === 0 ? v : v.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
       </div>
       <div className="flex items-center justify-center gap-1.5 pt-1">
         <span className="kicker">LOW</span>
@@ -283,8 +289,9 @@ function SkillDemandHeatmap({ data }: { data: SkillDemand }) {
   );
 }
 
-const BREADTH_TARGET = 5;
+const QUALITY_PROJECT_TARGET = 5;
 const SKILL_COVERAGE_TARGET = 10;
+const DEMAND_SKILL_TARGET = 5;
 const POLL_INTERVAL_MS = 5000;
 
 export function DashboardClient({
@@ -297,6 +304,7 @@ export function DashboardClient({
   projects,
   scoreHistory: initialScoreHistory,
   totalVisible,
+  avgSignals,
 }: Props) {
   const [candidate, setCandidate] = useState<Candidate | null>(initial);
   const [scoreHistory, setScoreHistory] = useState<ScorePoint[]>(initialScoreHistory);
@@ -355,22 +363,32 @@ export function DashboardClient({
   const projectCount = projects.length;
   const distinctSkills = new Set(projects.flatMap((p) => p.skills)).size;
   const skillCoverage = Math.min(distinctSkills / SKILL_COVERAGE_TARGET, 1) * 100;
-  const breadth = Math.min(projectCount / BREADTH_TARGET, 1) * 100;
-  const completeness =
+  const breadthRaw = Math.min(projectCount / QUALITY_PROJECT_TARGET, 1);
+  const completenessRaw =
     projectCount > 0
-      ? (projects.reduce((sum, p) => {
+      ? projects.reduce((sum, p) => {
           const hasArtifact = p.has_file || p.link_url ? 0.5 : 0;
           const hasSkills = p.skills.length > 0 ? 0.5 : 0;
           return sum + hasArtifact + hasSkills;
-        }, 0) /
-          projectCount) *
-        100
+        }, 0) / projectCount
+      : 0;
+  const qualityLocal = breadthRaw * 0.5 + completenessRaw * 0.5;
+
+  // demand alignment fallback (before first poll): rough proxy from heatmap data
+  const candidateSkillKeys = new Set(projects.flatMap((p) => p.skills).map((s) => s.toLowerCase()));
+  const demandedSkillKeys = new Set(
+    skillDemand.skills.map((s) => s.toLowerCase())
+  );
+  const demandLocal =
+    candidateSkillKeys.size > 0 && demandedSkillKeys.size > 0
+      ? Math.min([...candidateSkillKeys].filter((s) => demandedSkillKeys.has(s)).length / DEMAND_SKILL_TARGET, 1)
       : 0;
 
   const sortedHistory = [...scoreHistory].sort(
     (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
   );
-  const sparklineData = sortedHistory.map((h) => h.composite_score);
+  const rawSparkline = sortedHistory.map((h) => h.composite_score);
+  const sparklineData = rawSparkline.length === 1 ? [rawSparkline[0], rawSparkline[0]] : rawSparkline;
   const scoreDelta =
     sortedHistory.length >= 2
       ? +(
@@ -402,47 +420,44 @@ export function DashboardClient({
 
   const effectiveSignals: Signals =
     signals ?? {
-      portfolio_breadth: breadth / 100,
+      portfolio_quality: qualityLocal,
       portfolio_skill_coverage: skillCoverage / 100,
-      portfolio_completeness: completeness / 100,
-      portfolio_feedback: 0.5,
+      portfolio_feedback: 1.0,
       reputation_score: (candidate?.reputation_score ?? 100) / 100,
-      response_rate: 0.5,
+      demand_alignment: demandLocal,
       profile_completeness: profileCompletenessLocal,
     };
 
-  // Radar mirrors the composite-score signal breakdown (6 axes) so it reflects
-  // exactly what moves the score, not a hand-picked subset.
   const radarDims = [
     {
       axis: "SKILL COVERAGE",
       you: effectiveSignals.portfolio_skill_coverage * 100,
+      avg: avgSignals.portfolio_skill_coverage * 100,
       desc: "Distinct skills tagged across your portfolio. Add projects that cover new skills to widen it.",
     },
     {
-      axis: "COMPLETENESS",
-      you: effectiveSignals.portfolio_completeness * 100,
-      desc: "Share of projects with a file or link and tagged skills. Attach artifacts and tag skills on every project.",
-    },
-    {
-      axis: "BREADTH",
-      you: effectiveSignals.portfolio_breadth * 100,
-      desc: "How many portfolio projects you have. Add more projects to build out your breadth.",
+      axis: "QUALITY",
+      you: effectiveSignals.portfolio_quality * 100,
+      avg: avgSignals.portfolio_quality * 100,
+      desc: "Number and completeness of portfolio projects. Add projects with files or links and tagged skills.",
     },
     {
       axis: "FEEDBACK",
       you: effectiveSignals.portfolio_feedback * 100,
+      avg: avgSignals.portfolio_feedback * 100,
       desc: "Employers' ratings of how well your portfolio reflects your real ability, gathered after matches.",
     },
     {
       axis: "REPUTATION",
       you: effectiveSignals.reputation_score * 100,
+      avg: avgSignals.reputation_score * 100,
       desc: "Reliability from completed matches and avoiding ghosting. Respond and follow through to keep it high.",
     },
     {
-      axis: "RESPONSE",
-      you: effectiveSignals.response_rate * 100,
-      desc: "How promptly you respond to pending pitches before they expire. Reply within the 72h window.",
+      axis: "DEMAND",
+      you: effectiveSignals.demand_alignment * 100,
+      avg: avgSignals.demand_alignment * 100,
+      desc: "How many of your skills are actively sought by employers. Add projects in high-demand skills to raise it.",
     },
   ];
 
@@ -559,7 +574,7 @@ export function DashboardClient({
               )}
             </div>
             <div className="mt-4 flex flex-1 flex-col">
-              {sparklineData.length >= 2 ? (
+              {sparklineData.length >= 1 ? (
                 <>
                   <div className="mb-1.5 flex items-center justify-between">
                     <span className="kicker">GROWTH TRAJECTORY · 30D</span>
@@ -654,7 +669,7 @@ export function DashboardClient({
         <div className="panel">
           <div className="panel-head">
             <span className="panel-title">SALARY POSITION</span>
-            {salaryData && (
+            {salaryData && candidate?.current_salary && (
               <span className="mono tnum" style={{ fontSize: 11, color: scoreVar(salaryData.candidate_percentile) }}>
                 {formatPercentile(salaryData.candidate_percentile).toUpperCase()}
               </span>
@@ -707,13 +722,18 @@ export function DashboardClient({
             <span className="mono tnum" style={{ fontSize: 11, fontWeight: 700, color: "var(--up)" }}>
               {pitchStats.received > 0 ? Math.round((pitchStats.accepted / pitchStats.received) * 100) : 0}%
             </span>
-            <span className="kicker">· {pitchStats.accepted} OF {pitchStats.received} CLOSED</span>
+            <span className="kicker">· {pitchStats.accepted} ACCEPTED OF {pitchStats.received} RECEIVED</span>
           </div>
         </div>
 
         <div className="panel flex flex-col">
           <div className="panel-head">
             <span className="panel-title">SKILL DEMAND</span>
+            {skillDemand.openings > 0 && (
+              <span className="mono ml-2" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                {skillDemand.openings} OPENING{skillDemand.openings === 1 ? "" : "S"}
+              </span>
+            )}
           </div>
           <div className="flex flex-1 flex-col justify-center p-4">
             {skillDemand.skills.length > 0 && skillDemand.categories.length > 0 ? (

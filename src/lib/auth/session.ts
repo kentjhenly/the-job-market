@@ -7,9 +7,17 @@ import { auth } from "./auth";
 // per render pass, and the cookie cache in auth.ts keeps that resolution off
 // the database in the common case.
 export const getServerSession = cache(async () => {
-  return auth.api.getSession({
-    headers: await headers(),
-  });
+  try {
+    return await auth.api.getSession({
+      headers: await headers(),
+    });
+  } catch {
+    // Transient DB errors (ECONNRESET from the Supabase pooler) should not
+    // crash the layout render. Returning null triggers the normal
+    // unauthenticated redirect to /sign-in; the user retries and hits a
+    // fresh connection.
+    return null;
+  }
 });
 
 export async function requireSession() {

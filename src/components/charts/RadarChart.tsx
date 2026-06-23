@@ -5,6 +5,7 @@ import { useState } from "react";
 interface RadarDimension {
   axis: string;
   you: number;
+  avg?: number;
   desc?: string;
 }
 
@@ -24,10 +25,15 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
     cx + Math.cos(ang(i)) * R * (r / 100),
     cy + Math.sin(ang(i)) * R * (r / 100),
   ];
-  const poly = (key: "you") =>
-    dims.map((d, i) => pt(i, d[key]).map((v) => v.toFixed(1)).join(",")).join(" ");
+  const polyPoints = (key: "you" | "avg") =>
+    dims.map((d, i) => pt(i, d[key] ?? 0).map((v) => v.toFixed(1)).join(",")).join(" ");
   const rings = [25, 50, 75, 100];
   const active = hovered != null ? dims[hovered] : null;
+  const hasAvg = dims.some((d) => d.avg != null);
+
+  function toggleHover(i: number) {
+    setHovered((prev) => (prev === i ? null : i));
+  }
 
   return (
     <div className="w-full">
@@ -46,7 +52,17 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
           const [x, y] = pt(i, 100);
           return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="var(--border)" strokeWidth="1" opacity="0.4" />;
         })}
-        <polygon className="radar-you" points={poly("you")} fill="var(--up)" fillOpacity="0.14" stroke="var(--up)" strokeWidth="1.8" />
+        {hasAvg && (
+          <polygon
+            points={polyPoints("avg")}
+            fill="none"
+            stroke="var(--muted)"
+            strokeWidth="1.2"
+            strokeDasharray="4 3"
+            opacity="0.6"
+          />
+        )}
+        <polygon className="radar-you" points={polyPoints("you")} fill="var(--up)" fillOpacity="0.14" stroke="var(--up)" strokeWidth="1.8" />
         {dims.map((d, i) => {
           const [x, y] = pt(i, d.you);
           return (
@@ -54,11 +70,12 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
               key={i}
               cx={x}
               cy={y}
-              r={hovered === i ? 4 : 2.6}
+              r={hovered === i ? 5 : 3.5}
               fill="var(--up)"
               style={{ cursor: "pointer", transition: "r .12s" }}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
+              onTouchStart={(e) => { e.preventDefault(); toggleHover(i); }}
             />
           );
         })}
@@ -78,12 +95,26 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
               style={{ cursor: "pointer" }}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
+              onTouchStart={(e) => { e.preventDefault(); toggleHover(i); }}
             >
               {d.axis}
             </text>
           );
         })}
       </svg>
+
+      {hasAvg && (
+        <div className="mt-1.5 flex items-center justify-end gap-3 px-1">
+          <span className="flex items-center gap-1.5">
+            <svg width="16" height="2"><line x1="0" y1="1" x2="16" y2="1" stroke="var(--up)" strokeWidth="1.8" /></svg>
+            <span className="mono" style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.08em" }}>YOU</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg width="16" height="2"><line x1="0" y1="1" x2="16" y2="1" stroke="var(--muted)" strokeWidth="1.2" strokeDasharray="4 3" opacity="0.6" /></svg>
+            <span className="mono" style={{ fontSize: 9, color: "var(--dim)", letterSpacing: "0.08em" }}>AVG</span>
+          </span>
+        </div>
+      )}
 
       <div
         className="mt-3"
@@ -103,6 +134,9 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
               </span>
               <span className="mono tnum" style={{ fontSize: 11, color: "var(--text)" }}>
                 {Math.round(active.you)}/100
+                {active.avg != null && (
+                  <span style={{ color: "var(--dim)", marginLeft: 6 }}>AVG {Math.round(active.avg)}</span>
+                )}
               </span>
             </div>
             {active.desc && (
@@ -113,7 +147,7 @@ export function RadarChart({ dims, size = 240 }: RadarChartProps) {
           </>
         ) : (
           <p className="mono" style={{ fontSize: 10.5, color: "var(--dim)", lineHeight: 1.55 }}>
-            Hover a vertex to see what it measures and how to raise it.
+            Tap a vertex to see what it measures and how to raise it.
           </p>
         )}
       </div>

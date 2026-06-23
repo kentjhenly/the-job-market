@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/session";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
-import { sanitizeStorageFileName, isSafeHttpUrl, clampText } from "@/lib/utils/security";
+import { sanitizeStorageFileName, isSafeWebsiteInput, clampText } from "@/lib/utils/security";
 import { MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "@/lib/utils/constants";
 import { serverError } from "@/lib/utils/api";
 import type { Database } from "@/lib/supabase/types";
@@ -70,10 +70,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  const linkValue = typeof linkUrl === "string" ? linkUrl.trim() : "";
-  if (linkValue && !isSafeHttpUrl(linkValue)) {
-    return NextResponse.json({ error: "Link must be a valid http(s) URL" }, { status: 400 });
+  const linkRaw = typeof linkUrl === "string" ? linkUrl.trim() : "";
+  if (linkRaw && !isSafeWebsiteInput(linkRaw)) {
+    return NextResponse.json({ error: "Link must be a valid URL" }, { status: 400 });
   }
+  const linkValue = linkRaw && !/^https?:\/\//i.test(linkRaw) ? `https://${linkRaw}` : linkRaw;
 
   const update: Database["public"]["Tables"]["candidate_portfolio_projects"]["Update"] = {
     title: cleanTitle,

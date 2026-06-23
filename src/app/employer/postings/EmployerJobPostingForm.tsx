@@ -64,8 +64,7 @@ const BAND_CONFIG: Record<CompetitivenessBand, { label: string; variant: "down" 
   above: {
     label: "ABOVE MARKET",
     variant: "gold",
-    copy:
-      "This range leads the market for this role and experience level. That's a strong signal to candidates and should help you win top talent and close faster.",
+    copy: "",
   },
 };
 
@@ -557,7 +556,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
               <DataRow label="STD DEVIATION" value={stdDev != null ? `±${formatSalary(stdDev)}` : "—"} />
             </div>
           )}
-          {band && (
+          {band && BAND_CONFIG[band].copy && (
             <div className="px-4 pb-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
               <p className="mono" style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-2)" }}>
                 {BAND_CONFIG[band].copy}

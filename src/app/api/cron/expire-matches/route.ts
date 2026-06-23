@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { CHAT_GHOST_HOURS } from "@/lib/utils/constants";
+import { triggerRecommendationScorer } from "@/lib/scoring/recommendation-scorer";
 
 async function expirePendingPitches() {
   const supabase = getSupabaseServiceClient();
@@ -13,18 +14,6 @@ async function expirePendingPitches() {
     .select("id, employer_id, candidate_id");
 
   if (error) throw new Error(error.message);
-
-  if (expired && expired.length > 0) {
-    await supabase.from("reputation_events").insert(
-      expired.map((m) => ({
-        subject_id: m.candidate_id,
-        actor_id: m.employer_id,
-        event_type: "ghosted",
-        weight: -15,
-        match_id: m.id,
-      }))
-    );
-  }
 
   return expired?.length ?? 0;
 }
@@ -88,7 +77,7 @@ async function expireSilentChats() {
       subject_id: silentIsEmployer ? match.employer_id : match.candidate_id,
       actor_id: silentIsEmployer ? match.candidate_id : match.employer_id,
       event_type: "ghosted" as const,
-      weight: -15,
+      weight: -10,
       match_id: match.id,
     };
   });
@@ -100,6 +89,11 @@ async function expireSilentChats() {
   ]);
   if (updateError) throw new Error(updateError.message);
   if (insertError) throw new Error(insertError.message);
+
+  const affectedCandidates = new Set(stale.map((m) => m.candidate_id));
+  for (const candidateId of affectedCandidates) {
+    triggerRecommendationScorer(candidateId);
+  }
 
   return stale.length;
 }

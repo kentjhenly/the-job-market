@@ -44,12 +44,15 @@ const POLL_INTERVAL_MS = 5000;
 
 type ConfirmStep = "none" | "review" | "final";
 
-function parseOfferSalary(body: string): number | null {
+function parseOfferBody(body: string): { offered_salary: number | null; reneged?: boolean } {
   try {
     const parsed = JSON.parse(body);
-    return typeof parsed.offered_salary === "number" ? parsed.offered_salary : null;
+    return {
+      offered_salary: typeof parsed.offered_salary === "number" ? parsed.offered_salary : null,
+      reneged: !!parsed.reneged,
+    };
   } catch {
-    return null;
+    return { offered_salary: null };
   }
 }
 
@@ -71,8 +74,8 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
   const [offerSending, setOfferSending] = useState(false);
   const [offerError, setOfferError] = useState<string | null>(null);
 
-  // Multi-step accept/renege confirm (candidate)
-  const [confirmAction, setConfirmAction] = useState<"accept" | "renege" | null>(null);
+  // Multi-step accept/decline confirm (candidate)
+  const [confirmAction, setConfirmAction] = useState<"accept" | "decline" | null>(null);
   const [confirmStep, setConfirmStep] = useState<ConfirmStep>("none");
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [confirmSending, setConfirmSending] = useState(false);
@@ -82,6 +85,28 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  // Plus-button action menu
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const plusRef = useRef<HTMLDivElement>(null);
+
+  // Renege confirm (candidate, after hired)
+  const [renegeStep, setRenegeStep] = useState<ConfirmStep>("none");
+  const [renegeChecked, setRenegeChecked] = useState(false);
+  const [renegeSending, setRenegeSending] = useState(false);
+  const [renegeError, setRenegeError] = useState<string | null>(null);
+
+  // Withdraw-match confirm (candidate, before hire)
+  const [withdrawMatchStep, setWithdrawMatchStep] = useState<ConfirmStep>("none");
+  const [withdrawMatchChecked, setWithdrawMatchChecked] = useState(false);
+  const [withdrawMatchSending, setWithdrawMatchSending] = useState(false);
+  const [withdrawMatchError, setWithdrawMatchError] = useState<string | null>(null);
+
+  // Decline-match confirm (employer, before hire)
+  const [declineMatchStep, setDeclineMatchStep] = useState<ConfirmStep>("none");
+  const [declineMatchChecked, setDeclineMatchChecked] = useState(false);
+  const [declineMatchSending, setDeclineMatchSending] = useState(false);
+  const [declineMatchError, setDeclineMatchError] = useState<string | null>(null);
 
   // Portfolio-accuracy rating (employer)
   const [portfolioFeedback, setPortfolioFeedback] = useState<{ rating: number } | null | undefined>(undefined);
@@ -202,7 +227,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
     setOfferSending(false);
   }
 
-  function startConfirm(action: "accept" | "renege") {
+  function startConfirm(action: "accept" | "decline") {
     setConfirmAction(action);
     setConfirmStep("review");
     setConfirmChecked(false);
@@ -265,11 +290,106 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
     setWithdrawing(false);
   }
 
+  function closeRenege() {
+    setRenegeStep("none");
+    setRenegeChecked(false);
+    setRenegeError(null);
+  }
+
+  async function submitRenege() {
+    setRenegeSending(true);
+    setRenegeError(null);
+    const res = await fetch(`/api/matches/${matchId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "renege" }),
+    });
+    if (res.ok) {
+      const { message } = await res.json();
+      setMessages((prev) => [...prev, message]);
+      setMatch((prev) =>
+        prev ? { ...prev, status: "declined", offer_status: "declined", hired_at: null } : prev
+      );
+      closeRenege();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setRenegeError(json.error ?? "FAILED TO RENEGE");
+    }
+    setRenegeSending(false);
+  }
+
+  function closeWithdrawMatch() {
+    setWithdrawMatchStep("none");
+    setWithdrawMatchChecked(false);
+    setWithdrawMatchError(null);
+  }
+
+  async function submitWithdrawMatch() {
+    setWithdrawMatchSending(true);
+    setWithdrawMatchError(null);
+    const res = await fetch(`/api/matches/${matchId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "withdraw_match" }),
+    });
+    if (res.ok) {
+      setMatch((prev) =>
+        prev ? { ...prev, status: "withdrawn" } : prev
+      );
+      closeWithdrawMatch();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setWithdrawMatchError(json.error ?? "FAILED TO WITHDRAW");
+    }
+    setWithdrawMatchSending(false);
+  }
+
+  function closeDeclineMatch() {
+    setDeclineMatchStep("none");
+    setDeclineMatchChecked(false);
+    setDeclineMatchError(null);
+  }
+
+  async function submitDeclineMatch() {
+    setDeclineMatchSending(true);
+    setDeclineMatchError(null);
+    const res = await fetch(`/api/matches/${matchId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "decline_match" }),
+    });
+    if (res.ok) {
+      setMatch((prev) =>
+        prev ? { ...prev, status: "declined" } : prev
+      );
+      closeDeclineMatch();
+    } else {
+      const json = await res.json().catch(() => ({}));
+      setDeclineMatchError(json.error ?? "FAILED TO DECLINE");
+    }
+    setDeclineMatchSending(false);
+  }
+
+  // Close plus menu on outside click
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (plusRef.current && !plusRef.current.contains(e.target as Node)) {
+        setPlusMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [plusMenuOpen]);
+
   const isEmployer = !!user && match?.employer_id === user.id;
   const isCandidate = !!user && match?.candidate_id === user.id;
   const isActive = match?.status === "accepted";
   const canSendOffer = isActive && isEmployer && !match?.hired_at && match?.offer_status !== "pending";
   const canRespondToOffer = isActive && isCandidate && match?.offer_status === "pending";
+  const canRenege = isActive && isCandidate && match?.offer_status === "accepted" && !!match?.hired_at;
+  const canWithdrawMatch = isActive && isCandidate && !match?.hired_at;
+  const canDeclineMatch = isActive && isEmployer && !match?.hired_at;
 
   useEffect(() => {
     if (!isEmployer || !isActive) return;
@@ -378,7 +498,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
             const isLast = idx === messages.length - 1;
 
             if (m.message_type === "offer") {
-              const salary = parseOfferSalary(m.body);
+              const { offered_salary: salary } = parseOfferBody(m.body);
               const showActions = isLast && canRespondToOffer;
               return (
                 <div key={m.id} className="flex justify-center">
@@ -400,10 +520,10 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                     {showActions && (
                       <div className="mt-3 flex justify-center gap-2">
                         <Button size="sm" variant="primary" onClick={() => startConfirm("accept")}>
-                          ✓ ACCEPT OFFER
+                          ✓ ACCEPT
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => startConfirm("renege")}>
-                          ✗ RENEGE
+                        <Button size="sm" variant="danger" onClick={() => startConfirm("decline")}>
+                          ✗ DECLINE
                         </Button>
                       </div>
                     )}
@@ -414,16 +534,18 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
 
             if (
               m.message_type === "offer_accepted" ||
-              m.message_type === "offer_declined" ||
-              m.message_type === "offer_reneged"
+              m.message_type === "offer_declined"
             ) {
-              const salary = parseOfferSalary(m.body);
+              const { offered_salary: salary, reneged } = parseOfferBody(m.body);
               const accepted = m.message_type === "offer_accepted";
+              const declinedByCandidate = !accepted && m.sender_id === match?.candidate_id;
               const label = accepted
                 ? "✓ OFFER ACCEPTED — HIRED"
-                : m.message_type === "offer_reneged"
+                : reneged
                   ? "✗ OFFER RENEGED BY CANDIDATE"
-                  : "✗ OFFER WITHDRAWN BY EMPLOYER";
+                  : declinedByCandidate
+                    ? "✗ OFFER DECLINED BY CANDIDATE"
+                    : "✗ OFFER WITHDRAWN BY EMPLOYER";
               return (
                 <div key={m.id} className="flex justify-center">
                   <div
@@ -515,19 +637,6 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
 
       {isActive ? (
         <>
-          {canSendOffer && (
-            <div className="px-4 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
-              <Button
-                size="sm"
-                variant="primary"
-                className="w-full"
-                onClick={() => setOfferModalOpen(true)}
-              >
-                SEND HIRE OFFER →
-              </Button>
-            </div>
-          )}
-
           {match?.offer_status === "pending" && isEmployer && (
             <div className="px-4 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
               <p className="kicker c-gold text-center">
@@ -549,7 +658,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
 
           <div
             className="flex shrink-0 items-center gap-2 p-4"
-            style={canSendOffer || (match?.offer_status === "pending" && isEmployer) ? undefined : { borderTop: "1px solid var(--border-soft)" }}
+            style={match?.offer_status === "pending" && isEmployer ? undefined : { borderTop: "1px solid var(--border-soft)" }}
           >
             <input
               type="file"
@@ -561,15 +670,87 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                 e.target.value = "";
               }}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="btn btn-ghost btn-sm shrink-0"
-              title="Attach file"
-            >
-              +
-            </button>
+            <div ref={plusRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setPlusMenuOpen((v) => !v)}
+                disabled={uploading}
+                className="btn btn-ghost btn-sm"
+                title="Actions"
+              >
+                +
+              </button>
+              {plusMenuOpen && (
+                <div
+                  className="absolute bottom-full left-0 z-50 mb-1 min-w-[10rem] rounded py-1"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border-strong)" }}
+                >
+                  <button
+                    type="button"
+                    className="kicker flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-3"
+                    style={{ color: "var(--text)" }}
+                    onClick={() => {
+                      setPlusMenuOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    ATTACH FILE
+                  </button>
+                  {canSendOffer && (
+                    <button
+                      type="button"
+                      className="kicker flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-3"
+                      style={{ color: "var(--gold)" }}
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setOfferModalOpen(true);
+                      }}
+                    >
+                      SEND HIRE OFFER
+                    </button>
+                  )}
+                  {canRenege && (
+                    <button
+                      type="button"
+                      className="kicker flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-3"
+                      style={{ color: "var(--down)" }}
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setRenegeStep("review");
+                      }}
+                    >
+                      RENEGE OFFER
+                    </button>
+                  )}
+                  {canWithdrawMatch && (
+                    <button
+                      type="button"
+                      className="kicker flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-3"
+                      style={{ color: "var(--down)" }}
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setWithdrawMatchStep("review");
+                      }}
+                    >
+                      WITHDRAW
+                    </button>
+                  )}
+                  {canDeclineMatch && (
+                    <button
+                      type="button"
+                      className="kicker flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface-3"
+                      style={{ color: "var(--down)" }}
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setDeclineMatchStep("review");
+                      }}
+                    >
+                      DECLINE
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -602,7 +783,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
         match && (
           <div className="p-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
             <p className="kicker c-down text-center">
-              THIS MATCH IS {match.status.toUpperCase()} · CHAT CLOSED
+              THIS MATCH IS {match.status === "declined" && match.offer_salary != null && !match.hired_at ? "RENEGED" : match.status.toUpperCase()} · CHAT CLOSED
             </p>
           </div>
         )
@@ -616,14 +797,14 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
             ACCEPT OR DECLINE.
           </p>
           <div>
-            <label className="kicker mb-1 block">MONTHLY SALARY (HKD)</label>
+            <label className="kicker mb-1 block">SALARY (HKD/MONTH)</label>
             <input
               type="number"
               min="0"
               step="1000"
               value={offerSalaryInput}
               onChange={(e) => setOfferSalaryInput(e.target.value)}
-              placeholder="e.g. 35000"
+              placeholder=""
               className="field w-full"
             />
           </div>
@@ -649,7 +830,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
       <Modal
         open={confirmStep !== "none"}
         onClose={closeConfirm}
-        title={confirmAction === "accept" ? "CONFIRM ACCEPT OFFER" : "CONFIRM RENEGE"}
+        title={confirmAction === "accept" ? "CONFIRM ACCEPT" : "CONFIRM DECLINE"}
       >
         {confirmStep === "review" && (
           <div className="space-y-3">
@@ -658,14 +839,14 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                 ? `You're about to ACCEPT this hire offer${
                     match?.offer_salary ? ` of ${formatSalary(match.offer_salary)}/mo` : ""
                   } from ${counterpartLabel}.`
-                : `You're about to RENEGE on this hire offer${
+                : `You're about to DECLINE this hire offer${
                     match?.offer_salary ? ` of ${formatSalary(match.offer_salary)}/mo` : ""
                   } from ${counterpartLabel}.`}
             </p>
             <p className="kicker c-muted">
               {confirmAction === "accept"
                 ? "ACCEPTING WILL MARK YOU AS HIRED FOR THIS MATCH."
-                : "RENEGING REJECTS THIS OFFER. THE CHAT STAYS OPEN AND THE EMPLOYER MAY SEND A REVISED OFFER."}
+                : "DECLINING REJECTS THIS OFFER. THE CHAT STAYS OPEN AND THE EMPLOYER MAY SEND A REVISED OFFER."}
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={closeConfirm}>
@@ -694,7 +875,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                 className="mt-1"
               />
               <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
-                I understand this {confirmAction === "accept" ? "accepts" : "reneges on"} the offer
+                I understand this {confirmAction === "accept" ? "accepts" : "declines"} the offer
                 {match?.offer_salary ? ` of ${formatSalary(match.offer_salary)}/mo` : ""} and cannot
                 be changed afterwards.
               </span>
@@ -711,7 +892,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                 loading={confirmSending}
                 onClick={submitConfirm}
               >
-                {confirmAction === "accept" ? "CONFIRM ACCEPT" : "CONFIRM RENEGE"}
+                {confirmAction === "accept" ? "CONFIRM ACCEPT" : "CONFIRM DECLINE"}
               </Button>
             </div>
           </div>
@@ -738,6 +919,173 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Renege confirm (candidate) */}
+      <Modal open={renegeStep !== "none"} onClose={closeRenege} title="RENEGE ON ACCEPTED OFFER">
+        {renegeStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+              You&apos;re about to RENEGE on your accepted hire offer
+              {match?.offer_salary ? ` of ${formatSalary(match.offer_salary)}/mo` : ""} from {counterpartLabel}.
+            </p>
+            <p className="kicker c-down">
+              RENEGING REVERSES YOUR HIRE AND PERMANENTLY CLOSES THIS MATCH.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closeRenege}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setRenegeStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {renegeStep === "final" && (
+          <div className="space-y-3">
+            <p className="kicker c-down">FINAL STEP — THIS CANNOT BE UNDONE</p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={renegeChecked}
+                onChange={(e) => setRenegeChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                I understand that reneging reverses my hire
+                {match?.offer_salary ? ` of ${formatSalary(match.offer_salary)}/mo` : ""} and cannot
+                be undone.
+              </span>
+            </label>
+            {renegeError && <p className="kicker c-down">{renegeError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setRenegeStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={!renegeChecked}
+                loading={renegeSending}
+                onClick={submitRenege}
+              >
+                CONFIRM RENEGE
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Withdraw-match confirm (candidate) */}
+      <Modal open={withdrawMatchStep !== "none"} onClose={closeWithdrawMatch} title="WITHDRAW FROM MATCH">
+        {withdrawMatchStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+              You&apos;re about to WITHDRAW from your match with {counterpartLabel}. This will close the
+              chat and end the match.
+            </p>
+            <p className="kicker c-muted">
+              THE MATCH WILL BE MARKED AS WITHDRAWN. THIS CANNOT BE UNDONE.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closeWithdrawMatch}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWithdrawMatchStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {withdrawMatchStep === "final" && (
+          <div className="space-y-3">
+            <p className="kicker c-down">FINAL STEP — THIS CANNOT BE UNDONE</p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={withdrawMatchChecked}
+                onChange={(e) => setWithdrawMatchChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                I understand that withdrawing ends this match permanently and cannot be reversed.
+              </span>
+            </label>
+            {withdrawMatchError && <p className="kicker c-down">{withdrawMatchError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setWithdrawMatchStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={!withdrawMatchChecked}
+                loading={withdrawMatchSending}
+                onClick={submitWithdrawMatch}
+              >
+                CONFIRM WITHDRAW
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Decline-match confirm (employer) */}
+      <Modal open={declineMatchStep !== "none"} onClose={closeDeclineMatch} title="DECLINE MATCH">
+        {declineMatchStep === "review" && (
+          <div className="space-y-3">
+            <p className="mono" style={{ fontSize: 13, color: "var(--text)" }}>
+              You&apos;re about to DECLINE your match with {counterpartLabel}. This will close the
+              chat and end the match.
+            </p>
+            <p className="kicker c-muted">
+              THE MATCH WILL BE MARKED AS DECLINED. THIS CANNOT BE UNDONE.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={closeDeclineMatch}>
+                CANCEL
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setDeclineMatchStep("final")}>
+                CONTINUE →
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {declineMatchStep === "final" && (
+          <div className="space-y-3">
+            <p className="kicker c-down">FINAL STEP — THIS CANNOT BE UNDONE</p>
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={declineMatchChecked}
+                onChange={(e) => setDeclineMatchChecked(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="mono" style={{ fontSize: 12, color: "var(--text-2)" }}>
+                I understand that declining ends this match permanently and cannot be reversed.
+              </span>
+            </label>
+            {declineMatchError && <p className="kicker c-down">{declineMatchError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDeclineMatchStep("review")}>
+                ← BACK
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={!declineMatchChecked}
+                loading={declineMatchSending}
+                onClick={submitDeclineMatch}
+              >
+                CONFIRM DECLINE
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

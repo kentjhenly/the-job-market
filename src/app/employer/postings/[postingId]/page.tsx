@@ -66,7 +66,7 @@ export default async function EmployerJobPostingPage({
   const { data: matchRows } = await supabase
     .from("matches")
     .select(
-      "id, candidate_id, status, offered_salary, pitch_message, created_at, expires_at, offer_status, hired_at, last_message_at, employer_last_read_at, candidate_last_read_at"
+      "id, candidate_id, status, offered_salary, pitch_message, created_at, expires_at, offer_status, offer_salary, hired_at, last_message_at, employer_last_read_at, candidate_last_read_at"
     )
     .eq("posting_id", postingId)
     .eq("employer_id", session.user.id)

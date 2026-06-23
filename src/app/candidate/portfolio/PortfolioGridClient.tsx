@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { SkillBadges } from "@/components/ui/SkillBadges";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { MAX_PORTFOLIO_PROJECTS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
@@ -57,13 +54,16 @@ function Thumbnail({ project }: { project: PortfolioProject }) {
 
   if (project.link_url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- external screenshot service
-      <img
-        src={`https://s.wordpress.com/mshots/v1/${encodeURIComponent(project.link_url)}?w=640`}
-        alt={project.title}
-        className="h-24 w-full object-cover"
-        style={{ background: "var(--bg-deep)" }}
-      />
+      <div className="relative h-24 w-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
+        <iframe
+          src={project.link_url}
+          title={project.title}
+          sandbox="allow-scripts allow-same-origin"
+          loading="lazy"
+          className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
+          style={{ width: 1280, height: 960, transform: "scale(0.15625)" }}
+        />
+      </div>
     );
   }
 
@@ -75,97 +75,49 @@ function Thumbnail({ project }: { project: PortfolioProject }) {
 }
 
 export function PortfolioGridClient({ initialProjects }: { initialProjects: PortfolioProject[] }) {
-  const [projects, setProjects] = useState<PortfolioProject[]>(initialProjects);
-  const [deleteTarget, setDeleteTarget] = useState<PortfolioProject | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-
-    const res = await fetch(`/api/portfolio/${deleteTarget.id}`, { method: "DELETE" });
-    if (res.ok) {
-      setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-    }
-
-    setDeleting(false);
-    setDeleteTarget(null);
-  }
-
   return (
-    <>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {projects.map((project) => {
-          return (
-            <div key={project.id} className="panel flex min-h-[220px] flex-col overflow-hidden">
-              <div style={{ borderBottom: "1px solid var(--border-soft)" }}>
-                <Thumbnail project={project} />
-              </div>
-
-              <div className="flex flex-1 flex-col gap-3 p-4">
-                <div>
-                  <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
-                    {project.title}
-                  </p>
-                  {(project.file_name || project.link_url) && (
-                    <p className="mono mt-1 truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
-                      {project.file_name ?? linkHostname(project.link_url!)}
-                    </p>
-                  )}
-                </div>
-
-                <SkillBadges skills={project.skills} />
-
-                <div
-                  className="mt-auto flex items-center justify-between pt-2"
-                  style={{ borderTop: "1px solid var(--border-soft)" }}
-                >
-                  <Link href={`/candidate/portfolio/${project.id}`} className="link-up mono" style={{ fontSize: 11 }}>
-                    VIEW
-                  </Link>
-                  <button
-                    onClick={() => setDeleteTarget(project)}
-                    className="mono"
-                    style={{ fontSize: 11, color: "var(--down)" }}
-                  >
-                    DELETE
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {projects.length < MAX_PORTFOLIO_PROJECTS && (
-          <Link
-            href="/candidate/portfolio/new"
-            className="flex min-h-[220px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
-            style={{
-              border: "1px dashed var(--border-strong)",
-              borderRadius: "var(--r-lg)",
-            }}
-          >
-            <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>
-            <span className="kicker">CREATE PROJECT</span>
-          </Link>
-        )}
-      </div>
-
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="DELETE PROJECT">
-        <div className="space-y-4">
-          <p className="mono" style={{ fontSize: 12, color: "var(--text)" }}>
-            Delete &quot;{deleteTarget?.title}&quot;? This cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <Button variant="danger" onClick={confirmDelete} loading={deleting}>
-              DELETE
-            </Button>
-            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
-              CANCEL
-            </Button>
+    <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+      {initialProjects.map((project) => (
+        <Link
+          key={project.id}
+          href={`/candidate/portfolio/${project.id}`}
+          className="panel flex min-h-[220px] flex-col overflow-hidden transition-colors hover:border-(--border-strong)"
+          style={{ textDecoration: "none" }}
+        >
+          <div style={{ borderBottom: "1px solid var(--border-soft)" }}>
+            <Thumbnail project={project} />
           </div>
-        </div>
-      </Modal>
-    </>
+
+          <div className="flex flex-1 flex-col gap-3 p-4">
+            <div>
+              <p className="mono" style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+                {project.title}
+              </p>
+              {(project.file_name || project.link_url) && (
+                <p className="mono mt-1 truncate" style={{ fontSize: 11, color: "var(--muted)" }}>
+                  {project.file_name ?? linkHostname(project.link_url!)}
+                </p>
+              )}
+            </div>
+
+            <SkillBadges skills={project.skills} />
+          </div>
+        </Link>
+      ))}
+
+      {initialProjects.length < MAX_PORTFOLIO_PROJECTS && (
+        <Link
+          href="/candidate/portfolio/new"
+          className="flex min-h-[220px] flex-col items-center justify-center gap-2 p-4 transition-colors hover:border-(--border-strong)"
+          style={{
+            border: "1px dashed var(--border-strong)",
+            borderRadius: "var(--r-lg)",
+          }}
+        >
+          <span style={{ fontSize: 28, color: "var(--muted)", lineHeight: 1 }}>+</span>
+          <span className="kicker">CREATE PROJECT</span>
+        </Link>
+      )}
+    </div>
   );
 }

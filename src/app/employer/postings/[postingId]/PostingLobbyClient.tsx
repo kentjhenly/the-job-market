@@ -35,6 +35,7 @@ interface LobbyMatch {
   created_at: string;
   expires_at: string | null;
   offer_status: string | null;
+  offer_salary: number | null;
   hired_at: string | null;
   last_message_at: string | null;
   employer_last_read_at: string | null;
@@ -62,11 +63,14 @@ interface Props {
 }
 
 function statusBadge(m: LobbyMatch) {
-  if (m.hired_at) return <Badge variant="gold">HIRED</Badge>;
+  if (m.hired_at) return <Badge variant="up">ACCEPTED</Badge>;
+  if (m.status === "accepted" && m.offer_status === "pending") return <Badge variant="gold">OFFER PENDING</Badge>;
+  if (m.status === "accepted") return <Badge variant="muted">IN DISCUSSION</Badge>;
   if (m.status === "pending") return <Badge variant="muted">PENDING</Badge>;
-  if (m.status === "accepted") return <Badge variant="up">ACCEPTED</Badge>;
+  if (m.status === "declined" && m.offer_salary != null && !m.hired_at) return <Badge variant="down">RENEGED</Badge>;
   if (m.status === "declined") return <Badge variant="down">DECLINED</Badge>;
   if (m.status === "ghosted") return <Badge variant="down">GHOSTED</Badge>;
+  if (m.status === "withdrawn") return <Badge variant="down">WITHDRAWN</Badge>;
   return <Badge variant="muted">{m.status.toUpperCase()}</Badge>;
 }
 
@@ -174,7 +178,7 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
           <div className="panel-head">
             <span className="panel-title">RECRUITED</span>
             <span className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
-              {activeCount} ACTIVE · {hiredCount} HIRED
+              {activeCount} ACTIVE · {hiredCount} ACCEPTED
             </span>
           </div>
 
@@ -398,7 +402,7 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
         >
           <div className="panel-head">
             <span className="panel-title">CHAT</span>
-            <button onClick={() => setChatMatchId(null)} className="btn btn-ghost btn-sm">
+            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm">
               ✕
             </button>
           </div>

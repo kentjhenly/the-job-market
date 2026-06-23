@@ -47,10 +47,11 @@ export async function GET(
   const candidateIds = matches.map((m) => m.candidate_id);
 
   const portfolioSkillsMap: Record<string, string[]> = {};
+  const portfolioProjectsMap: Record<string, { id: string; title: string; description: string | null; link_url: string | null; file_name: string | null; skills: string[] }[]> = {};
   if (candidateIds.length > 0) {
     const { data: projects } = await supabase
       .from("candidate_portfolio_projects")
-      .select("candidate_id, skills")
+      .select("id, candidate_id, title, description, link_url, file_name, skills")
       .in("candidate_id", candidateIds);
 
     for (const p of projects ?? []) {
@@ -62,12 +63,16 @@ export async function GET(
       } else {
         portfolioSkillsMap[p.candidate_id] = [...p.skills];
       }
+      const projList = portfolioProjectsMap[p.candidate_id] ?? [];
+      projList.push({ id: p.id, title: p.title, description: p.description, link_url: p.link_url, file_name: p.file_name, skills: p.skills });
+      portfolioProjectsMap[p.candidate_id] = projList;
     }
   }
 
   const enrichedMatches = matches.map((m) => ({
     ...m,
     portfolio_skills: portfolioSkillsMap[m.candidate_id] ?? [],
+    portfolio_projects: portfolioProjectsMap[m.candidate_id] ?? [],
   }));
 
   return NextResponse.json({
