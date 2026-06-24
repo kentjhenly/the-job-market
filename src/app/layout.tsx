@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "The Job Market",
     description:
-      "The trading floor for human talent — where the best candidate rises to the top.",
+      "Hire smart. Apply smarter.",
     type: "website",
   },
 };
