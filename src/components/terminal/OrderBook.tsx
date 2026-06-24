@@ -11,7 +11,7 @@ import type { Database } from "@/lib/supabase/types";
 
 type CandidateRow = Database["public"]["Tables"]["candidates"]["Row"] & {
   profiles?: { display_name: string } | null;
-  candidate_job_postings?: { title: string }[] | null;
+  candidate_job_postings?: { title: string; location?: string | null; work_eligible?: boolean | null }[] | null;
 };
 
 interface OrderBookProps {

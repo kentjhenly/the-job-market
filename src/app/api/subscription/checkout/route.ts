@@ -6,7 +6,6 @@ import { checkoutSchema } from "@/lib/utils/schemas";
 
 const PRICE_IDS: Record<string, string | undefined> = {
   starter: process.env.STRIPE_PRICE_STARTER,
-  pro: process.env.STRIPE_PRICE_PRO,
 };
 
 export async function POST(request: NextRequest) {

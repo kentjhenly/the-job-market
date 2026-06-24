@@ -19,6 +19,7 @@ import {
   VERTICALS,
   COUNTRIES,
   MAX_POSTING_SKILLS,
+  NOTICE_PERIODS,
   verticalLabel,
   type VerticalType,
 } from "@/lib/utils/constants";
@@ -79,6 +80,7 @@ export function JobPostingForm({
       initial?.desired_salary_max != null ? (initial.desired_salary_max / 100).toString() : "",
     skills: initial?.skills ?? ([] as string[]),
     available_from: initial?.available_from ?? (null as string | null),
+    notice_period_days: initial?.notice_period_days ?? (null as number | null),
     work_eligible: initial?.work_eligible ?? false,
   });
   const [saving, setSaving] = useState(false);
@@ -199,7 +201,7 @@ export function JobPostingForm({
     const missing: string[] = [];
     if (form.work_modes.length === 0) missing.push("WORK MODES");
     if (form.skills.length === 0) missing.push("SKILLS");
-    if (!form.available_from) missing.push("AVAILABILITY");
+    if (!form.available_from && form.notice_period_days == null) missing.push("AVAILABILITY OR NOTICE PERIOD");
     if (missing.length > 0) {
       setFormError(`REQUIRED: ${missing.join(" · ")}`);
       return;
@@ -219,6 +221,7 @@ export function JobPostingForm({
         : null,
       skills: form.skills,
       available_from: form.available_from,
+      notice_period_days: form.notice_period_days,
       years_exp: expYears ? parseInt(expYears) + (parseInt(expMonths) || 0) / 12 : null,
       work_eligible:
         candCitizenship && form.location && candCitizenship !== form.location ? form.work_eligible : null,
@@ -389,6 +392,7 @@ export function JobPostingForm({
                 max={50}
                 value={expYears}
                 onChange={(e) => setExpYears(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
                 required
               />
@@ -401,6 +405,7 @@ export function JobPostingForm({
                 max={11}
                 value={expMonths}
                 onChange={(e) => setExpMonths(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
               />
             </div>
@@ -418,6 +423,7 @@ export function JobPostingForm({
                 type="number"
                 value={form.desired_salary_min}
                 onChange={(e) => setForm((f) => ({ ...f, desired_salary_min: e.target.value }))}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
                 placeholder={minSuggestion}
                 required
@@ -429,6 +435,7 @@ export function JobPostingForm({
                 type="number"
                 value={form.desired_salary_max}
                 onChange={(e) => setForm((f) => ({ ...f, desired_salary_max: e.target.value }))}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
                 placeholder={maxSuggestion}
                 required
@@ -462,22 +469,59 @@ export function JobPostingForm({
           <div className="panel-head">
             <span className="panel-title">AVAILABILITY</span>
           </div>
-          <div className="p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <label className="kicker">AVAILABLE FROM</label>
-              <span className="mono tnum" style={{ fontSize: 12, color: form.available_from ? "var(--up)" : "var(--dim)" }}>
-                {form.available_from
-                  ? form.available_from <= todayISO
-                    ? "IMMEDIATELY"
-                    : form.available_from
-                  : "NOT SET"}
-              </span>
+          <div className="p-4 space-y-4">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, notice_period_days: null }))}
+                className={cn("badge", form.notice_period_days == null ? "badge-up" : "badge-muted")}
+              >
+                DATE
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, available_from: null, notice_period_days: f.notice_period_days ?? 0 }))}
+                className={cn("badge", form.notice_period_days != null ? "badge-up" : "badge-muted")}
+              >
+                NOTICE PERIOD
+              </button>
             </div>
-            <Calendar
-              value={form.available_from}
-              onChange={(date) => setForm((f) => ({ ...f, available_from: date }))}
-              minDate={new Date()}
-            />
+
+            {form.notice_period_days == null ? (
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="kicker">AVAILABLE FROM</label>
+                  <span className="mono tnum" style={{ fontSize: 12, color: form.available_from ? "var(--up)" : "var(--dim)" }}>
+                    {form.available_from
+                      ? form.available_from <= todayISO
+                        ? "IMMEDIATELY"
+                        : form.available_from
+                      : "NOT SET"}
+                  </span>
+                </div>
+                <Calendar
+                  value={form.available_from}
+                  onChange={(date) => setForm((f) => ({ ...f, available_from: date }))}
+                  minDate={new Date()}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="kicker mb-1.5 block">NOTICE PERIOD</label>
+                <div className="flex flex-wrap gap-2">
+                  {NOTICE_PERIODS.map((np) => (
+                    <button
+                      type="button"
+                      key={np.value}
+                      onClick={() => setForm((f) => ({ ...f, notice_period_days: np.value, available_from: null }))}
+                      className={cn("badge", form.notice_period_days === np.value ? "badge-up" : "badge-muted")}
+                    >
+                      {np.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -489,7 +533,7 @@ export function JobPostingForm({
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
-            SAVE POSTING
+            SAVE
           </Button>
           <Button
             type="button"

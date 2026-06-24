@@ -24,7 +24,7 @@ function mapStatus(stripeStatus: Stripe.Subscription.Status): SubscriptionStatus
 }
 
 function mapTier(tier: string | undefined): SubscriptionTier {
-  return tier === "starter" || tier === "pro" ? tier : "none";
+  return tier === "starter" ? tier : "none";
 }
 
 async function syncSubscription(sub: Stripe.Subscription) {

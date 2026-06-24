@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CommandDef } from "@/lib/utils/commands";
+import { CheckIcon, CrossIcon } from "@/components/ui/Glyph";
 import { useCommandConsole } from "./CommandConsoleContext";
 
 export function CommandBar({ commands }: { commands: CommandDef[] }) {
@@ -100,7 +101,7 @@ export function CommandBar({ commands }: { commands: CommandDef[] }) {
       </div>
       {message && (
         <span
-          className="mono whitespace-nowrap"
+          className="mono inline-flex items-center gap-1.5 whitespace-nowrap"
           style={{
             fontSize: 10.5,
             letterSpacing: "0.08em",
@@ -108,7 +109,7 @@ export function CommandBar({ commands }: { commands: CommandDef[] }) {
             animation: "fadein .2s ease",
           }}
         >
-          {message.ok ? "✓" : "✕"} {message.text}
+          {message.ok ? <CheckIcon size={10} /> : <CrossIcon size={9} />} {message.text}
         </span>
       )}
       <span className="mono hidden whitespace-nowrap sm:inline" style={{ fontSize: 10, color: "var(--dim)", letterSpacing: "0.1em" }}>

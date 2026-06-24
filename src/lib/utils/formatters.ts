@@ -3,7 +3,7 @@ export function formatSalary(cents: number, currency = "HKD"): string {
   if (amount >= 1000 && amount % 1000 === 0) {
     return `${currency} ${amount / 1000}K`;
   }
-  return `${currency} ${amount.toLocaleString()}`;
+  return `${currency} ${amount.toLocaleString("en-US")}`;
 }
 
 export function formatSalaryBand(minCents: number, maxCents: number, currency = "HKD"): string {

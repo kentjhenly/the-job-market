@@ -122,30 +122,65 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
     [file]
   );
 
-  const [iframeError, setIframeError] = useState(false);
-  useEffect(() => setIframeError(false), [form.link_url]);
+  // Live website preview via a server-rendered screenshot. We render the page
+  // through a headless-browser thumbnail service (handles client-rendered SPAs
+  // that an embedded iframe shows blank, and sites that refuse framing). The
+  // service returns a placeholder frame while the shot is still generating, so
+  // we silently reload a few times to upgrade the placeholder to the real shot.
+  const SHOT_RETRY_MS = [1800, 4000, 8000];
+  const [shotState, setShotState] = useState<"loading" | "ready" | "error">("loading");
+  const [shotAttempt, setShotAttempt] = useState(0);
+
+  const linkIsValid = !!form.link_url && isValidUrl(form.link_url);
+  const normalizedLink = linkIsValid ? normalizeUrl(form.link_url) : "";
+  // thum.io takes the target URL raw at the end of the path. The trailing
+  // cache-bust param lands on the target URL (harmless, ignored by the site)
+  // but changes thum.io's cache key so each retry refetches the latest shot.
+  const shotSrc = normalizedLink
+    ? `https://image.thum.io/get/width/1200/${normalizedLink}${normalizedLink.includes("?") ? "&" : "?"}_psh=${shotAttempt}`
+    : "";
+
+  useEffect(() => {
+    setShotState("loading");
+    setShotAttempt(0);
+  }, [normalizedLink]);
+
+  useEffect(() => {
+    if (!shotSrc || shotAttempt >= SHOT_RETRY_MS.length) return;
+    const t = setTimeout(() => setShotAttempt((a) => a + 1), SHOT_RETRY_MS[shotAttempt]);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- SHOT_RETRY_MS is a stable literal
+  }, [shotSrc, shotAttempt]);
 
   let preview: React.ReactNode;
   let previewLabel: string;
-  if (form.link_url && isValidUrl(form.link_url)) {
-    const normalized = normalizeUrl(form.link_url);
-    previewLabel = normalized;
-    preview = iframeError ? (
-      <div className="flex h-48 w-full items-center justify-center" style={{ background: "var(--bg-deep)" }}>
-        <span className="kicker">PREVIEW BLOCKED BY SITE</span>
-      </div>
-    ) : (
+  if (linkIsValid) {
+    previewLabel = normalizedLink;
+    preview = (
       <div className="relative h-48 w-full overflow-hidden" style={{ background: "var(--bg-deep)" }}>
-        <iframe
-          key={normalized}
-          src={normalized}
-          title="Website preview"
-          sandbox="allow-scripts allow-same-origin"
-          loading="lazy"
-          onError={() => setIframeError(true)}
-          className="pointer-events-none absolute left-0 top-0 origin-top-left border-0"
-          style={{ width: 1280, height: 960, transform: "scale(0.328125)" }}
-        />
+        {shotState !== "error" ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- external screenshot service */}
+            <img
+              key={shotSrc}
+              src={shotSrc}
+              alt="Website preview"
+              loading="lazy"
+              onLoad={() => setShotState((s) => (s === "error" ? s : "ready"))}
+              onError={() => setShotState("error")}
+              className="h-full w-full object-cover object-top"
+            />
+            {shotState === "loading" && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="kicker">GENERATING PREVIEW…</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="kicker">PREVIEW UNAVAILABLE</span>
+          </div>
+        )}
       </div>
     );
   } else if (file) {
@@ -357,7 +392,7 @@ export function PortfolioForm({ initial }: PortfolioFormProps) {
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
-            SAVE PROJECT
+            SAVE
           </Button>
           <Button
             type="button"

@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
   const { data: candidatePostings, error: candidateError } = await supabase
     .from("candidate_job_postings")
     .select(
-      "id, candidate_id, title, location, work_modes, desired_salary_min, desired_salary_max, skills, candidates(composite_score, percentile_rank, years_exp_claimed, is_visible, profiles(display_name, vertical))"
+      "id, candidate_id, title, location, work_modes, desired_salary_min, desired_salary_max, skills, work_eligible, candidates(composite_score, percentile_rank, years_exp_claimed, is_visible, profiles(display_name, vertical))"
     );
 
   if (candidateError) {
@@ -133,6 +133,7 @@ Deno.serve(async (req: Request) => {
     desired_salary_min: number | null;
     desired_salary_max: number | null;
     skills: string[];
+    work_eligible: boolean | null;
     candidates: CandidateInfo | null;
   };
 
@@ -175,6 +176,7 @@ Deno.serve(async (req: Request) => {
         desired_salary_min: cp.desired_salary_min,
         desired_salary_max: cp.desired_salary_max,
         skills: cp.skills,
+        work_eligible: cp.work_eligible,
         match_score,
         breakdown,
       };

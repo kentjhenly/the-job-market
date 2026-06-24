@@ -37,29 +37,40 @@ export async function PATCH(
   const parsed = await parseJsonObject(request);
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
+  const supabase = getSupabaseServiceClient();
+
+  // Close-only shortcut: the body is just { status: "closed" } with no other
+  // fields, so it would fail full posting validation (title required, etc.).
+  if (body.status === "closed" && Object.keys(body).length === 1) {
+    const { error } = await supabase
+      .from("employer_job_postings")
+      .update({ status: "closed" as const })
+      .eq("id", postingId)
+      .eq("employer_id", session.user.id);
+
+    if (error) return serverError("employer-postings[id] close", error);
+    return NextResponse.json({ ok: true });
+  }
 
   const validated = validateEmployerPosting(body);
   if (!validated.ok) {
     return NextResponse.json({ error: validated.error }, { status: 400 });
   }
   const fields = validated.value;
-  const supabase = getSupabaseServiceClient();
 
   // Editing openings requires an active subscription (even for free-trial
   // openings -- they can only be edited once the employer subscribes).
-  if (body.status === undefined || body.status !== "closed") {
-    const { data: employer } = await supabase
-      .from("employers")
-      .select("subscription_status")
-      .eq("id", session.user.id)
-      .single();
+  const { data: employer } = await supabase
+    .from("employers")
+    .select("subscription_status")
+    .eq("id", session.user.id)
+    .single();
 
-    if (employer?.subscription_status !== "active") {
-      return NextResponse.json(
-        { error: "An active subscription is required to edit openings" },
-        { status: 402 }
-      );
-    }
+  if (employer?.subscription_status !== "active") {
+    return NextResponse.json(
+      { error: "An active subscription is required to edit openings" },
+      { status: 402 }
+    );
   }
 
   const { error } = await supabase

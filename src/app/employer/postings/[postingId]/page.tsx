@@ -36,7 +36,6 @@ export default async function EmployerJobPostingPage({
     if (!isActive && postingCount >= FREE_JOB_POSTINGS) {
       return (
         <UpgradePanel
-          tier={employer?.subscription_tier ?? "none"}
           status={employer?.subscription_status ?? "canceled"}
         />
       );

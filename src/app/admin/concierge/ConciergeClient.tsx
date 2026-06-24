@@ -504,6 +504,7 @@ export function ConciergeClient({ postings, matchSalaryPointCount, candidates, e
               type="number"
               value={pitchSalary}
               onChange={(e) => setPitchSalary(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               placeholder="120000"
               className="field"
             />

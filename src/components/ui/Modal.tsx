@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/lib/utils/cn";
+import { CrossIcon } from "@/components/ui/Glyph";
 
 interface ModalProps {
   open: boolean;
@@ -33,8 +34,8 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       >
         <div className="panel-head">
           <span className="panel-title">{title}</span>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">
-            ✕
+          <button onClick={onClose} className="btn btn-ghost btn-sm" aria-label="Close">
+            <CrossIcon size={11} />
           </button>
         </div>
         <div className="p-4">{children}</div>

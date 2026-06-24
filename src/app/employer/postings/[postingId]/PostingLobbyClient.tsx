@@ -11,6 +11,7 @@ import { MatchChat } from "@/components/terminal/MatchChat";
 import { Modal } from "@/components/ui/Modal";
 import { ScoreBar } from "@/components/charts/ScoreBar";
 import { SkillBadges } from "@/components/ui/SkillBadges";
+import { CrossIcon } from "@/components/ui/Glyph";
 import { formatSalary, formatPercentile, formatRelativeTime } from "@/lib/utils/formatters";
 import { scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import { WORK_MODES, verticalLabel } from "@/lib/utils/constants";
@@ -23,6 +24,15 @@ function linkHostname(url: string): string {
     return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, "");
   } catch {
     return url;
+  }
+}
+
+function openPortfolioProject(p: { id: string; link_url: string | null; file_name: string | null }) {
+  if (p.file_name) {
+    window.open(`/api/portfolio/${p.id}/file`, "_blank", "noopener,noreferrer");
+  } else if (p.link_url) {
+    const url = /^https?:\/\//i.test(p.link_url) ? p.link_url : `https://${p.link_url}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 }
 
@@ -76,18 +86,32 @@ function statusBadge(m: LobbyMatch) {
 
 export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) {
   const router = useRouter();
+  const [matches, setMatches] = useState(initialMatches);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [closeStep, setCloseStep] = useState(0);
   const [closeConfirmed, setCloseConfirmed] = useState(false);
   const [closing, setClosing] = useState(false);
 
-  const selected = initialMatches.find((m) => m.id === selectedId) ?? null;
-  const chatMatch = initialMatches.find((m) => m.id === chatMatchId) ?? null;
+  const selected = matches.find((m) => m.id === selectedId) ?? null;
+  const chatMatch = matches.find((m) => m.id === chatMatchId) ?? null;
+
+  function markRead(m: LobbyMatch) {
+    const now = new Date().toISOString();
+    setMatches((prev) => prev.map((mm) => (mm.id === m.id ? { ...mm, employer_last_read_at: now } : mm)));
+    fetch(`/api/matches/${m.id}/read`, { method: "POST" });
+  }
+
+  function openRow(m: LobbyMatch) {
+    setSelectedId(m.id === selectedId ? null : m.id);
+    setChatMatchId(null);
+    markRead(m);
+  }
 
   function openChat(m: LobbyMatch) {
     setChatMatchId(m.id);
     setSelectedId(null);
+    markRead(m);
   }
 
   const isClosed = posting.status === "closed";
@@ -108,8 +132,8 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
     }
   }
 
-  const activeCount = initialMatches.filter((m) => m.status === "pending" || m.status === "accepted").length;
-  const hiredCount = initialMatches.filter((m) => m.hired_at != null).length;
+  const activeCount = matches.filter((m) => m.status === "pending" || m.status === "accepted").length;
+  const hiredCount = matches.filter((m) => m.hired_at != null).length;
 
   return (
     <>
@@ -128,7 +152,7 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
             <div>
               <span className="panel-title">{posting.title}</span>
               <p className="mono mt-0.5" style={{ fontSize: 11, color: "var(--muted)" }}>
-                {verticalLabel(posting.vertical)} · {posting.location ?? "LOCATION NOT SET"}
+                {verticalLabel(posting.vertical)} · {posting.location?.toUpperCase() ?? "LOCATION NOT SET"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
@@ -182,7 +206,7 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
             </span>
           </div>
 
-          {initialMatches.length === 0 ? (
+          {matches.length === 0 ? (
             <div className="px-4 py-12 text-center">
               <p className="kicker">NO CANDIDATES RECRUITED YET</p>
               <p className="mono mt-2" style={{ fontSize: 11, color: "var(--dim)" }}>
@@ -191,35 +215,30 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
             </div>
           ) : (
             <div>
-              {initialMatches.map((m, idx) => {
+              {matches.map((m, idx) => {
                 const hoursLeft =
                   m.expires_at && m.status === "pending"
                     ? Math.max(0, Math.round((new Date(m.expires_at).getTime() - Date.now()) / 3600000))
                     : null;
-                const hasUnreadChat =
+                const hasUnread =
                   m.last_message_at != null &&
                   (m.employer_last_read_at == null ||
                     new Date(m.last_message_at) > new Date(m.employer_last_read_at));
-                const pitchUnseen =
-                  m.status === "pending" && m.candidate_last_read_at == null;
 
                 return (
                   <div
                     key={m.id}
-                    onClick={() => setSelectedId(m.id === selectedId ? null : m.id)}
+                    onClick={() => openRow(m)}
                     className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
                     style={{
-                      borderBottom: idx === initialMatches.length - 1 ? "none" : "1px solid var(--border-soft)",
+                      borderBottom: idx === matches.length - 1 ? "none" : "1px solid var(--border-soft)",
                       borderLeft: `2px solid ${m.id === selectedId ? "var(--up)" : "transparent"}`,
                       background: m.id === selectedId ? "var(--up-dim)" : undefined,
                     }}
                   >
                     <div className="flex shrink-0 items-center justify-center" style={{ width: 10 }}>
-                      {(pitchUnseen || hasUnreadChat) && (
-                        <span
-                          className="live-dot"
-                          title={pitchUnseen ? "Candidate has not opened this pitch" : "New message"}
-                        />
+                      {hasUnread && (
+                        <span className="live-dot" title="New message" />
                       )}
                     </div>
 
@@ -298,8 +317,8 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
         >
           <div className="panel-head">
             <span className="panel-title">CANDIDATE DETAIL</span>
-            <button onClick={() => setSelectedId(null)} className="btn btn-ghost btn-sm">
-              ✕
+            <button onClick={() => setSelectedId(null)} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
 
@@ -318,7 +337,7 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
                 label="EXPERIENCE"
                 value={selected.years_exp_claimed != null ? `${selected.years_exp_claimed} YRS` : "NOT DISCLOSED"}
               />
-              <DataRow label="LOCATION" value={selected.location ?? "NOT DISCLOSED"} />
+              <DataRow label="LOCATION" value={selected.location?.toUpperCase() ?? "NOT DISCLOSED"} />
               <DataRow
                 label="REPUTATION"
                 value={`${(selected.reputation_score ?? 100).toFixed(0)}/100`}
@@ -339,24 +358,22 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
               )}
             </div>
 
-            {selected.pitch_message && (
-              <div>
-                <p className="kicker mb-2">PITCH MESSAGE</p>
-                <p className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.7 }}>
-                  {selected.pitch_message}
-                </p>
-              </div>
-            )}
 
             {selected.portfolio.length > 0 && (
               <div>
                 <p className="kicker mb-2">PORTFOLIO ({selected.portfolio.length})</p>
                 <div className="space-y-2">
-                  {selected.portfolio.map((p) => (
+                  {selected.portfolio.map((p) => {
+                    const openable = !!(p.file_name || p.link_url);
+                    return (
                     <div
                       key={p.id}
                       className="rounded-md p-3"
-                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)" }}
+                      role={openable ? "button" : undefined}
+                      tabIndex={openable ? 0 : undefined}
+                      onClick={openable ? () => openPortfolioProject(p) : undefined}
+                      onKeyDown={openable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPortfolioProject(p); } } : undefined}
+                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)", cursor: openable ? "pointer" : undefined }}
                     >
                       <p className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
                         {p.title}
@@ -370,8 +387,8 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
                         </p>
                       )}
                       {(p.file_name || p.link_url) && (
-                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                          {p.file_name ?? linkHostname(p.link_url!)}
+                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--up)" }}>
+                          {p.file_name ?? linkHostname(p.link_url!)} →
                         </p>
                       )}
                       {p.skills.length > 0 && (
@@ -380,7 +397,8 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -402,8 +420,8 @@ export function PostingLobbyClient({ posting, initialMatches, canEdit }: Props) 
         >
           <div className="panel-head">
             <span className="panel-title">CHAT</span>
-            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm">
-              ✕
+            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
           <MatchChat

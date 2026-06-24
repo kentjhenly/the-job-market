@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { CheckIcon, CrossIcon } from "@/components/ui/Glyph";
 import { cn } from "@/lib/utils/cn";
 import { SKILLS, type VerticalType } from "@/lib/utils/constants";
 
@@ -62,22 +63,23 @@ export function SkillPicker({ selected, onToggle, industry, verifiedSkills = [],
     <div className="space-y-4">
       {verifiedSet.size > 0 && (
         <p className="mono flex items-center gap-1.5" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.04em" }}>
-          <span style={{ color: "var(--up)" }}>✓</span> VERIFIED BY PORTFOLIO PROJECT
+          <CheckIcon size={10} style={{ color: "var(--up)" }} /> VERIFIED BY PORTFOLIO PROJECT
         </p>
       )}
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selected.map((skill) => (
             <Badge key={skill} variant="up">
-              {verifiedSet.has(skill) && "✓ "}
+              {verifiedSet.has(skill) && <CheckIcon size={9} />}
               {skill}
               <button
                 type="button"
                 onClick={() => onToggle(skill)}
                 aria-label={`Remove ${skill}`}
+                className="inline-flex items-center"
                 style={{ marginLeft: 2 }}
               >
-                ✕
+                <CrossIcon size={8} />
               </button>
             </Badge>
           ))}
@@ -109,7 +111,7 @@ export function SkillPicker({ selected, onToggle, industry, verifiedSkills = [],
                       : undefined
                   }
                 >
-                  {isVerified && "✓ "}
+                  {isVerified && <CheckIcon size={9} />}
                   {skill.name}
                 </button>
               );
@@ -145,7 +147,7 @@ export function SkillPicker({ selected, onToggle, industry, verifiedSkills = [],
                       : undefined
                   }
                 >
-                  {isVerified && "✓ "}
+                  {isVerified && <CheckIcon size={9} />}
                   {skill.name}
                   <span style={{ opacity: 0.55 }}>{skill.vertical.toUpperCase()}</span>
                 </button>

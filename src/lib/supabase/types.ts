@@ -23,7 +23,7 @@ export type WorkMode = "full_time" | "part_time" | "remote" | "internship";
 export type PostingStatus = "open" | "closed";
 export type OfferStatus = "pending" | "accepted" | "declined";
 export type MessageType = "text" | "offer" | "offer_accepted" | "offer_declined" | "file";
-export type SubscriptionTier = "none" | "starter" | "pro";
+export type SubscriptionTier = "none" | "starter";
 export type SubscriptionStatus = "active" | "past_due" | "canceled";
 
 type Relationship = {

@@ -20,7 +20,7 @@ export async function GET() {
   const { data: candidates, error } = await supabase
     .from("candidates")
     .select(
-      "id, composite_score, percentile_rank, years_exp_claimed, desired_salary_min, desired_salary_max, location, remote_only, reputation_score, is_founder_verified, profiles(display_name), candidate_job_postings(title), candidate_portfolio_projects(id, title, description, link_url, file_name, skills)"
+      "id, composite_score, percentile_rank, years_exp_claimed, desired_salary_min, desired_salary_max, location, remote_only, reputation_score, is_founder_verified, profiles(display_name), candidate_job_postings(title, location, work_eligible), candidate_portfolio_projects(id, title, description, link_url, file_name, skills)"
     )
     .eq("is_visible", true)
     .order("composite_score", { ascending: false })

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import { Button } from "@/components/ui/Button";
+import { CrossIcon } from "@/components/ui/Glyph";
 import { SettingsTabs } from "@/components/terminal/SettingsTabs";
 import { Combobox } from "@/components/ui/Combobox";
 import { ChangePasswordForm } from "@/components/terminal/ChangePasswordForm";
@@ -241,11 +242,12 @@ export default function SettingsPage() {
                             <button
                               type="button"
                               onClick={() => removeLanguage(entry)}
-                              className="mono"
-                              style={{ fontSize: 11, color: "var(--down)", cursor: "pointer" }}
+                              className="mono inline-flex items-center"
+                              style={{ color: "var(--down)", cursor: "pointer" }}
                               title="Remove"
+                              aria-label="Remove"
                             >
-                              ✕
+                              <CrossIcon size={9} />
                             </button>
                           </div>
                         );
@@ -316,6 +318,7 @@ export default function SettingsPage() {
                       max="60"
                       value={form.years_exp}
                       onChange={(e) => setForm((f) => ({ ...f, years_exp: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="field"
                     />
                   </div>
@@ -327,6 +330,7 @@ export default function SettingsPage() {
                       max="11"
                       value={form.exp_months}
                       onChange={(e) => setForm((f) => ({ ...f, exp_months: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="field"
                     />
                   </div>
@@ -339,6 +343,7 @@ export default function SettingsPage() {
                       min="0"
                       value={form.current_salary}
                       onChange={(e) => setForm((f) => ({ ...f, current_salary: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="field"
                     />
                   </div>

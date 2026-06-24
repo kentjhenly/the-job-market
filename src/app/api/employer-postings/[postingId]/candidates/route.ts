@@ -25,7 +25,7 @@ export async function GET(
   // (slower) candidate-matcher ranking are independent, so run them together
   // instead of waiting for the first before kicking off the second.
   const [{ data: existingMatches }, res] = await Promise.all([
-    supabase.from("matches").select("candidate_id, status").eq("posting_id", postingId),
+    supabase.from("matches").select("candidate_id, status, hired_at").eq("posting_id", postingId),
     fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/candidate-matcher`, {
       method: "POST",
       headers: {
@@ -36,9 +36,11 @@ export async function GET(
     }),
   ]);
 
+  const allMatches = existingMatches ?? [];
   const activeStatuses = new Set(["pending", "accepted"]);
-  const active = (existingMatches ?? []).filter((m) => activeStatuses.has(m.status)).length;
-  const pitchedCandidateIds = (existingMatches ?? []).map((m) => m.candidate_id);
+  const active = allMatches.filter((m) => activeStatuses.has(m.status)).length;
+  const hired = allMatches.filter((m) => m.hired_at != null).length;
+  const pitchedCandidateIds = allMatches.map((m) => m.candidate_id);
 
   const data = await res.json();
   if (!res.ok) return NextResponse.json(data, { status: res.status });
@@ -79,6 +81,6 @@ export async function GET(
     ...data,
     matches: enrichedMatches,
     pitchedCandidateIds,
-    capacity: { max: posting.max_candidates, active },
+    capacity: { max: posting.max_candidates, active, hired },
   });
 }

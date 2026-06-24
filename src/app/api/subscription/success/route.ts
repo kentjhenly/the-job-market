@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     await supabase
       .from("employers")
       .update({
-        subscription_tier: tier as "starter" | "pro",
+        subscription_tier: tier as "starter",
         subscription_status: "active",
         subscription_period_end: periodEnd.toISOString().split("T")[0],
       })

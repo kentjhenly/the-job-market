@@ -7,16 +7,21 @@ import { auth } from "./auth";
 // per render pass, and the cookie cache in auth.ts keeps that resolution off
 // the database in the common case.
 export const getServerSession = cache(async () => {
-  try {
-    return await auth.api.getSession({
-      headers: await headers(),
-    });
-  } catch {
-    // Transient DB errors (ECONNRESET from the Supabase pooler) should not
-    // crash the layout render. Returning null triggers the normal
-    // unauthenticated redirect to /sign-in; the user retries and hits a
-    // fresh connection.
-    return null;
+  const reqHeaders = await headers();
+  // Transient DB errors (connect timeout / ECONNRESET from the Supabase pooler)
+  // should not crash the layout render or bounce a signed-in user. Retry once
+  // against a fresh connection before giving up; returning null then triggers
+  // the normal unauthenticated redirect to /sign-in.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await auth.api.getSession({ headers: reqHeaders });
+    } catch {
+      if (attempt < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        continue;
+      }
+      return null;
+    }
   }
 });
 

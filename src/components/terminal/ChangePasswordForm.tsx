@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/Button";
+import { CheckIcon } from "@/components/ui/Glyph";
 
 export function ChangePasswordForm() {
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
@@ -89,8 +90,8 @@ export function ChangePasswordForm() {
             UPDATE PASSWORD
           </Button>
           {done && (
-            <span className="mono" style={{ fontSize: 11, color: "var(--up)" }}>
-              PASSWORD UPDATED ✓
+            <span className="mono inline-flex items-center gap-1.5" style={{ fontSize: 11, color: "var(--up)" }}>
+              PASSWORD UPDATED <CheckIcon size={10} />
             </span>
           )}
         </div>

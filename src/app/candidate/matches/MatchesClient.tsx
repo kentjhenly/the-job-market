@@ -9,6 +9,7 @@ import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalary, formatRelativeTime } from "@/lib/utils/formatters";
 import { repBadgeVariant } from "@/lib/utils/score";
 import { MatchChat } from "@/components/terminal/MatchChat";
+import { CheckIcon, CrossIcon } from "@/components/ui/Glyph";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { OfferStatus } from "@/lib/supabase/types";
 
@@ -381,9 +382,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                               className="btn btn-primary"
                               style={{ width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                             >
-                              <svg width="14" height="12" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
-                                <polyline points="1,5 4.5,9 11,1" />
-                              </svg>
+                              <CheckIcon size={14} />
                             </button>
                             <button
                               onClick={() => startPitchConfirm(m, "decline")}
@@ -391,10 +390,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                               className="btn btn-danger-solid"
                               style={{ width: 44, height: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                             >
-                              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-                                <line x1="1" y1="1" x2="9" y2="9" />
-                                <line x1="9" y1="1" x2="1" y2="9" />
-                              </svg>
+                              <CrossIcon size={12} />
                             </button>
                           </>
                         )}
@@ -468,9 +464,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         className="btn btn-primary"
                         style={{ width: 30, height: 30, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                       >
-                        <svg width="12" height="10" viewBox="0 0 12 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
-                          <polyline points="1,5 4.5,9 11,1" />
-                        </svg>
+                        <CheckIcon size={12} />
                       </button>
                       <button
                         onClick={() => startPitchConfirm(m, "decline")}
@@ -478,10 +472,7 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
                         className="btn btn-danger-solid"
                         style={{ width: 30, height: 30, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                       >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-                          <line x1="1" y1="1" x2="9" y2="9" />
-                          <line x1="9" y1="1" x2="1" y2="9" />
-                        </svg>
+                        <CrossIcon size={10} />
                       </button>
                     </>
                   )}
@@ -522,8 +513,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         >
           <div className="panel-head">
             <span className="panel-title">PITCH DETAIL</span>
-            <button onClick={() => setSelectedId(null)} className="btn btn-ghost btn-sm">
-              ✕
+            <button onClick={() => setSelectedId(null)} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
 
@@ -672,8 +663,8 @@ export function MatchesClient({ matches: initial }: MatchesClientProps) {
         >
           <div className="panel-head">
             <span className="panel-title">CHAT</span>
-            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm">
-              ✕
+            <button onClick={() => { setChatMatchId(null); router.refresh(); }} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
           <MatchChat

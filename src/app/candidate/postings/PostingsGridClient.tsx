@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { SkillBadges } from "@/components/ui/SkillBadges";
-import { WORK_MODES } from "@/lib/utils/constants";
+import { WORK_MODES, NOTICE_PERIODS } from "@/lib/utils/constants";
 import { formatSalaryBand } from "@/lib/utils/formatters";
 import type { Database } from "@/lib/supabase/types";
 
@@ -22,7 +22,9 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
           ? posting.available_from <= todayISO
             ? "IMMEDIATELY"
             : `FROM ${posting.available_from}`
-          : null;
+          : posting.notice_period_days != null
+            ? NOTICE_PERIODS.find((np) => np.value === posting.notice_period_days)?.label ?? `${posting.notice_period_days}D NOTICE`
+            : null;
         return (
           <Link
             key={posting.id}
@@ -34,7 +36,7 @@ export function PostingsGridClient({ initialPostings }: { initialPostings: JobPo
                 {posting.title}
               </p>
               <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-                {posting.location ?? "LOCATION NOT SET"}
+                {posting.location?.toUpperCase() ?? "LOCATION NOT SET"}
                 {availableLabel ? ` · ${availableLabel}` : ""}
               </p>
             </div>

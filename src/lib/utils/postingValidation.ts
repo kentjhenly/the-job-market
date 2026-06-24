@@ -122,6 +122,7 @@ export interface CandidatePostingFields {
   location: string | null;
   work_modes: WorkMode[];
   available_from: string | null;
+  notice_period_days: number | null;
   work_eligible: boolean | null;
   desired_salary_min: number | null;
   desired_salary_max: number | null;
@@ -150,6 +151,12 @@ export function validateCandidatePosting(body: Record<string, unknown>): Validat
   const availableFrom = optionalDate(body.available_from);
   if (!availableFrom.ok) return { ok: false, error: "Invalid availability date" };
 
+  const noticePeriodDays = parseIntInRange(body.notice_period_days, 0, 365);
+
+  if (availableFrom.value && noticePeriodDays != null) {
+    return { ok: false, error: "Set either availability date or notice period, not both" };
+  }
+
   return {
     ok: true,
     value: {
@@ -157,6 +164,7 @@ export function validateCandidatePosting(body: Record<string, unknown>): Validat
       location: location.value,
       work_modes: normalizeWorkModes(body.work_modes),
       available_from: availableFrom.value,
+      notice_period_days: noticePeriodDays,
       work_eligible: typeof body.work_eligible === "boolean" ? body.work_eligible : null,
       desired_salary_min: min.value,
       desired_salary_max: max.value,

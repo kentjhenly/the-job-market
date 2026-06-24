@@ -37,7 +37,7 @@ export function EmployerPostingsGridClient({ initialPostings }: Props) {
                 {posting.title}
               </p>
               <p className="mono mt-1" style={{ fontSize: 11, color: "var(--muted)" }}>
-                {posting.location ?? "LOCATION NOT SET"} · {posting.vertical.toUpperCase()}
+                {posting.location?.toUpperCase() ?? "LOCATION NOT SET"} · {posting.vertical.toUpperCase()}
               </p>
             </div>
 

@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { DataRow } from "@/components/terminal/DataRow";
 import { Badge } from "@/components/ui/Badge";
 import { SkillBadges } from "@/components/ui/SkillBadges";
+import { CrossIcon } from "@/components/ui/Glyph";
 import { formatPercentile, formatSalaryBand } from "@/lib/utils/formatters";
 import { scoreBadgeVariant, repBadgeVariant } from "@/lib/utils/score";
 import type { Database } from "@/lib/supabase/types";
 
 export type Candidate = Database["public"]["Tables"]["candidates"]["Row"] & {
   profiles?: { display_name: string } | null;
-  candidate_job_postings?: { title: string }[] | null;
+  candidate_job_postings?: { title: string; location?: string | null; work_eligible?: boolean | null }[] | null;
   candidate_portfolio_projects?: {
     id: string;
     title: string;
@@ -29,6 +30,15 @@ interface Props {
 }
 
 const POLL_INTERVAL_MS = 5000;
+
+function openPortfolioProject(p: { id: string; link_url: string | null; file_name: string | null }) {
+  if (p.file_name) {
+    window.open(`/api/portfolio/${p.id}/file`, "_blank", "noopener,noreferrer");
+  } else if (p.link_url) {
+    const url = /^https?:\/\//i.test(p.link_url) ? p.link_url : `https://${p.link_url}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
 
 function linkHostname(url: string): string {
   try {
@@ -116,8 +126,8 @@ export function FeedClient({ initialCandidates }: Props) {
         >
           <div className="panel-head">
             <span className="panel-title">CANDIDATE DETAIL</span>
-            <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm">
-              ✕
+            <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
 
@@ -150,24 +160,42 @@ export function FeedClient({ initialCandidates }: Props) {
                     : "NOT DISCLOSED"
                 }
               />
-              <DataRow label="LOCATION" value={selected.location ?? "NOT DISCLOSED"} />
+              <DataRow label="LOCATION" value={selected.location?.toUpperCase() ?? "NOT DISCLOSED"} />
               <DataRow
                 label="REMOTE ONLY"
                 value={selected.remote_only ? "YES" : "NO"}
                 color={selected.remote_only ? "up" : undefined}
               />
               <DataRow label="REPUTATION" value={`${selected.reputation_score?.toFixed(0) ?? 100}/100`} color={repBadgeVariant(selected.reputation_score ?? 100)} />
+              {(() => {
+                const postings = selected.candidate_job_postings ?? [];
+                const needsVisa = postings.some((p) => p.work_eligible === false);
+                const hasRight = postings.some((p) => p.work_eligible === true);
+                return (
+                  <DataRow
+                    label="VISA REQUIRED"
+                    value={needsVisa ? "YES" : hasRight ? "NO" : "N/A"}
+                    color={needsVisa ? "down" : hasRight ? "up" : undefined}
+                  />
+                );
+              })()}
             </div>
 
             {(selected.candidate_portfolio_projects?.length ?? 0) > 0 && (
               <div>
                 <p className="kicker mb-2">PORTFOLIO ({selected.candidate_portfolio_projects!.length})</p>
                 <div className="space-y-2">
-                  {selected.candidate_portfolio_projects!.map((p) => (
+                  {selected.candidate_portfolio_projects!.map((p) => {
+                    const openable = !!(p.file_name || p.link_url);
+                    return (
                     <div
                       key={p.id}
                       className="rounded-md p-3"
-                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)" }}
+                      role={openable ? "button" : undefined}
+                      tabIndex={openable ? 0 : undefined}
+                      onClick={openable ? () => openPortfolioProject(p) : undefined}
+                      onKeyDown={openable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPortfolioProject(p); } } : undefined}
+                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)", cursor: openable ? "pointer" : undefined }}
                     >
                       <p className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
                         {p.title}
@@ -181,8 +209,8 @@ export function FeedClient({ initialCandidates }: Props) {
                         </p>
                       )}
                       {(p.file_name || p.link_url) && (
-                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                          {p.file_name ?? linkHostname(p.link_url!)}
+                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--up)" }}>
+                          {p.file_name ?? linkHostname(p.link_url!)} →
                         </p>
                       )}
                       {p.skills.length > 0 && (
@@ -191,7 +219,8 @@ export function FeedClient({ initialCandidates }: Props) {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -237,6 +266,7 @@ export function FeedClient({ initialCandidates }: Props) {
               type="number"
               value={pitchSalary}
               onChange={(e) => setPitchSalary(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               placeholder="120000"
               className="field"
             />

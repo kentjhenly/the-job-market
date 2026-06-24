@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { CheckIcon, CrossIcon } from "@/components/ui/Glyph";
 import { useSession } from "@/hooks/useSession";
 import { formatRelativeTime, formatSalary, formatFileSize } from "@/lib/utils/formatters";
 import { CHAT_GHOST_HOURS, MAX_CHAT_FILE_SIZE_MB } from "@/lib/utils/constants";
@@ -446,7 +447,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
             </span>
           )}
           {match?.hired_at ? (
-            <Badge variant="up">✓ HIRED</Badge>
+            <Badge variant="up"><CheckIcon size={9} /> HIRED</Badge>
           ) : match?.offer_status === "pending" ? (
             <Badge variant="gold">OFFER PENDING</Badge>
           ) : null}
@@ -520,10 +521,10 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                     {showActions && (
                       <div className="mt-3 flex justify-center gap-2">
                         <Button size="sm" variant="primary" onClick={() => startConfirm("accept")}>
-                          ✓ ACCEPT
+                          <CheckIcon size={11} /> ACCEPT
                         </Button>
                         <Button size="sm" variant="danger" onClick={() => startConfirm("decline")}>
-                          ✗ DECLINE
+                          <CrossIcon size={10} /> DECLINE
                         </Button>
                       </div>
                     )}
@@ -540,12 +541,12 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
               const accepted = m.message_type === "offer_accepted";
               const declinedByCandidate = !accepted && m.sender_id === match?.candidate_id;
               const label = accepted
-                ? "✓ OFFER ACCEPTED — HIRED"
+                ? "OFFER ACCEPTED — HIRED"
                 : reneged
-                  ? "✗ OFFER RENEGED BY CANDIDATE"
+                  ? "OFFER RENEGED BY CANDIDATE"
                   : declinedByCandidate
-                    ? "✗ OFFER DECLINED BY CANDIDATE"
-                    : "✗ OFFER WITHDRAWN BY EMPLOYER";
+                    ? "OFFER DECLINED BY CANDIDATE"
+                    : "OFFER WITHDRAWN BY EMPLOYER";
               return (
                 <div key={m.id} className="flex justify-center">
                   <div
@@ -555,7 +556,10 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
                       border: `1px solid color-mix(in oklch, var(${accepted ? "--up" : "--down"}) 40%, transparent)`,
                     }}
                   >
-                    <p className={`kicker ${accepted ? "c-up" : "c-down"}`}>{label}</p>
+                    <p className={`kicker inline-flex items-center justify-center gap-1.5 ${accepted ? "c-up" : "c-down"}`}>
+                      {accepted ? <CheckIcon size={9} /> : <CrossIcon size={8} />}
+                      {label}
+                    </p>
                     {salary != null && (
                       <p className="mono tnum mt-1" style={{ fontSize: 14, color: "var(--text)" }}>
                         {formatSalary(salary)} / MO
@@ -804,6 +808,7 @@ export function MatchChat({ matchId, counterpartLabel, counterpartSubLabel, offe
               step="1000"
               value={offerSalaryInput}
               onChange={(e) => setOfferSalaryInput(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               placeholder=""
               className="field w-full"
             />

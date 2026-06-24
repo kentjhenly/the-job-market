@@ -34,7 +34,6 @@ export default async function EditJobPostingPage({
   if (employer?.subscription_status !== "active") {
     return (
       <UpgradePanel
-        tier={employer?.subscription_tier ?? "none"}
         status={employer?.subscription_status ?? "canceled"}
       />
     );

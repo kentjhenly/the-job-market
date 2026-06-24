@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { DataRow } from "@/components/terminal/DataRow";
 import { ScoreBar } from "@/components/charts/ScoreBar";
+import { CrossIcon } from "@/components/ui/Glyph";
 import { formatSalary, formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 import { scoreBadgeVariant, scoreVar } from "@/lib/utils/score";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -18,6 +19,15 @@ interface PortfolioProject {
   link_url: string | null;
   file_name: string | null;
   skills: string[];
+}
+
+function openPortfolioProject(p: PortfolioProject) {
+  if (p.file_name) {
+    window.open(`/api/portfolio/${p.id}/file`, "_blank", "noopener,noreferrer");
+  } else if (p.link_url) {
+    const url = /^https?:\/\//i.test(p.link_url) ? p.link_url : `https://${p.link_url}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 }
 
 interface MatchedCandidate {
@@ -33,6 +43,7 @@ interface MatchedCandidate {
   desired_salary_min: number | null;
   desired_salary_max: number | null;
   skills: string[];
+  work_eligible: boolean | null;
   portfolio_skills: string[];
   portfolio_projects: PortfolioProject[];
   match_score: number;
@@ -42,7 +53,7 @@ interface MatchedCandidate {
 interface CandidatesResponse {
   matches: MatchedCandidate[];
   pitchedCandidateIds: string[];
-  capacity: { max: number; active: number };
+  capacity: { max: number; active: number; hired: number };
 }
 
 interface Props {
@@ -51,7 +62,7 @@ interface Props {
   postingSkills: string[];
 }
 
-const RECRUIT_MAX = 10;
+const SLOT_POOL = 10;
 const MAX_RESULTS = 50;
 const PAGE_SIZE = 10;
 const COLUMNS = "2.5rem 1.4fr 10rem 4.5rem 4.5rem 4.5rem 9rem 7.5rem 4.5rem";
@@ -148,7 +159,9 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
 
   const pitchedSet = data ? new Set(data.pitchedCandidateIds) : new Set<string>();
   const activeCount = data ? data.capacity.active : 0;
-  const slotsRemaining = RECRUIT_MAX - activeCount;
+  const hiredCount = data?.capacity.hired ?? 0;
+  const maxCandidates = data ? data.capacity.max : 0;
+  const slotsRemaining = SLOT_POOL - activeCount;
   const atCapacity = slotsRemaining <= 0;
 
   const offerCents = pitchSalary ? Math.round(parseFloat(pitchSalary) * 100) : null;
@@ -192,7 +205,7 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
             className="mono tnum"
             style={{ fontSize: 11, color: atCapacity ? "var(--down)" : "var(--muted)" }}
           >
-            {activeCount}/{RECRUIT_MAX} RECRUITED
+            {hiredCount}/{maxCandidates} RECRUITED
           </span>
           {!atCapacity && (
             <Badge variant="up">
@@ -450,8 +463,8 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
         >
           <div className="panel-head">
             <span className="panel-title">CANDIDATE DETAIL</span>
-            <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm">
-              &#x2715;
+            <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm" aria-label="Close">
+              <CrossIcon size={11} />
             </button>
           </div>
 
@@ -488,8 +501,19 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
                     : "NOT DISCLOSED"
                 }
               />
-              <DataRow label="LOCATION" value={selected.location ?? "NOT DISCLOSED"} />
+              <DataRow label="LOCATION" value={selected.location?.toUpperCase() ?? "NOT DISCLOSED"} />
               <DataRow label="WORK MODES" value={selected.work_modes.length > 0 ? selected.work_modes.join(", ").toUpperCase() : "NOT SET"} />
+              <DataRow
+                label="VISA REQUIRED"
+                value={
+                  selected.work_eligible === false
+                    ? "YES"
+                    : selected.work_eligible === true
+                      ? "NO"
+                      : "N/A"
+                }
+                color={selected.work_eligible === false ? "down" : selected.work_eligible === true ? "up" : undefined}
+              />
             </div>
 
             {selected.skills.length > 0 && (
@@ -517,11 +541,17 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
               <div>
                 <p className="kicker mb-2">PORTFOLIO ({selected.portfolio_projects.length})</p>
                 <div className="space-y-2">
-                  {selected.portfolio_projects.map((p) => (
+                  {selected.portfolio_projects.map((p) => {
+                    const openable = !!(p.file_name || p.link_url);
+                    return (
                     <div
                       key={p.id}
                       className="rounded-md p-3"
-                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)" }}
+                      role={openable ? "button" : undefined}
+                      tabIndex={openable ? 0 : undefined}
+                      onClick={openable ? () => openPortfolioProject(p) : undefined}
+                      onKeyDown={openable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPortfolioProject(p); } } : undefined}
+                      style={{ border: "1px solid var(--border-soft)", background: "var(--surface-2)", cursor: openable ? "pointer" : undefined }}
                     >
                       <p className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>
                         {p.title}
@@ -535,8 +565,8 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
                         </p>
                       )}
                       {(p.file_name || p.link_url) && (
-                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                          {p.file_name ?? (() => { try { return new URL(p.link_url!).hostname; } catch { return p.link_url; } })()}
+                        <p className="mono mt-1 truncate" style={{ fontSize: 10.5, color: "var(--up)" }}>
+                          {p.file_name ?? (() => { try { return new URL(p.link_url!).hostname; } catch { return p.link_url; } })()} →
                         </p>
                       )}
                       {p.skills.length > 0 && (
@@ -549,7 +579,8 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -598,6 +629,7 @@ export function RecruitFeedClient({ postingId, postingTitle, postingSkills }: Pr
               type="number"
               value={pitchSalary}
               onChange={(e) => setPitchSalary(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               className="field"
               required
             />

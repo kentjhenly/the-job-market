@@ -3,39 +3,23 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import type { SubscriptionStatus, SubscriptionTier } from "@/lib/supabase/types";
+import type { SubscriptionStatus } from "@/lib/supabase/types";
 
 interface Props {
-  tier: SubscriptionTier;
   status: SubscriptionStatus;
 }
 
-const TIERS = [
-  {
-    id: "starter" as const,
-    label: "STARTER",
-    price: "HKD 150 / MONTH",
-    blurb: "Browse the ranked candidate feed and send unlimited pitches.",
-  },
-  {
-    id: "pro" as const,
-    label: "PRO",
-    price: "HKD 300 / MONTH",
-    blurb: "Everything in STARTER, plus priority placement in candidate match results.",
-  },
-];
-
-export function UpgradePanel({ tier, status }: Props) {
-  const [loading, setLoading] = useState<"starter" | "pro" | null>(null);
+export function UpgradePanel({ status }: Props) {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function subscribe(selectedTier: "starter" | "pro") {
-    setLoading(selectedTier);
+  async function subscribe() {
+    setLoading(true);
     setError(null);
     const res = await fetch("/api/subscription/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tier: selectedTier }),
+      body: JSON.stringify({ tier: "starter" }),
     });
     if (res.ok) {
       const { url } = await res.json();
@@ -43,7 +27,7 @@ export function UpgradePanel({ tier, status }: Props) {
     } else {
       const json = await res.json().catch(() => ({}));
       setError(json.error ?? "CHECKOUT FAILED");
-      setLoading(null);
+      setLoading(false);
     }
   }
 
@@ -64,44 +48,32 @@ export function UpgradePanel({ tier, status }: Props) {
           <p className="mono" style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.6 }}>
             {status === "past_due"
               ? "Your last payment didn't go through. Renew your subscription to restore access to the candidate feed and pitching."
-              : "An active subscription is required to browse the ranked candidate feed and send pitches. Choose a plan below to get started."}
+              : "An active subscription is required to browse the ranked candidate feed and send pitches."}
           </p>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {TIERS.map((t) => (
-              <div
-                key={t.id}
-                className="flex flex-col gap-2 p-4"
-                style={{
-                  border:
-                    tier === t.id
-                      ? "1px solid color-mix(in oklch, var(--gold) 40%, transparent)"
-                      : "1px solid var(--border-soft)",
-                  borderRadius: "var(--r-lg)",
-                  background: tier === t.id ? "var(--gold-dim)" : "var(--surface-2)",
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="kicker">{t.label}</span>
-                  {tier === t.id && <Badge variant="gold">CURRENT PLAN</Badge>}
-                </div>
-                <span className="mono tnum" style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>
-                  {t.price}
-                </span>
-                <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
-                  {t.blurb}
-                </p>
-                <Button
-                  size="sm"
-                  className="mt-1"
-                  loading={loading === t.id}
-                  disabled={loading !== null && loading !== t.id}
-                  onClick={() => subscribe(t.id)}
-                >
-                  {tier === t.id ? "RENEW →" : "SELECT →"}
-                </Button>
-              </div>
-            ))}
+          <div
+            className="flex flex-col gap-2 p-4"
+            style={{
+              border: "1px solid var(--border-soft)",
+              borderRadius: "var(--r-lg)",
+              background: "var(--surface-2)",
+            }}
+          >
+            <span className="kicker">STARTER</span>
+            <span className="mono tnum" style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>
+              HKD 150 / MONTH
+            </span>
+            <p className="mono" style={{ fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5 }}>
+              Browse the ranked candidate feed and send unlimited pitches.
+            </p>
+            <Button
+              size="sm"
+              className="mt-1"
+              loading={loading}
+              onClick={subscribe}
+            >
+              {status === "past_due" ? "RENEW" : "SUBSCRIBE"} →
+            </Button>
           </div>
 
           {error && (

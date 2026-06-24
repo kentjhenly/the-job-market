@@ -21,7 +21,11 @@ const pool =
     max: 3,
     min: 0,
     idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 5_000,
+    // Cold-connecting to the Supabase pooler (and waiting on a freed slot when
+    // every pooled client is busy) can take more than a few seconds, so give
+    // acquisition real headroom before pg throws "timeout exceeded when trying
+    // to connect". getServerSession retries once on top of this.
+    connectionTimeoutMillis: 15_000,
     // Supabase's pooler (PgBouncer) silently closes idle TCP sockets; keepalive
     // lets the OS detect the dead connection before pg tries to reuse it.
     keepAlive: true,
@@ -31,6 +35,27 @@ if (process.env.NODE_ENV !== "production") globalForPool.__betterAuthPool = pool
 
 export const auth = betterAuth({
   database: pool,
+  // Connect timeouts / dropped idle sockets from the Supabase pooler are
+  // transient and already handled (getServerSession retries then falls back to
+  // null -> redirect to /sign-in). Better Auth's default logger prints them via
+  // console.error, which trips the Next.js dev error overlay as if they were
+  // fatal. Downgrade those specific, recoverable cases to a warning while
+  // preserving normal error/warn/info logging for everything else.
+  logger: {
+    log: (level, message, ...args) => {
+      const extra = args
+        .map((a) => (a instanceof Error ? a.message : typeof a === "object" ? JSON.stringify(a) : String(a)))
+        .filter(Boolean)
+        .join(" ");
+      const text = `[Better Auth]: ${message}${extra ? ` ${extra}` : ""}`;
+      const transient =
+        /timeout exceeded when trying to connect|fallback join|ECONNRESET|ETIMEDOUT|Connection terminated/i.test(text);
+      if (transient || level === "warn") return void console.warn(text);
+      if (level === "error") return void console.error(text);
+      if (level === "debug") return void console.debug(text);
+      console.info(text);
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

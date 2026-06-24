@@ -19,12 +19,12 @@ export default async function EmployerFeedPage() {
   // deleted); they remain manually-settable as a fallback when Stripe keys
   // aren't configured.
   if (employer?.subscription_status !== "active") {
-    return <UpgradePanel tier={employer?.subscription_tier ?? "none"} status={employer?.subscription_status ?? "canceled"} />;
+    return <UpgradePanel status={employer?.subscription_status ?? "canceled"} />;
   }
 
   const { data: candidates } = await supabase
     .from("candidates")
-    .select("*, profiles(display_name), candidate_job_postings(title), candidate_portfolio_projects(id, title, description, link_url, file_name, skills)")
+    .select("*, profiles(display_name), candidate_job_postings(title, location, work_eligible), candidate_portfolio_projects(id, title, description, link_url, file_name, skills)")
     .eq("is_visible", true)
     .order("composite_score", { ascending: false })
     .limit(100);

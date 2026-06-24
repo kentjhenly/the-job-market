@@ -53,7 +53,7 @@ export const notificationsSchema = z.object({
 
 // Subscription checkout tier.
 export const checkoutSchema = z.object({
-  tier: z.enum(["starter", "pro"]),
+  tier: z.enum(["starter"]),
 });
 
 // Admin override of a match's offer_status.

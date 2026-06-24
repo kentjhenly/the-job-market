@@ -55,6 +55,7 @@ export async function PATCH(
       desired_salary_max: fields.desired_salary_max,
       skills: fields.skills,
       available_from: fields.available_from,
+      notice_period_days: fields.notice_period_days,
       years_exp: fields.years_exp,
       work_eligible: fields.work_eligible,
     })

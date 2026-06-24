@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { ScoreBar } from "@/components/charts/ScoreBar";
+import { CrossIcon } from "@/components/ui/Glyph";
 import { formatSalaryBand, formatPercentile } from "@/lib/utils/formatters";
 
 interface MatchedCandidate {
@@ -27,7 +28,7 @@ interface MatchedCandidate {
 interface CandidatesResponse {
   matches: MatchedCandidate[];
   pitchedCandidateIds: string[];
-  capacity: { max: number; active: number };
+  capacity: { max: number; active: number; hired: number };
 }
 
 interface Props {
@@ -133,9 +134,10 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
     );
   }
 
+  const SLOT_POOL = 10;
   const { matches, pitchedCandidateIds, capacity } = data;
   const pitchedSet = new Set(pitchedCandidateIds);
-  const slotsRemaining = capacity.max - capacity.active;
+  const slotsRemaining = SLOT_POOL - capacity.active;
   const atCapacity = slotsRemaining <= 0;
 
   return (
@@ -153,7 +155,7 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
               className="mono tnum"
               style={{ fontSize: 11, color: atCapacity ? "var(--down)" : "var(--muted)" }}
             >
-              {capacity.active}/{capacity.max} RECRUITED
+              {capacity.hired ?? 0}/{capacity.max} RECRUITED
             </span>
             {!atCapacity && (
               <Badge variant="up">{slotsRemaining} SLOT{slotsRemaining !== 1 ? "S" : ""} OPEN</Badge>
@@ -162,10 +164,11 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
             {onClose && (
               <button
                 onClick={onClose}
-                className="mono ml-2"
-                style={{ fontSize: 20, color: "var(--muted)", lineHeight: 1 }}
+                className="mono ml-2 flex items-center"
+                style={{ color: "var(--muted)", lineHeight: 1 }}
+                aria-label="Close"
               >
-                ×
+                <CrossIcon size={13} />
               </button>
             )}
           </div>
@@ -215,7 +218,7 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
                     <p className="mono tnum" style={{ fontSize: 11, color: "var(--muted)" }}>
                       SCORE {m.composite_score.toFixed(1)} · {formatPercentile(m.percentile_rank)}
                       {m.years_exp_claimed != null && ` · ${m.years_exp_claimed} YRS`}
-                      {m.location && ` · ${m.location}`}
+                      {m.location && ` · ${m.location.toUpperCase()}`}
                     </p>
 
                     {m.desired_salary_min != null && m.desired_salary_max != null && (
@@ -308,6 +311,7 @@ export function MatchedCandidatesPanel({ postingId, postingSkills = [], onPitchS
               type="number"
               value={pitchSalary}
               onChange={(e) => setPitchSalary(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
               placeholder="120000"
               className="field"
             />

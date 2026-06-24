@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { DataRow } from "@/components/terminal/DataRow";
 import { formatSalaryBand } from "@/lib/utils/formatters";
-import { WORK_MODES } from "@/lib/utils/constants";
+import { WORK_MODES, NOTICE_PERIODS } from "@/lib/utils/constants";
 import type { Database } from "@/lib/supabase/types";
 
 type JobPosting = Database["public"]["Tables"]["candidate_job_postings"]["Row"];
@@ -51,7 +51,7 @@ export function PostingViewClient({ posting }: Props) {
             <span className="panel-title">{posting.title}</span>
           </div>
           <div className="space-y-1 px-4 pb-4">
-            <DataRow label="LOCATION" value={posting.location ?? "NOT SET"} />
+            <DataRow label="LOCATION" value={posting.location?.toUpperCase() ?? "NOT SET"} />
             {posting.desired_salary_min != null && posting.desired_salary_max != null && (
               <DataRow
                 label="DESIRED SALARY"
@@ -63,6 +63,12 @@ export function PostingViewClient({ posting }: Props) {
               <DataRow label="EXPERIENCE" value={`${posting.years_exp} YEARS`} />
             )}
             {availableLabel && <DataRow label="AVAILABLE" value={availableLabel} />}
+            {posting.notice_period_days != null && (
+              <DataRow
+                label="NOTICE PERIOD"
+                value={NOTICE_PERIODS.find((np) => np.value === posting.notice_period_days)?.label ?? `${posting.notice_period_days} DAYS`}
+              />
+            )}
             {posting.work_eligible != null && (
               <DataRow
                 label="WORK ELIGIBLE"

@@ -432,6 +432,19 @@ export async function POST(
           .from("employer_job_postings")
           .update({ status: "closed" })
           .eq("id", match.posting_id);
+
+        // Auto-decline all remaining active matches on this now-filled posting
+        await supabase
+          .from("matches")
+          .update({
+            status: "declined" as const,
+            offer_salary: null,
+            offer_status: null,
+            last_message_at: now,
+          })
+          .eq("posting_id", match.posting_id)
+          .neq("id", matchId)
+          .in("status", ["pending", "accepted"]);
       }
     }
 

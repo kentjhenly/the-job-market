@@ -234,7 +234,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
       }
     } else {
       const json = await res.json().catch(() => ({}));
-      setError(json.error ?? "FAILED TO SAVE OPENING");
+      setError(json.error ?? "FAILED TO SAVE");
     }
   }
 
@@ -352,6 +352,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
                 max={10}
                 value={form.headcount}
                 onChange={(e) => setForm((f) => ({ ...f, headcount: e.target.value }))}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
               />
             </div>
@@ -370,6 +371,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
                 min={0}
                 value={form.years_exp_min}
                 onChange={(e) => setForm((f) => ({ ...f, years_exp_min: e.target.value }))}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
                 placeholder=""
               />
@@ -381,6 +383,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
                 min={0}
                 value={form.years_exp_max}
                 onChange={(e) => setForm((f) => ({ ...f, years_exp_max: e.target.value }))}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="field"
                 placeholder=""
               />
@@ -398,6 +401,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
               type="number"
               value={form.salary_max}
               onChange={(e) => setForm((f) => ({ ...f, salary_max: e.target.value }))}
+              onWheel={(e) => e.currentTarget.blur()}
               className="field"
               placeholder=""
             />
@@ -432,7 +436,7 @@ export function EmployerJobPostingForm({ initial }: EmployerJobPostingFormProps)
 
         <div className="flex items-center gap-4">
           <Button type="submit" loading={saving}>
-            SAVE OPENING
+            SAVE
           </Button>
           <Button
             type="button"
